@@ -54,6 +54,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Vitrin") {
                     Label("Vitrin", systemImage: "square.stack.3d.up.fill")
                 }
+                NavigationLink(value: "Dev") {
+                    Label("Dev", systemImage: "terminal.fill")
+                }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
                 }
@@ -90,6 +93,8 @@ struct SettingsView: View {
                     Shelf()
                 case "Vitrin":
                     VitrinSettings()
+                case "Dev":
+                    DevSettings()
                 case "Shortcuts":
                     Shortcuts()
                 case "Extensions":

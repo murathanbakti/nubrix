@@ -24,6 +24,7 @@ struct ContentView: View {
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var devNotifications = DevNotificationStore.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -133,7 +134,10 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
-                        if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
+                        if vm.notchState == .closed && devNotifications.banner != nil {
+                            coordinator.currentView = .dev
+                            devNotifications.dismissBanner()
+                        } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()
                         }
@@ -292,6 +296,9 @@ struct ContentView: View {
                       } else if let banner = agents.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           AgentBannerView(banner: banner)
                               .transition(.opacity)
+                      } else if let banner = devNotifications.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                          DevBannerView(banner: banner)
+                              .transition(.opacity)
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
@@ -365,6 +372,8 @@ struct ContentView: View {
                         VitrinTabView()
                     case .agents:
                         AgentSessionsView()
+                    case .dev:
+                        DevTabView()
                     }
                 }
                 .transition(

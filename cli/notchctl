@@ -1,0 +1,132 @@
+#!/bin/bash
+endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  notchctl notify <message> [--title T] [--style success|error|info|warning] [--duration N]
+  notchctl ping
+  notchctl --help
+
+Commands:
+  notify   Show a banner on the Nubrix notch and keep it in the Dev tab history.
+  ping     Exit 0 if Nubrix is running and reachable, 1 otherwise.
+
+Options for notify:
+  --title T       Short title (max 80 characters).
+  --style S       success, error, info (default) or warning.
+  --duration N    Seconds to show the banner, 1-30 (default 4).
+
+Environment:
+  NUBRIX_ENDPOINT_FILE   Endpoint file (default ~/.config/nubrix/agent-endpoint).
+USAGE
+}
+
+fail() {
+  echo "notchctl: $*" >&2
+  exit 1
+}
+
+json_escape() {
+  local s=$1 out="" ch i code
+  LC_ALL=C
+  for ((i = 0; i < ${#s}; i++)); do
+    ch=${s:i:1}
+    case "$ch" in
+      '"') out+='\"' ;;
+      '\') out+='\\' ;;
+      $'\n') out+='\n' ;;
+      $'\r') out+='\r' ;;
+      $'\t') out+='\t' ;;
+      $'\b') out+='\b' ;;
+      $'\f') out+='\f' ;;
+      *)
+        printf -v code '%d' "'$ch"
+        if [ "$code" -ge 0 ] && [ "$code" -lt 32 ]; then
+          printf -v ch '\\u%04x' "$code"
+        fi
+        out+=$ch
+        ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
+load_endpoint() {
+  [ -r "$endpoint" ] || fail "Nubrix is not running (no endpoint file at $endpoint)"
+  read -r port token < "$endpoint"
+  case "$port" in
+    ''|*[!0-9]*) fail "endpoint file $endpoint is malformed" ;;
+  esac
+  [ -n "$token" ] || fail "endpoint file $endpoint is malformed"
+}
+
+request() {
+  local method=$1 path=$2 body=${3-}
+  local args=(--silent --output /dev/null --write-out '%{http_code}' --max-time 2
+    -X "$method" -H "Authorization: Bearer $token")
+  if [ -n "$body" ]; then
+    args+=(-H "Content-Type: application/json" --data-binary "$body")
+  fi
+  status=$(curl "${args[@]}" "http://127.0.0.1:$port$path") || status=000
+}
+
+cmd_notify() {
+  local message="" title="" style="" duration="" have_message=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --title) [ $# -ge 2 ] || fail "--title needs a value"; title=$2; shift 2 ;;
+      --style) [ $# -ge 2 ] || fail "--style needs a value"; style=$2; shift 2 ;;
+      --duration) [ $# -ge 2 ] || fail "--duration needs a value"; duration=$2; shift 2 ;;
+      --title=*) title=${1#*=}; shift ;;
+      --style=*) style=${1#*=}; shift ;;
+      --duration=*) duration=${1#*=}; shift ;;
+      -h|--help) usage; exit 0 ;;
+      --) shift; if [ $# -gt 0 ]; then message=$1; have_message=1; shift; fi ;;
+      -*) fail "unknown option $1" ;;
+      *)
+        [ "$have_message" -eq 0 ] || fail "unexpected argument '$1' (quote the message)"
+        message=$1; have_message=1; shift ;;
+    esac
+  done
+  [ "$have_message" -eq 1 ] && [ -n "$message" ] || fail "missing message (notchctl notify <message>)"
+  case "$style" in
+    ''|success|error|info|warning) ;;
+    *) fail "invalid style '$style' (success, error, info, warning)" ;;
+  esac
+  case "$duration" in
+    '') ;;
+    *[!0-9.]*|.|*.*.*) fail "invalid duration '$duration'" ;;
+  esac
+
+  local body="{\"message\":\"$(json_escape "$message")\""
+  [ -z "$title" ] || body+=",\"title\":\"$(json_escape "$title")\""
+  [ -z "$style" ] || body+=",\"style\":\"$style\""
+  [ -z "$duration" ] || body+=",\"duration\":$duration"
+  body+="}"
+
+  load_endpoint
+  request POST /v1/notify "$body"
+  case "$status" in
+    204) exit 0 ;;
+    000) fail "could not reach Nubrix (is it running?)" ;;
+    401) fail "Nubrix rejected the token (restart Nubrix or retry)" ;;
+    400|422) fail "Nubrix rejected the notification (message max 500 characters, title max 80)" ;;
+    *) fail "unexpected response from Nubrix (HTTP $status)" ;;
+  esac
+}
+
+cmd_ping() {
+  load_endpoint
+  request GET /v1/ping
+  [ "$status" = "204" ] || fail "Nubrix did not respond (HTTP $status)"
+  exit 0
+}
+
+case "${1-}" in
+  notify) shift; cmd_notify "$@" ;;
+  ping) cmd_ping ;;
+  -h|--help|help) usage ;;
+  '') usage >&2; exit 2 ;;
+  *) echo "notchctl: unknown command '$1'" >&2; usage >&2; exit 2 ;;
+esac

@@ -153,6 +153,7 @@ final class AgentSessionStore: ObservableObject {
     }
 
     private func show(_ next: AgentBanner) {
+        DevNotificationStore.shared.dismissBanner()
         bannerTask?.cancel()
         withAnimation(.smooth) { banner = next }
         let duration: Double = next.state == .needsAttention ? 6 : 4

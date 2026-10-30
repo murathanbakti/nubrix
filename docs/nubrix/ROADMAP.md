@@ -51,7 +51,7 @@ UI:
   (arrows, Enter copies, P pins, Delete removes, Esc closes).
 - Settings → Vitrin: capture toggles per type, retention, excluded apps.
 
-## Phase 3: Developer clipboard
+## Phase 3: Developer clipboard (done)
 
 - `ClipInsight`: pure, cached analysis of a text item that yields a badge and
   developer actions. Detects JSON (valid object/array), language of code
@@ -70,10 +70,19 @@ UI:
 - Encryption at rest is deferred to Phase 5: with ad-hoc signing every rebuild
   changes the code identity, so Keychain access would prompt after each build.
 
-## Phase 4: Extras
+## Phase 4: Extras (done, UI not yet tried on device)
 
-- `notchctl` CLI to post messages to the notch from scripts.
-- Listening dev-server ports; GitHub PR / CI summary via `gh`.
+- `notchctl` CLI (bash + curl, same endpoint and token as the Claude hooks):
+  `notchctl notify "Build done" --title api --style success|error|info`,
+  `notchctl ping`. The app accepts `POST /v1/notify` and shows a closed-notch
+  banner plus a short history in a "Dev" tab. Scripts can then report anything,
+  e.g. `gh run watch && notchctl notify "CI green"`.
+- Dev servers: the sandbox cannot list other processes, so Nubrix probes a
+  configurable list of localhost ports (3000, 3001, 4200, 5000, 5173, 5432,
+  6379, 8000, 8080, 8888, 9000 …) with short TCP connects every few seconds and
+  shows which are up in the "Dev" tab; clicking an HTTP port opens it in the
+  browser.
+- A direct GitHub module is dropped: the sandbox cannot use `gh` credentials.
 
 ## Phase 5: Open source release
 
