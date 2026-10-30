@@ -14,6 +14,7 @@ struct BoringHeader: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var mirror = MirrorPanelController.shared
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -45,14 +46,14 @@ struct BoringHeader: View {
                     } else {
                         if Defaults[.showMirror] {
                             Button(action: {
-                                vm.toggleCameraPreview()
+                                MirrorPanelController.shared.toggle()
                             }) {
                                 Capsule()
-                                    .fill(.black)
+                                    .fill(mirror.isVisible ? Color.white : Color.black)
                                     .frame(width: 30, height: 30)
                                     .overlay {
                                         Image(systemName: "web.camera")
-                                            .foregroundColor(.white)
+                                            .foregroundColor(mirror.isVisible ? .black : .white)
                                             .padding()
                                             .imageScale(.medium)
                                     }

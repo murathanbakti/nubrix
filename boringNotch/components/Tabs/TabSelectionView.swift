@@ -25,11 +25,12 @@ let tabs = [
 
 struct TabSelectionView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
+    @ObservedObject var inbox = NubrixInbox.shared
     @Namespace var animation
     var body: some View {
         HStack(spacing: 0) {
             ForEach(tabs.filter { ($0.view != .shelf || Defaults[.boringShelf]) && ($0.view != .vitrin || Defaults[.vitrinEnabled]) && ($0.view != .dev || Defaults[.devEnabled]) }) { tab in
-                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
+                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view, badge: inbox.severity(for: tab.view)?.tint) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
                         }

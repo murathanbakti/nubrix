@@ -26,6 +26,8 @@ struct ContentView: View {
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
     @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
+    @ObservedObject var inbox = NubrixInbox.shared
+    @Default(.inboxKeepIconInNotch) var inboxKeepIcon
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -83,6 +85,32 @@ struct ContentView: View {
         return chinWidth
     }
 
+    private var bannerShowing: Bool {
+        screenshotBanner.banner != nil || agents.banner != nil || devNotifications.banner != nil
+    }
+
+    private var musicActivityShowing: Bool {
+        (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
+            && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled
+    }
+
+    private var inboxWingShowing: Bool {
+        vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
+            && inboxKeepIcon && inbox.unreadCount > 0 && !bannerShowing && !agents.needsAttention
+            && !musicActivityShowing
+    }
+
+    private var inboxDotSeverity: InboxSeverity? {
+        guard vm.notchState == .closed, !vm.hideOnClosed, vm.effectiveClosedNotchHeight > 0,
+              !bannerShowing, !inboxWingShowing, !agents.needsAttention else { return nil }
+        return inbox.topSeverity
+    }
+
+    private func markVisibleTabRead() {
+        guard vm.notchState == .open else { return }
+        inbox.markViewed(coordinator.currentView)
+    }
+
     var body: some View {
         // Calculate scale based on gesture progress only
         let gestureScale: CGFloat = {
@@ -110,6 +138,11 @@ struct ContentView: View {
                             .fill(.black)
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if let severity = inboxDotSeverity {
+                            InboxEdgeDot(severity: severity)
+                        }
                     }
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
@@ -142,9 +175,13 @@ struct ContentView: View {
                         } else if vm.notchState == .closed && devNotifications.banner != nil {
                             coordinator.currentView = .dev
                             devNotifications.dismissBanner()
+                            inbox.markRead(.notchctl)
                         } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()
+                            inbox.markRead(.claude)
+                        } else if inboxWingShowing, let target = inbox.newest?.source.targetTab {
+                            coordinator.currentView = target
                         }
                         doOpen()
                     }
@@ -174,7 +211,10 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .onChange(of: coordinator.currentView) { _, _ in markVisibleTabRead() }
+                    .onChange(of: inbox.entries) { _, _ in markVisibleTabRead() }
                     .onChange(of: vm.notchState) { _, newState in
+                        if newState == .open { markVisibleTabRead() }
                         if newState == .closed && isHovering {
                             withAnimation {
                                 isHovering = false
@@ -315,6 +355,8 @@ struct ContentView: View {
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
+                      } else if inboxWingShowing {
+                          InboxLiveActivity()
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && agents.isWorking && !vm.hideOnClosed {
                           AgentLiveActivity()
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {

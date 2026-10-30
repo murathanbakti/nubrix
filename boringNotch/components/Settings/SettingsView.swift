@@ -57,6 +57,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Dev") {
                     Label("Dev", systemImage: "terminal.fill")
                 }
+                NavigationLink(value: "Notifications") {
+                    Label("Notifications", systemImage: "bell.badge.fill")
+                }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
                 }
@@ -95,6 +98,8 @@ struct SettingsView: View {
                     VitrinSettings()
                 case "Dev":
                     DevSettings()
+                case "Notifications":
+                    InboxSettings()
                 case "Shortcuts":
                     Shortcuts()
                 case "Extensions":
@@ -1734,6 +1739,11 @@ struct Shortcuts: View {
                 KeyboardShortcuts.Recorder("Toggle Vitrin:", name: .toggleVitrin)
             } header: {
                 Text("Clipboard")
+            }
+            Section {
+                KeyboardShortcuts.Recorder("Toggle Mirror:", name: .toggleMirror)
+            } header: {
+                Text("Mirror")
             }
         }
         .accentColor(.effectiveAccent)

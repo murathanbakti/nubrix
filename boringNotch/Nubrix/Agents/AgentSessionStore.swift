@@ -117,6 +117,7 @@ final class AgentSessionStore: ObservableObject {
         let now = Date()
         if event.name == "SessionEnd" {
             sessions.removeAll { $0.id == event.sessionID }
+            NubrixInbox.shared.sessionEnded(id: event.sessionID)
             if banner?.sessionID == event.sessionID { dismissBanner() }
             return
         }
@@ -133,6 +134,10 @@ final class AgentSessionStore: ObservableObject {
         if let detail = event.detail, !detail.isEmpty { session.detail = detail }
 
         if let index { sessions[index] = session } else { sessions.append(session) }
+
+        if next == .working || next != current {
+            NubrixInbox.shared.sessionChanged(id: session.id, project: session.project, state: next, detail: session.detail)
+        }
 
         if next != current, [.done, .failed, .needsAttention].contains(next) {
             show(AgentBanner(sessionID: session.id, project: session.project, state: next))

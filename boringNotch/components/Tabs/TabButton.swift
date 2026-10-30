@@ -11,6 +11,7 @@ struct TabButton: View {
     let label: String
     let icon: String
     let selected: Bool
+    var badge: Color? = nil
     let onClick: () -> Void
     
     var body: some View {
@@ -18,6 +19,16 @@ struct TabButton: View {
             Image(systemName: icon)
                 .padding(.horizontal, 8)
                 .contentShape(Capsule())
+                .overlay(alignment: .topTrailing) {
+                    if let badge {
+                        Circle()
+                            .fill(badge)
+                            .frame(width: 6, height: 6)
+                            .background(Circle().fill(.black).padding(-1))
+                            .offset(x: -1, y: 1)
+                            .allowsHitTesting(false)
+                    }
+                }
         }
         .buttonStyle(PlainButtonStyle())
     }

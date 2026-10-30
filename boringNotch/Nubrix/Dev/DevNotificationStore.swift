@@ -53,6 +53,7 @@ final class DevNotificationStore: ObservableObject {
         )
         notifications.insert(notification, at: 0)
         if notifications.count > Self.capacity { notifications.removeLast(notifications.count - Self.capacity) }
+        NubrixInbox.shared.notchctl(title: request.title, message: request.message)
         show(notification)
     }
 

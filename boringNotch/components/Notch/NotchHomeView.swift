@@ -439,18 +439,40 @@ struct NotchHomeView: View {
         Defaults[.showMirror] && webcamManager.cameraAvailable && vm.isCameraExpanded
     }
 
+    @State private var showingCalendar = false
+
     private var mainContent: some View {
-        HStack(alignment: .top, spacing: (shouldShowCamera && Defaults[.showCalendar]) ? 10 : 15) {
+        ZStack(alignment: .top) {
+            if showingCalendar && Defaults[.showCalendar] {
+                ExpandedCalendarView(onBack: closeCalendar)
+                    .environmentObject(vm)
+                    .onHover { vm.isHoveringCalendar = $0 }
+                    .transition(.opacity)
+            } else {
+                homeRow
+                    .transition(.opacity)
+            }
+        }
+        .animation(.snappy(duration: 0.2), value: showingCalendar)
+        .onChange(of: vm.notchState) { _, newValue in
+            if newValue == .closed { closeCalendar() }
+        }
+        .onDisappear { vm.isHoveringCalendar = false }
+        .blur(radius: vm.notchState == .closed ? 30 : 0)
+    }
+
+    private func closeCalendar() {
+        showingCalendar = false
+        vm.isHoveringCalendar = false
+    }
+
+    private var homeRow: some View {
+        HStack(alignment: .top, spacing: (shouldShowCamera && Defaults[.showCalendar]) ? 10 : 12) {
             MusicPlayerView(albumArtNamespace: albumArtNamespace)
 
             if Defaults[.showCalendar] {
-                CalendarView()
-                    .frame(width: shouldShowCamera ? 170 : 215)
-                    .onHover { isHovering in
-                        vm.isHoveringCalendar = isHovering
-                    }
-                    .environmentObject(vm)
-                    .transition(.opacity)
+                TodayTile { showingCalendar = true }
+                    .onHover { vm.isHoveringCalendar = $0 }
             }
 
             if shouldShowCamera {
@@ -462,7 +484,6 @@ struct NotchHomeView: View {
             }
         }
         .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
-        .blur(radius: vm.notchState == .closed ? 30 : 0)
     }
 }
 
