@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-derived="${NUBRIX_DERIVED_DATA:-$root/build/DerivedData}"
+derived="${NUBRIX_DERIVED_DATA:-$HOME/Library/Caches/Nubrix/DerivedData}"
 dest="${NUBRIX_INSTALL_DIR:-/Applications}"
 open_after=0
 [ "${1:-}" = "--open" ] && open_after=1
@@ -14,6 +14,7 @@ xcodebuild -quiet \
   -configuration Release \
   -derivedDataPath "$derived" \
   -destination "platform=macOS,arch=$(uname -m)" \
+  ENABLE_HARDENED_RUNTIME=NO \
   build
 
 app="$derived/Build/Products/Release/Nubrix.app"
