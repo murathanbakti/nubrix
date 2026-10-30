@@ -13,7 +13,7 @@ xcodebuild -quiet \
   -scheme boringNotch \
   -configuration Release \
   -derivedDataPath "$derived" \
-  -destination 'platform=macOS' \
+  -destination "platform=macOS,arch=$(uname -m)" \
   build
 
 app="$derived/Build/Products/Release/Nubrix.app"

@@ -98,7 +98,7 @@ final class ClipboardMonitor {
         guard data.count <= ClipImageProcessor.maximumBytes else { return }
         Task.detached(priority: .utility) {
             guard let prepared = ClipImageProcessor.prepare(data) else { return }
-            await MainActor.run { ClipStore.shared.addImage(prepared, source: source) }
+            await MainActor.run { _ = ClipStore.shared.addImage(prepared, source: source) }
         }
     }
 }

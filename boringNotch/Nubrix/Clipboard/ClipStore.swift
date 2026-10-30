@@ -27,6 +27,7 @@ final class ClipStore: ObservableObject {
 
     func start() {
         guard database == nil else { return }
+        try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("NubrixDrag", isDirectory: true))
         do {
             database = try ClipDatabase(directory: Self.defaultDirectory)
         } catch {
@@ -102,9 +103,17 @@ final class ClipStore: ObservableObject {
         case .image:
             guard let file = item.imageFile, let database else { return NSItemProvider() }
             let url = database.directory.appendingPathComponent(file)
+            let name = Self.dragFileName(for: item)
             let provider = NSItemProvider()
-            provider.suggestedName = item.isScreenshot ? "Screenshot" : "Image"
-            provider.registerObject(url as NSURL, visibility: .all)
+            provider.suggestedName = (name as NSString).deletingPathExtension
+            provider.registerFileRepresentation(forTypeIdentifier: UTType.png.identifier, fileOptions: [], visibility: .all) { completion in
+                do {
+                    completion(try Self.namedDragCopy(of: url, named: name), false, nil)
+                } catch {
+                    completion(nil, false, error)
+                }
+                return nil
+            }
             provider.registerDataRepresentation(forTypeIdentifier: UTType.png.identifier, visibility: .all) { completion in
                 do {
                     completion(try Data(contentsOf: url), nil)
@@ -115,6 +124,24 @@ final class ClipStore: ObservableObject {
             }
             return provider
         }
+    }
+
+    nonisolated static func dragFileName(for item: ClipItem) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        let prefix = item.isScreenshot ? "Screenshot" : "Image"
+        return "\(prefix) \(formatter.string(from: item.createdAt)).png"
+    }
+
+    nonisolated static func namedDragCopy(of source: URL, named name: String) throws -> URL {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("NubrixDrag", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let destination = folder.appendingPathComponent(name)
+        try FileManager.default.copyItem(at: source, to: destination)
+        return destination
     }
 
     func copy(_ item: ClipItem) {
