@@ -1,0 +1,20 @@
+#!/bin/bash
+endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+
+if [ ! -r "$endpoint" ]; then
+  cat >/dev/null
+  exit 0
+fi
+
+read -r port token < "$endpoint"
+case "$port" in
+  ''|*[!0-9]*) cat >/dev/null; exit 0 ;;
+esac
+
+curl --silent --output /dev/null --max-time 1 \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  --data-binary @- \
+  "http://127.0.0.1:$port/v1/claude/hook" || true
+
+exit 0

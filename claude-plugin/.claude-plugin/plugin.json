@@ -1,0 +1,6 @@
+{
+  "name": "nubrix",
+  "version": "0.1.0",
+  "description": "Shows Claude Code session status (working, needs you, done) in the Nubrix notch bar.",
+  "license": "GPL-3.0"
+}
