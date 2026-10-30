@@ -102,15 +102,7 @@ struct SettingsView: View {
                 case "Advanced":
                     Advanced()
                 case "About":
-                    if let controller = updaterController {
-                        About(updaterController: controller)
-                    } else {
-                        // Fallback with a default controller
-                        About(
-                            updaterController: SPUStandardUpdaterController(
-                                startingUpdater: false, updaterDelegate: nil,
-                                userDriverDelegate: nil))
-                    }
+                    About()
                 default:
                     GeneralSettings()
                 }
@@ -844,18 +836,11 @@ func lighterColor(from nsColor: NSColor, amount: CGFloat = 0.14) -> Color {
 
 struct About: View {
     @State private var showBuildNumber: Bool = false
-    let updaterController: SPUStandardUpdaterController
     @Environment(\.openWindow) var openWindow
     var body: some View {
         VStack {
             Form {
                 Section {
-                    HStack {
-                        Text("Release name")
-                        Spacer()
-                        Text(Defaults[.releaseName])
-                            .foregroundStyle(.secondary)
-                    }
                     HStack {
                         Text("Version")
                         Spacer()
@@ -875,7 +860,13 @@ struct About: View {
                     Text("Version info")
                 }
 
-                UpdaterSettingsView(updater: updaterController.updater)
+                Section {
+                    Text("Nubrix is based on boring.notch by TheBoredTeam (GPL-3.0).")
+                    Text("License: GNU General Public License v3.0")
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Credits")
+                }
 
                 HStack(spacing: 30) {
                     Spacer(minLength: 0)
@@ -889,7 +880,7 @@ struct About: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 18)
-                            Text("GitHub")
+                            Text("boring.notch on GitHub")
                         }
                         .contentShape(Rectangle())
                     }
@@ -897,23 +888,12 @@ struct About: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            VStack(spacing: 0) {
-                Divider()
-                Text("Made with 🫶🏻 by not so boring not.people")
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 5)
-                    .padding(.bottom, 7)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 10)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
         }
         .toolbar {
             //            Button("Welcome window") {
             //                openWindow(id: "onboarding")
             //            }
             //            .controlSize(.extraLarge)
-            CheckForUpdatesView(updater: updaterController.updater)
         }
         .navigationTitle("About")
     }
@@ -1388,7 +1368,7 @@ struct Appearance: View {
 
             Section {
                 Defaults.Toggle(key: .showMirror) {
-                    Text("Enable boring mirror")
+                    Text("Enable mirror")
                 }
                     .disabled(!checkVideoInput())
                 Picker("Mirror shape", selection: $mirrorShape) {

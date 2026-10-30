@@ -8,57 +8,57 @@
 import SwiftUI
 import TipKit
 
-struct HUDsTip: Tip {
+struct VitrinTip: Tip {
     var title: Text {
-        Text("Enhance your experience with HUDs")
+        Text("Your clipboard, on display")
     }
-    
-    
+
     var message: Text? {
-        Text("Unlock advanced features and improve your experience. Upgrade now for more customizations!")
+        Text("Press ⌃⌥V to open the Vitrin showcase and search everything you copied.")
     }
-    
-    
+
     var image: Image? {
-        AppIcon(for: "theboringteam.boringNotch")
-    }
-    
-    var actions: [Action] {
-        Action {
-            Text("More")
-        }
+        Image(systemName: "square.on.square")
     }
 }
 
-struct CBTip: Tip {
+struct ClaudeTip: Tip {
     var title: Text {
-        Text("Boost your productivity with Clipboard Manager")
+        Text("Claude Code in the notch")
     }
-    
-    
+
     var message: Text? {
-        Text("Easily copy, store, and manage your most-used content. Upgrade now for advanced features like multi-item storage and quick access!")
+        Text("Install the Nubrix hooks and watch your Claude Code sessions from the Claude tab.")
     }
-    
-    
+
     var image: Image? {
-        AppIcon(for: "theboringteam.boringNotch")
+        Image(systemName: "sparkle")
     }
-    
-    var actions: [Action] {
-        Action {
-            Text("More")
-        }
+}
+
+struct NotchctlTip: Tip {
+    var title: Text {
+        Text("Notify from your terminal")
+    }
+
+    var message: Text? {
+        Text("Run notchctl notify \"Build done\" to show a banner in the notch and a line in the Dev tab.")
+    }
+
+    var image: Image? {
+        Image(systemName: "terminal")
     }
 }
 
 struct TipsView: View {
-    var hudTip = HUDsTip()
-    var cbTip = CBTip()
+    var vitrinTip = VitrinTip()
+    var claudeTip = ClaudeTip()
+    var notchctlTip = NotchctlTip()
     var body: some View {
         VStack {
-            TipView(hudTip)
-            TipView(cbTip)
+            TipView(vitrinTip)
+            TipView(claudeTip)
+            TipView(notchctlTip)
         }
         .task {
             try? Tips.configure([

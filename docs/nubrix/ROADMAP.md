@@ -84,7 +84,24 @@ UI:
   browser.
 - A direct GitHub module is dropped: the sandbox cannot use `gh` credentials.
 
-## Phase 5: Open source release
+## Phase 5: Open source release (local preparation done, publishing pending)
 
-- CI-built, signed releases with our own Sparkle feed, README, license notices,
-  Claude Code plugin install instructions.
+Done locally:
+- User-visible rebrand to Nubrix (strings, window titles, onboarding, tips, About
+  credits for boring.notch/GPL-3.0); Swift types, targets, bundle ids and
+  persistence paths keep upstream names to ease merges.
+- Software-update UI hidden (Sparkle is not started and has no feed).
+- Original placeholder app icon and in-app logo.
+- README, CONTRIBUTING, SECURITY rewritten; upstream workflows, funding and
+  Crowdin config removed; `.github/workflows/build.yml` (unsigned Debug build
+  plus script and manifest checks).
+- Claude Code plugin and manual hooks instructions, notchctl install notes.
+
+Left for publishing:
+- Create the GitHub repository and add its URL to the README, About page and issue templates.
+- Developer ID signing and notarization; CI-built release DMG.
+- Own Sparkle feed and EdDSA keys, then re-enable the updater UI.
+- Encryption at rest for Vitrin (needs stable signing identity for Keychain access).
+- Private vulnerability reporting channel.
+- Screenshots, final app icon, and `CFBundleDisplayName`/`CFBundleName` in the
+  Xcode project (still "Boring Notch").

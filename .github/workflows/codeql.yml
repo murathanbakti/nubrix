@@ -13,9 +13,9 @@ name: "CodeQL Advanced"
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "nubrix" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "nubrix" ]
   schedule:
     - cron: '31 15 * * 1'
 
@@ -92,7 +92,7 @@ jobs:
         # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
         # queries: security-extended,security-and-quality
 
-    - name: Build Boring Notch
+    - name: Build Nubrix
       if: matrix.language == 'swift'
       run: |
         set -o pipefail

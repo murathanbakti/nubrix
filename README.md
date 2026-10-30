@@ -1,199 +1,132 @@
-<h1 align="center">
-  <br>
-  <a href="http://theboring.name"><img src="https://framerusercontent.com/images/RFK4vs0kn8pRMuOO58JeyoemXA.png?scale-down-to=256" alt="Boring Notch" width="150"></a>
-  <br>
-  Boring Notch
-  <br>
-</h1>
+# Nubrix
 
+Nubrix is a notch bar for macOS built for developers. It keeps the music, HUD and file shelf you know from [boring.notch](https://github.com/TheBoredTeam/boring.notch) and adds three things on top: live status of your Claude Code sessions, a clipboard showcase called Vitrin, and a small toolbox for scripts and local dev servers.
 
-<p align="center">
-  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/boring-notch"><img src="https://badges.crowdin.net/boring-notch/localized.svg"></a>
-  <img src="https://github.com/TheBoredTeam/boring.notch/actions/workflows/cicd.yml/badge.svg" alt="TheBoringNotch Build & Test" style="margin-right: 10px;" />
-  <a href="https://discord.gg/c8JXA7qrPm">
-    <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/c8JXA7qrPm?style=flat" alt="Discord Badge" />
-  </a>
-  <a href="https://www.ko-fi.com/alexander5015">
-    <img src="https://srv-cdn.himpfen.io/badges/kofi/kofi-flat.svg" alt="Ko-Fi" />
-  </a>
-</p>
+Everything runs locally. There is no account, no cloud service and no telemetry.
 
-<p align="center">
-  <a href="https://trendshift.io/repositories/14815?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14815" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/14815" alt="TheBoredTeam%2Fboring.notch |    Trendshift" width="250" height="55"/></a>
-</p>
-<!--Welcome to **Boring.Notch**, the coolest way to make your MacBook's notch the star of the show! Forget about those boring status bars—our notch turns into a dynamic music control center, complete with a snazzy visualizer and all the music controls you need. It's like having a mini concert right at the top of your screen! -->
+> Nubrix is a personal project and a fork of boring.notch (GPL-3.0). It is unsigned and has no release builds yet; see [Build from source](#build-from-source).
 
-Say hello to **Boring Notch**, the coolest way to make your MacBook’s notch the star of the show! Say goodbye to boring status bars: with Boring Notch, your notch transforms into a dynamic music control center, complete with a vibrant visualizer and all the essential music controls you need. But that’s just the start! Boring Notch also offers calendar integration, a handy file shelf with AirDrop support, a complete MacOS HUD replacement and more!
+## Features
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/2d5f69c1-6e7b-4bc2-a6f1-bb9e27cf88a8" alt="Demo GIF" />
-</p>
+**Inherited from boring.notch**
+- Live music activity with playback controls and a visualizer
+- Custom volume and brightness HUDs in the notch
+- File shelf with drag and drop and quick share
+- Calendar and reminders, mirror (camera preview)
 
-<!--https://github.com/user-attachments/assets/19b87973-4b3a-4853-b532-7e82d1d6b040-->
----
-<!--## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Roadmap](#-roadmap)
-- [Building from Source](#building-from-source)
-- [Contributing](#-contributing)
-- [Join our Discord Server](#join-our-discord-server)
-- [Star History](#star-history)
-- [Buy us a coffee!](#buy-us-a-coffee)
-- [Acknowledgments](#-acknowledgments)-->
+**Claude Code sessions** (notch tab "Claude")
+- Shows each Claude Code session as Working, Needs you, Failed, Done or Idle, fed by Claude Code hooks
+- Works with the Claude Code CLI and the desktop app
 
-## Installation
+**Vitrin, a clipboard showcase** (notch tab "Vitrin", global shortcut Control-Option-V)
+- Keeps copied images, text and links locally and shows them as cards
+- Showcase panel under the notch with search, keyboard navigation (arrows, Enter to copy, P to pin, Delete to remove, Space for a large preview, Esc to close)
+- Secret guard: text that looks like a credential (private keys, `sk-` keys, GitHub tokens, AWS keys, Slack tokens, JWTs, `Bearer` tokens, long high-entropy strings) is never stored; concealed, transient and password-manager pasteboard types are skipped
+- Excluded apps: nothing copied while an excluded app is frontmost is stored (password managers and Keychain Access are excluded by default; the list is editable)
+- Retention: history expires after a configurable period (default 30 days); pinned items never expire
+- Per-type capture toggles for images, text and links
 
-**System Requirements:**
-- macOS **14 Sonoma** or later
-- Apple Silicon or Intel Mac
+**Developer insights** (inside Vitrin)
+- Detects JSON, code language (Swift, TypeScript/JavaScript, Python, Go, Rust, SQL, Shell, YAML, HTML, CSS), Base64, percent-encoded text, Unix timestamps, colors and UUIDs
+- Cards show a badge and a lightweight syntax-highlighted preview
+- Actions: copy pretty or minified JSON, copy decoded Base64 or URL text, copy ISO date, copy hex or rgb
 
----
+**notchctl and the Dev tab**
+- `notchctl` is a bash and curl CLI that shows a banner in the closed notch, for example `gh run watch && notchctl notify "CI green"`
+- The "Dev" tab keeps the last notifications and shows which localhost ports (3000, 5173, 8080, 5432 and others, configurable) are listening; clicking an HTTP port opens it in the browser
 
-### Option 1: Download and Install Manually
+## Screenshots
 
-<a href="https://github.com/TheBoredTeam/boring.notch/releases/latest/download/boringNotch.dmg" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
+Screenshots will be added here.
 
-Once downloaded, open the `.dmg` and move **Boring Notch** to your `/Applications` folder.
+## Requirements
 
-> [!IMPORTANT]
-> We don't have an Apple Developer account (yet 👀), so macOS will warn you that Boring Notch is from an unidentified developer on first launch. This is expected behavior.
->
-> You'll need to bypass this before the app will open. You only need to do this once. Use one of the methods below.
+- macOS 14 or later, Apple silicon or Intel
+- Building from source needs Xcode 26
 
----
+## Build from source
 
-#### Recommended: Terminal (Always Works)
-
-This is the quickest and easiest method. It only requires a single command and works consistently for all users. System Settings can sometimes fail and won't work for non-admin users.
-
-After moving Boring Notch to your Applications folder, run:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Boring Notch.app"
+```sh
+git clone <repository-url> nubrix
+cd nubrix
+xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Debug \
+  -derivedDataPath build -destination 'platform=macOS' build
+open build/Build/Products/Debug/Nubrix.app
 ```
 
-Then open the app normally.
+(The Xcode project, scheme and target keep the upstream name `boringNotch` so upstream changes stay easy to merge; the product is `Nubrix.app`.)
 
----
+The app is not signed with a Developer ID and not notarized. A local build is signed ad hoc, so it opens directly on the Mac that built it. If you copy a build to another Mac and Gatekeeper blocks it, right-click the app, choose Open, or remove the quarantine flag with `xattr -dr com.apple.quarantine Nubrix.app`. Each rebuild changes the ad hoc code identity, so macOS may ask again for permissions such as Accessibility or Camera.
 
-#### Alternative: System Settings
+## Claude Code hooks
 
-> [!NOTE]
-> This method doesn't work for all users. If this doesn't work, use the Terminal method above.
+Nubrix listens on a loopback HTTP server; the hook script forwards Claude Code hook events to it. Hooks are asynchronous, have a short timeout and always exit 0, so they never block or slow down Claude Code. If Nubrix is not running, the script does nothing.
 
-1. Try to open the app — you'll see a security warning.
-2. Click **OK** to dismiss it.
-3. Open **System Settings** > **Privacy & Security**.
-4. Scroll to the bottom and click **Open Anyway** next to the Boring Notch warning.
-5. Confirm if prompted.
+**Option 1: the plugin**
 
----
-
-### Option 2: Install via Homebrew
-
-You can also install using [Homebrew](https://brew.sh). The Homebrew installation automatically bypasses the macOS security warning described above.
-
-```bash
-brew install --cask TheBoredTeam/boring-notch/boring-notch
+```sh
+claude --plugin-dir /path/to/nubrix/claude-plugin
 ```
 
-## Usage
+The plugin in `claude-plugin/` registers the hook for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, PermissionDenied, Notification, Stop, StopFailure and SessionEnd.
 
-- Launch the app, and voilà—your notch is now the coolest part of your screen.
-- Hover over the notch to see it expand and reveal all its secrets.
-- Use the controls to manage your music like a rockstar.
-- Click the star in your menu bar to customize your notch to your heart's content.
+**Option 2: manual hooks in `~/.claude/settings.json`**
 
-## 📋 Roadmap
-- [x] Playback live activity 🎧
-- [x] Calendar integration 📆
-- [x] Reminders integration ☑️
-- [x] Mirror 📷
-- [x] Charging indicator and current percentage 🔋
-- [x] Customizable gesture control 👆🏻
-- [x] Shelf functionality with AirDrop 📚
-- [x] Notch sizing customization, finetuning on different display sizes 🖥️
-- [x] System HUD replacements (volume, brightness, backlight) 🎚️💡⌨️
-- [ ] Bluetooth Live Activity (connect/disconnect for bluetooth devices) 
-- [ ] Weather integration ⛅️
-- [ ] Customizable Layout options 🛠️
-- [ ] Lock Screen Widgets 🔒
-- [ ] Extension system 🧩
-- [ ] Notifications (under consideration) 🔔
-<!-- - [ ] Clipboard history manager 📌 `Extension` -->
-<!-- - [ ] Download indicator of different browsers (Safari, Chromium browsers, Firefox) 🌍 `Extension`-->
-<!-- - [ ] Customizable function buttons 🎛️ -->
-<!-- - [ ] App switcher 🪄 -->
+Add the same hook under each event you want. Example for a few events (repeat the block for the others listed above):
 
-<!-- ## 🧩 Extensions
-> [!NOTE]
-> We’re hard at work on some awesome extensions! Stay tuned, and we’ll keep you updated as soon as they’re released. -->
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-hook", "async": true, "timeout": 5 } ] }
+    ],
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-hook", "async": true, "timeout": 5 } ] }
+    ],
+    "PermissionRequest": [
+      { "hooks": [ { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-hook", "async": true, "timeout": 5 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-hook", "async": true, "timeout": 5 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-hook", "async": true, "timeout": 5 } ] }
+    ]
+  }
+}
+```
 
-## Building from Source
+## notchctl
 
-### Prerequisites
+```sh
+mkdir -p ~/.local/bin && ln -sf "$PWD/cli/notchctl" ~/.local/bin/notchctl
+notchctl notify "Build done" --title api --style success
+notchctl ping
+```
 
-- **macOS 15.6 or later**
-- **Xcode 26 or later**
+See [cli/README.md](cli/README.md) for styles, duration and more examples.
 
-### Installation
+## Privacy and security
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/TheBoredTeam/boring.notch.git
-   cd boring.notch
-   ```
+- Everything stays on your Mac. Nubrix has no analytics and sends nothing to a Nubrix server. (Inherited boring.notch features such as lyrics lookup or the YouTube Music controller make their own network requests when you use them.)
+- The event server binds to the loopback interface only (127.0.0.1) on a random port and requires a random bearer token. Port and token are written to `~/.config/nubrix/agent-endpoint` with mode 0600 in a 0700 directory.
+- Vitrin history is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet.
+- The secret guard is a heuristic. It reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
+- The app is sandboxed. The Sparkle auto-updater is intentionally not started and no update feed is configured.
 
-2. **Open the Project in Xcode**:
-   ```bash
-   open boringNotch.xcodeproj
-   ```
+See [SECURITY.md](SECURITY.md) for reporting problems.
 
-3. **Build and Run**:
-    - Click the "Run" button or press `Cmd + R`. Watch the magic unfold!
+## Roadmap
 
-## 🤝 Contributing
+See [docs/nubrix/ROADMAP.md](docs/nubrix/ROADMAP.md).
 
-We’re all about good vibes and awesome contributions! Read [CONTRIBUTING.md](CONTRIBUTING.md) to learn how you can join the fun!
+## Credits
 
-## Join our Discord Server
+- [boring.notch](https://github.com/TheBoredTeam/boring.notch) by TheBoredTeam, the project Nubrix is forked from (GPL-3.0)
+- Ideas and selected logic for Vitrin from ClipBoardLine (MIT) and Tendedero (MIT)
+- [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD-3-Clause)
+- Other dependencies and their licenses are listed in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES)
 
-<a href="https://discord.gg/GvYcYpAKTu" target="_blank"><img src="https://iili.io/28m3GHv.png" alt="Join The Boring Server!" style="height: 60px !important;width: 217px !important;" ></a>
+## License
 
-## Star History
-<!-- BROKEN: GitHub now restricts the stargazer API for privacy reasons
-<a href="https://www.star-history.com/#TheBoredTeam/boring.notch&Timeline">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline" />
- </picture>
-</a>
--->
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TheBoredTeam/org-star-chart-updater/main/projects/boring.notch/chart-dark.svg">
-   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TheBoredTeam/org-star-chart-updater/main/projects/boring.notch/chart-light.svg">
-   <img src="https://raw.githubusercontent.com/TheBoredTeam/org-star-chart-updater/main/projects/boring.notch/chart-light.svg" alt="TheBoredTeam/boring.notch GitHub star history">
- </picture>
-
-## Support us on Ko-fi!
-<!-- <a href="https://www.buymeacoffee.com/jfxh67wvfxq" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a> -->
-<a href="https://www.ko-fi.com/alexander5015" target="_blank"><img src="https://github.com/user-attachments/assets//a76175ef-7e93-475a-8b67-4922ba5964c2" alt="Support us on Ko-fi" style="height: 70px !important;width: 346px !important;" ></a>
-
-## 🎉 Acknowledgments
-
-We would like to express our gratitude to the authors and maintainers of the open-source projects that made this possible. 
-
-## Notable Projects
-- **[MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)** –  An open-source project that allowed us to use the Now Playing source in macOS 15.4+
-- **[NotchDrop](https://github.com/Lakr233/NotchDrop)** – An open-source project that has been instrumental in developing the first version of the "Shelf" feature in Boring Notch.
-
-For a full list of licenses and attributions, please see the [Third-Party Licenses](./THIRD_PARTY_LICENSES.md) file.
-
-### Icon credits: [@maxtron95](https://github.com/maxtron95)
-### Website credits: [@himanshhhhuv](https://github.com/himanshhhhuv)
-
-- **SwiftUI**: For making us look like coding wizards.
-- **You**: For being awesome and checking out **boring.notch**!
-
+GNU General Public License v3.0, see [LICENSE](LICENSE).

@@ -435,7 +435,7 @@ defined by the Mozilla Public License, v. 2.0.
 -----------------------------------------------------------------------------
                         MIT License
         applies to ideas and selected logic adapted in boringNotch/Nubrix/Clipboard:
-        - ClipBoardLine, Copyright (c) 2026 Alejandro Buján
+        - ClipBoardLine (a fork of Tendedero), Copyright (c) 2026 Alejandro Buján
           (pasteboard skip-list and polling approach, standalone-URL detection,
           SQLite/FTS5 history storage and retention design)
 -----------------------------------------------------------------------------

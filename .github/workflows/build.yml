@@ -1,0 +1,74 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (Debug, unsigned)
+    runs-on: macos-latest
+    env:
+      PROJECT_NAME: boringNotch
+      XCODE_VERSION: "26.6"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          XCODE_PATH="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [[ ! -d "$XCODE_PATH" ]]; then
+            echo "Xcode ${XCODE_VERSION} not found, falling back to the newest Xcode 26.x"
+            ls -d /Applications/Xcode*.app 2>/dev/null || true
+            XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "::error::No Xcode 26 found on this runner"
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project "$PROJECT_NAME.xcodeproj"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project "$PROJECT_NAME.xcodeproj" \
+            -scheme "$PROJECT_NAME" \
+            -configuration Debug \
+            -destination "platform=macOS" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+  scripts:
+    name: Validate scripts and plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Shell syntax
+        run: |
+          bash -n claude-plugin/scripts/nubrix-hook
+          bash -n cli/notchctl
+
+      - name: JSON manifests
+        run: |
+          python3 -m json.tool claude-plugin/hooks/hooks.json > /dev/null
+          python3 -m json.tool claude-plugin/.claude-plugin/plugin.json > /dev/null
