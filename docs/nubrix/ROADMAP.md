@@ -20,7 +20,7 @@ files are kept small so upstream fixes can be merged.
 - `claude-plugin/`: async command hooks that forward hook JSON to Nubrix.
 - Verified: hooks fire from Claude Code desktop sessions and the CLI.
 
-## Phase 2: Vitrin (clipboard showcase)
+## Phase 2: Vitrin (clipboard showcase) (done, UI not yet tried on device)
 
 Goal: everything copied (images, text, links) is kept locally and shown as a
 showcase, both inside the open notch and in a larger panel.
@@ -53,9 +53,22 @@ UI:
 
 ## Phase 3: Developer clipboard
 
-- Code detection with syntax highlighting, JSON pretty-print/validate,
-  JWT / Base64 / URL decode, Unix timestamp → date, color swatches, UUIDs.
-- Encryption at rest (CryptoKit, key in Keychain) once signing is stable.
+- `ClipInsight`: pure, cached analysis of a text item that yields a badge and
+  developer actions. Detects JSON (valid object/array), language of code
+  (Swift, TypeScript/JavaScript, Python, Go, Rust, SQL, Shell, YAML, HTML, CSS),
+  Base64 that decodes to printable UTF-8, percent-encoded text, Unix timestamps
+  (10 or 13 digits within 2000–2100), colors (#RGB, #RRGGBB, #RRGGBBAA,
+  rgb()/rgba(), hsl()), UUIDs.
+- Cards show the badge (language name, "JSON", a color swatch, the human date
+  for a timestamp). Code cards use a lightweight regex syntax highlighter
+  (keywords, strings, numbers, comments) on a monospaced font.
+- Actions (context menu and showcase panel): Copy pretty JSON, Copy minified
+  JSON, Copy decoded (Base64 / URL), Copy ISO date, Copy hex / rgb.
+- Showcase panel: Space toggles a large preview of the selected item
+  (highlighted code, full image, link details) inside the panel.
+- JWT decoding is out of scope: JWTs are blocked by the secret guard.
+- Encryption at rest is deferred to Phase 5: with ad-hoc signing every rebuild
+  changes the code identity, so Keychain access would prompt after each build.
 
 ## Phase 4: Extras
 

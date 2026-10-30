@@ -49,7 +49,11 @@ struct VitrinTabView: View {
                                         vm.close()
                                     },
                                     onPin: { store.togglePin(item) },
-                                    onDelete: { store.delete(item) }
+                                    onDelete: { store.delete(item) },
+                                    onAction: { action in
+                                        store.copyTransformed(action.output)
+                                        vm.close()
+                                    }
                                 )
                             }
                         }

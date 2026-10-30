@@ -113,6 +113,19 @@ final class ClipStore: ObservableObject {
         reload()
     }
 
+    func copyTransformed(_ string: String) {
+        let pb = NSPasteboard.general
+        pb.declareTypes([.string, Self.ownPasteboardType], owner: nil)
+        pb.setString(string, forType: .string)
+        pb.setData(Data([1]), forType: Self.ownPasteboardType)
+        ClipboardMonitor.shared.acknowledge(changeCount: pb.changeCount)
+    }
+
+    func fullImage(for item: ClipItem) -> NSImage? {
+        guard let file = item.imageFile, let database else { return nil }
+        return NSImage(contentsOf: database.directory.appendingPathComponent(file))
+    }
+
     func togglePin(_ item: ClipItem) {
         database?.setPinned(id: item.id, !item.pinned)
         reload()

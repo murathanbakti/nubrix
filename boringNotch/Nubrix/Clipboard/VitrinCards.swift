@@ -8,6 +8,7 @@ struct VitrinCard: View {
     var onCopy: () -> Void
     var onPin: () -> Void
     var onDelete: () -> Void
+    var onAction: (ClipInsightAction) -> Void = { _ in }
 
     @State private var hovering = false
 
@@ -51,6 +52,12 @@ struct VitrinCard: View {
         .contextMenu {
             Button("Copy", action: onCopy)
             Button(item.pinned ? "Unpin" : "Pin", action: onPin)
+            if let insight = ClipInsightCache.shared.insight(for: item), !insight.actions.isEmpty {
+                Divider()
+                ForEach(insight.actions) { action in
+                    Button(action.title) { onAction(action) }
+                }
+            }
             Divider()
             Button("Delete", role: .destructive, action: onDelete)
         }
@@ -62,7 +69,7 @@ struct VitrinCard: View {
         case .image:
             ImageCardContent(item: item, scale: scale)
         case .text:
-            TextCardContent(text: item.text ?? "", scale: scale)
+            TextCardContent(item: item, scale: scale)
         case .link:
             LinkCardContent(text: item.text ?? "", scale: scale)
         }
@@ -104,20 +111,76 @@ private struct ImageCardContent: View {
 }
 
 private struct TextCardContent: View {
-    let text: String
+    let item: ClipItem
     let scale: CGFloat
 
     var body: some View {
-        let code = ClipClassifier.looksLikeCode(text)
-        Text(String(text.prefix(400)))
-            .font(code ? .system(size: 10 * scale, design: .monospaced) : .system(size: 11.5 * scale))
-            .foregroundStyle(.white.opacity(0.92))
-            .multilineTextAlignment(.leading)
-            .lineLimit(nil)
+        let text = item.text ?? ""
+        let insight = ClipInsightCache.shared.insight(for: item)
+        let code = insight?.isCode ?? ClipClassifier.looksLikeCode(text)
+        ZStack(alignment: .bottomLeading) {
+            VStack(alignment: .leading, spacing: 4 * scale) {
+                if let color = insight?.color {
+                    RoundedRectangle(cornerRadius: 6 * scale)
+                        .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
+                        .overlay(RoundedRectangle(cornerRadius: 6 * scale).strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                        .frame(height: 34 * scale)
+                } else if code {
+                    Text(ClipInsightCache.shared.cardText(for: item, language: insight?.language))
+                        .font(.system(size: 10 * scale, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(nil)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else {
+                    Text(String(text.prefix(400)))
+                        .font(.system(size: 11.5 * scale))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(nil)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                if insight?.color != nil {
+                    Text(String(text.prefix(60)))
+                        .font(.system(size: 10 * scale, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 9 * scale)
             .padding(.top, 9 * scale)
-            .padding(.bottom, 6 * scale)
+            .padding(.bottom, insight == nil ? 6 * scale : 22 * scale)
+            if let insight {
+                InsightBadge(insight: insight, scale: scale)
+                    .padding(5 * scale)
+            }
+        }
+    }
+}
+
+struct InsightBadge: View {
+    let insight: ClipInsight
+    var scale: CGFloat = 1
+
+    var body: some View {
+        HStack(spacing: 4 * scale) {
+            if let color = insight.color {
+                Circle()
+                    .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                    .frame(width: 8 * scale, height: 8 * scale)
+            }
+            Text(insight.date ?? insight.label)
+                .lineLimit(1)
+        }
+        .font(.system(size: 9 * scale, weight: .medium).monospacedDigit())
+        .foregroundStyle(.white)
+        .padding(.horizontal, 6 * scale)
+        .padding(.vertical, 2 * scale)
+        .background(Capsule().fill(Color.black.opacity(0.65)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
     }
 }
 

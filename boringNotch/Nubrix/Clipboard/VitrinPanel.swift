@@ -26,6 +26,7 @@ final class VitrinPanelModel: ObservableObject {
     @Published var query = ""
     @Published var searchActive = false
     @Published var selectedID: Int64?
+    @Published var previewing = false
     @Published private(set) var results: [ClipItem] = []
 
     var requestClose: () -> Void = {}
@@ -52,6 +53,7 @@ final class VitrinPanelModel: ObservableObject {
         query = ""
         searchActive = false
         selectedID = nil
+        previewing = false
         results = store.items
         validateSelection()
     }
@@ -65,8 +67,25 @@ final class VitrinPanelModel: ObservableObject {
     }
 
     private func validateSelection() {
+        defer { if selectedItem == nil { previewing = false } }
         if let selectedID, results.contains(where: { $0.id == selectedID }) { return }
         selectedID = rows.first(where: { !$0.isEmpty })?.first?.id
+    }
+
+    var selectedInsight: ClipInsight? {
+        selectedItem.flatMap { ClipInsightCache.shared.insight(for: $0) }
+    }
+
+    func perform(_ action: ClipInsightAction) {
+        store.copyTransformed(action.output)
+        requestClose()
+    }
+
+    func stepPreview(_ delta: Int) {
+        let all = rows.flatMap { $0 }
+        guard let selectedID, let i = all.firstIndex(where: { $0.id == selectedID }) else { return }
+        let next = min(max(i + delta, 0), all.count - 1)
+        self.selectedID = all[next].id
     }
 
     private func position() -> (row: Int, col: Int)? {
@@ -122,13 +141,44 @@ final class VitrinPanelModel: ObservableObject {
         store.delete(item)
     }
 
+    private func handlePreview(_ event: NSEvent, mods: NSEvent.ModifierFlags, command: Bool) -> Bool {
+        switch event.keyCode {
+        case 53, 49:
+            previewing = false
+        case 36, 76:
+            copySelected()
+        case 123, 126:
+            stepPreview(-1)
+        case 124, 125:
+            stepPreview(1)
+        case 51, 117:
+            if let item = selectedItem { delete(item) }
+        default:
+            let chars = event.charactersIgnoringModifiers ?? ""
+            guard command else { return true }
+            if chars.lowercased() == "p", let item = selectedItem {
+                togglePin(item)
+            } else if let n = Int(chars), n >= 1, let actions = selectedInsight?.actions, n <= actions.count {
+                perform(actions[n - 1])
+            } else {
+                return false
+            }
+        }
+        return true
+    }
+
     func handle(_ event: NSEvent) -> Bool {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let command = mods.contains(.command)
         let searching = isSearchFocused()
+        if previewing { return handlePreview(event, mods: mods, command: command) }
         switch event.keyCode {
         case 53:
             requestClose()
+            return true
+        case 49:
+            if searching || command { return false }
+            if selectedItem != nil { previewing = true }
             return true
         case 36, 76:
             copySelected()
@@ -187,6 +237,12 @@ struct VitrinPanelView: View {
         .padding(18)
         .frame(width: VitrinPanelController.size.width, height: VitrinPanelController.size.height)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black))
+        .overlay {
+            if model.previewing, let item = model.selectedItem {
+                VitrinPreview(item: item, model: model)
+                    .transition(.opacity)
+            }
+        }
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onChange(of: model.searchActive) { _, active in
@@ -228,6 +284,139 @@ struct VitrinPanelView: View {
     }
 }
 
+private struct VitrinPreview: View {
+    let item: ClipItem
+    @ObservedObject var model: VitrinPanelModel
+    @State private var image: NSImage?
+
+    var body: some View {
+        let insight = ClipInsightCache.shared.insight(for: item)
+        VStack(alignment: .leading, spacing: 12) {
+            header(insight)
+            content(insight)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            actionBar(insight)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.97)))
+    }
+
+    private func header(_ insight: ClipInsight?) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: item.kind == .image ? "photo" : item.kind == .link ? "link" : "text.alignleft")
+                .foregroundStyle(.gray)
+            if let insight, item.kind == .text {
+                InsightBadge(insight: insight, scale: 1.2)
+            }
+            if let app = item.sourceApp {
+                Text(app).font(.system(size: 11)).foregroundStyle(.gray)
+            }
+            Spacer()
+            Text("\u{2190} \u{2192} browse   \u{23CE} copy   Space / Esc close")
+                .font(.system(size: 11))
+                .foregroundStyle(.gray)
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ insight: ClipInsight?) -> some View {
+        switch item.kind {
+        case .image:
+            ZStack {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if item.imageWidth > 0 {
+                    Text("\(item.imageWidth)\u{00D7}\(item.imageHeight)")
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.black.opacity(0.65)))
+                }
+            }
+            .task(id: item.id) {
+                image = ClipStore.shared.fullImage(for: item)
+            }
+        case .link:
+            let text = item.text ?? ""
+            let url = URL(string: text)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(url?.host ?? text)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                if let scheme = url?.scheme {
+                    Text(scheme.uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
+                ScrollView {
+                    Text(text)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+        case .text:
+            let text = item.text ?? ""
+            ScrollView([.vertical, .horizontal]) {
+                if insight?.isCode == true {
+                    Text(ClipInsightCache.shared.previewText(for: item, language: insight?.language))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                } else {
+                    Text(String(text.prefix(20_000)))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+        }
+    }
+
+    @ViewBuilder
+    private func actionBar(_ insight: ClipInsight?) -> some View {
+        let actions = Array((insight?.actions ?? []).prefix(9))
+        if !actions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                        Button {
+                            model.perform(action)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("\u{2318}\(index + 1)")
+                                    .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(.gray)
+                                Text(action.title)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.white)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct VitrinPanelRow: View {
     let title: String
     let icon: String
@@ -260,7 +449,8 @@ private struct VitrinPanelRow: View {
                                     selected: model.selectedID == item.id,
                                     onCopy: { model.copy(item) },
                                     onPin: { model.togglePin(item) },
-                                    onDelete: { model.delete(item) }
+                                    onDelete: { model.delete(item) },
+                                    onAction: { model.perform($0) }
                                 )
                                 .id(item.id)
                             }
