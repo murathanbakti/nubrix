@@ -7,15 +7,21 @@ dest="${NUBRIX_INSTALL_DIR:-/Applications}"
 open_after=0
 [ "${1:-}" = "--open" ] && open_after=1
 
+log="$(dirname "$derived")/build.log"
+mkdir -p "$(dirname "$log")"
 echo "Building Nubrix (Release)…"
-xcodebuild -quiet \
+if ! xcodebuild -quiet \
   -project "$root/boringNotch.xcodeproj" \
   -scheme boringNotch \
   -configuration Release \
   -derivedDataPath "$derived" \
   -destination "platform=macOS,arch=$(uname -m)" \
   ENABLE_HARDENED_RUNTIME=NO \
-  build
+  build > "$log" 2>&1; then
+  grep -E "error:|BUILD FAILED" "$log" | head -20 >&2
+  echo "Build failed. Full log: $log" >&2
+  exit 1
+fi
 
 app="$derived/Build/Products/Release/Nubrix.app"
 if [ ! -d "$app" ]; then
