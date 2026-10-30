@@ -74,6 +74,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         AgentEventServer.shared.stop()
+        VitrinService.stop()
         NotificationCenter.default.removeObserver(self)
         if let observer = screenLockedObserver {
             DistributedNotificationCenter.default().removeObserver(observer)
@@ -282,6 +283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AgentEventServer.shared.start()
+        VitrinService.start()
 
         NotificationCenter.default.addObserver(
             self,

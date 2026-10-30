@@ -18,6 +18,7 @@ struct TabModel: Identifiable {
 let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
     TabModel(label: "Shelf", icon: "tray.fill", view: .shelf),
+    TabModel(label: "Vitrin", icon: "square.stack.3d.up.fill", view: .vitrin),
     TabModel(label: "Claude", icon: "sparkle", view: .agents)
 ]
 
@@ -26,7 +27,7 @@ struct TabSelectionView: View {
     @Namespace var animation
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(tabs.filter { $0.view != .shelf || Defaults[.boringShelf] }) { tab in
+            ForEach(tabs.filter { ($0.view != .shelf || Defaults[.boringShelf]) && ($0.view != .vitrin || Defaults[.vitrinEnabled]) }) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
