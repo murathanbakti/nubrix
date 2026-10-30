@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Defaults
+import UniformTypeIdentifiers
 
 @MainActor
 final class ClipStore: ObservableObject {
@@ -75,18 +76,45 @@ final class ClipStore: ObservableObject {
         reload()
     }
 
-    func addImage(_ image: PreparedClipImage, source: String?) {
-        guard let database else { return }
+    @discardableResult
+    func addImage(_ image: PreparedClipImage, source: String?) -> Int64? {
+        guard let database else { return nil }
+        let id: Int64
         if let existing = database.id(forHash: image.hash) {
             database.touch(id: existing)
+            id = existing
         } else {
-            guard let file = try? database.writeImage(png: image.png, thumbnail: image.thumbnail) else { return }
-            if (try? database.insert(kind: .image, content: nil, imageFile: file, width: image.width, height: image.height, hash: image.hash, source: source)) == nil {
+            guard let file = try? database.writeImage(png: image.png, thumbnail: image.thumbnail) else { return nil }
+            guard let inserted = try? database.insert(kind: .image, content: nil, imageFile: file, width: image.width, height: image.height, hash: image.hash, source: source) else {
                 database.removeFiles([file])
-                return
+                return nil
             }
+            id = inserted
         }
         reload()
+        return id
+    }
+
+    func itemProvider(for item: ClipItem) -> NSItemProvider {
+        switch item.kind {
+        case .text, .link:
+            return NSItemProvider(object: (item.text ?? "") as NSString)
+        case .image:
+            guard let file = item.imageFile, let database else { return NSItemProvider() }
+            let url = database.directory.appendingPathComponent(file)
+            let provider = NSItemProvider()
+            provider.suggestedName = item.isScreenshot ? "Screenshot" : "Image"
+            provider.registerObject(url as NSURL, visibility: .all)
+            provider.registerDataRepresentation(forTypeIdentifier: UTType.png.identifier, visibility: .all) { completion in
+                do {
+                    completion(try Data(contentsOf: url), nil)
+                } catch {
+                    completion(nil, error)
+                }
+                return nil
+            }
+            return provider
+        }
     }
 
     func copy(_ item: ClipItem) {

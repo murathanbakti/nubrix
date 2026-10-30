@@ -23,6 +23,10 @@ struct ClipItem: Identifiable, Equatable {
         return ClipDatabase.thumbnailName(for: imageFile)
     }
 
+    var isScreenshot: Bool {
+        kind == .image && sourceApp == ScreenshotDetection.sourceID
+    }
+
     var linkURL: URL? {
         guard kind == .link, let text else { return nil }
         return URL(string: text)

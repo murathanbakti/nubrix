@@ -5,7 +5,10 @@ import SwiftUI
 struct VitrinSettings: View {
     @Default(.vitrinRetentionDays) var retentionDays
     @Default(.vitrinExcludedApps) var excludedApps
+    @Default(.vitrinCaptureImages) var captureImages
+    @Default(.vitrinCaptureScreenshots) var captureScreenshots
     @ObservedObject var store = ClipStore.shared
+    @ObservedObject var access = ScreenshotAccess.shared
     @State private var newBundleID = ""
     @State private var confirmClear = false
 
@@ -29,6 +32,38 @@ struct VitrinSettings: View {
                 Defaults.Toggle(key: .vitrinCaptureImages) { Text("Images") }
                 Defaults.Toggle(key: .vitrinCaptureText) { Text("Text") }
                 Defaults.Toggle(key: .vitrinCaptureLinks) { Text("Links") }
+            }
+
+            Section {
+                Defaults.Toggle(key: .vitrinCaptureScreenshots) { Text("Capture screenshots") }
+                    .disabled(!captureImages)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Screenshot folder")
+                        if let folder = access.folder {
+                            Text("\(ScreenshotDetection.displayPath(folder)) \u{00B7} Access allowed")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("\(ScreenshotDetection.displayPath(access.detectedFolder)) \u{00B7} Access needed")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    Spacer()
+                    Button(access.hasAccess ? "Choose folder\u{2026}" : "Allow access") {
+                        access.requestAccess()
+                    }
+                }
+                .disabled(!captureImages || !captureScreenshots)
+                Defaults.Toggle(key: .vitrinScreenshotPreview) { Text("Show screenshot preview in notch") }
+                    .disabled(!captureImages || !captureScreenshots)
+            } header: {
+                Text("Screenshots")
+            } footer: {
+                Text("Screenshots saved as files (\u{2318}\u{21E7}3, \u{2318}\u{21E7}4, \u{2318}\u{21E7}5) appear in Images. Nubrix only reads new screenshots in the folder you allow; the originals are never changed.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
 
             Section {

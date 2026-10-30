@@ -73,6 +73,7 @@ final class DevNotificationStore: ObservableObject {
 
     private func show(_ notification: DevNotification) {
         AgentSessionStore.shared.dismissBanner()
+        ScreenshotBannerStore.shared.dismissBanner()
         bannerTask?.cancel()
         withAnimation(.smooth) { banner = notification }
         let duration = notification.duration

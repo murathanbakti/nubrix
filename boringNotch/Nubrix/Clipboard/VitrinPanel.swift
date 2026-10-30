@@ -261,6 +261,13 @@ struct VitrinPanelView: View {
     }
 
     private var searchBar: some View {
+        HStack(spacing: 10) {
+            searchField
+            ScreenshotAccessPrompt(scale: 1.1)
+        }
+    }
+
+    private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.gray)
@@ -304,12 +311,14 @@ private struct VitrinPreview: View {
 
     private func header(_ insight: ClipInsight?) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: item.kind == .image ? "photo" : item.kind == .link ? "link" : "text.alignleft")
+            Image(systemName: item.isScreenshot ? "camera.viewfinder" : item.kind == .image ? "photo" : item.kind == .link ? "link" : "text.alignleft")
                 .foregroundStyle(.gray)
             if let insight, item.kind == .text {
                 InsightBadge(insight: insight, scale: 1.2)
             }
-            if let app = item.sourceApp {
+            if item.isScreenshot {
+                Text("Screenshot").font(.system(size: 11)).foregroundStyle(.gray)
+            } else if let app = item.sourceApp {
                 Text(app).font(.system(size: 11)).foregroundStyle(.gray)
             }
             Spacer()

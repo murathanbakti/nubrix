@@ -25,6 +25,7 @@ struct ContentView: View {
     @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
+    @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -134,7 +135,11 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
-                        if vm.notchState == .closed && devNotifications.banner != nil {
+                        if vm.notchState == .closed && screenshotBanner.banner != nil {
+                            VitrinNavigation.shared.requestedFilter = .screenshots
+                            coordinator.currentView = .vitrin
+                            screenshotBanner.dismissBanner()
+                        } else if vm.notchState == .closed && devNotifications.banner != nil {
                             coordinator.currentView = .dev
                             devNotifications.dismissBanner()
                         } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
@@ -293,6 +298,9 @@ struct ContentView: View {
                             .frame(width: 76, alignment: .trailing)
                         }
                         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+                      } else if let banner = screenshotBanner.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                          ScreenshotBannerView(banner: banner)
+                              .transition(.opacity)
                       } else if let banner = agents.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           AgentBannerView(banner: banner)
                               .transition(.opacity)

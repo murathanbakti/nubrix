@@ -49,6 +49,7 @@ struct VitrinCard: View {
         .contentShape(RoundedRectangle(cornerRadius: 12 * scale))
         .onHover { hovering = $0 }
         .onTapGesture(perform: onCopy)
+        .onDrag { ClipStore.shared.itemProvider(for: item) }
         .contextMenu {
             Button("Copy", action: onCopy)
             Button(item.pinned ? "Unpin" : "Pin", action: onPin)
@@ -102,6 +103,17 @@ private struct ImageCardContent: View {
                     .padding(.vertical, 2 * scale)
                     .background(Capsule().fill(Color.black.opacity(0.65)))
                     .padding(5 * scale)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if item.isScreenshot {
+                Image(systemName: "camera.viewfinder")
+                    .font(.system(size: 9 * scale, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(4 * scale)
+                    .background(Circle().fill(Color.black.opacity(0.65)))
+                    .padding(5 * scale)
+                    .help("Screenshot")
             }
         }
         .task(id: item.id) {

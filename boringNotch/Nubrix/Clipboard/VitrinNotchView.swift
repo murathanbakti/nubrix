@@ -4,6 +4,7 @@ import SwiftUI
 enum VitrinFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case images = "Images"
+    case screenshots = "Screenshots"
     case text = "Text"
     case links = "Links"
 
@@ -13,6 +14,7 @@ enum VitrinFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: return true
         case .images: return item.kind == .image
+        case .screenshots: return item.isScreenshot
         case .text: return item.kind == .text
         case .links: return item.kind == .link
         }
@@ -23,6 +25,7 @@ struct VitrinTabView: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var store = ClipStore.shared
     @Default(.vitrinEnabled) var enabled
+    @ObservedObject var navigation = VitrinNavigation.shared
     @State private var filter: VitrinFilter = .all
 
     var body: some View {
@@ -64,6 +67,14 @@ struct VitrinTabView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onAppear(perform: applyRequestedFilter)
+        .onChange(of: navigation.requestedFilter) { _, _ in applyRequestedFilter() }
+    }
+
+    private func applyRequestedFilter() {
+        guard let requested = navigation.requestedFilter else { return }
+        filter = requested
+        navigation.requestedFilter = nil
     }
 
     private var chips: some View {
@@ -82,6 +93,7 @@ struct VitrinTabView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
+            ScreenshotAccessPrompt()
         }
         .padding(.horizontal, 4)
     }
