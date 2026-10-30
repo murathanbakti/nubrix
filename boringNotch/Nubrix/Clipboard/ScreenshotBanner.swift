@@ -79,19 +79,21 @@ struct ScreenshotBannerView: View {
 
     private func thumbnail(height: CGFloat) -> some View {
         let side = max(16, height - 8)
-        return Group {
-            if let image = ClipStore.shared.thumbnail(for: banner.item) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "camera.viewfinder")
-                    .foregroundStyle(.white)
+        return Color.clear
+            .overlay {
+                if let image = ClipStore.shared.thumbnail(for: banner.item) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "camera.viewfinder")
+                        .foregroundStyle(.white)
+                }
             }
-        }
-        .frame(width: side * 1.4, height: side)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+            .frame(width: side * 1.4, height: side)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
         .padding(.leading, 6)
         .onDrag { ClipStore.shared.itemProvider(for: banner.item) }
     }
@@ -103,19 +105,18 @@ struct ScreenshotAccessPrompt: View {
     @Default(.vitrinCaptureImages) var captureImages
     @Default(.vitrinCaptureScreenshots) var captureScreenshots
     @Default(.vitrinScreenshotPromptDismissed) var dismissed
-    var scale: CGFloat = 1
 
     var body: some View {
         if enabled, captureImages, captureScreenshots, !access.hasAccess, !dismissed {
-            HStack(spacing: 6 * scale) {
+            HStack(spacing: 6) {
                 Button {
                     access.requestAccess()
                 } label: {
-                    HStack(spacing: 5 * scale) {
+                    HStack(spacing: 5) {
                         Image(systemName: "camera.viewfinder")
                         Text("Allow screenshots")
                     }
-                    .font(.system(size: 11 * scale, weight: .medium))
+                    .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
@@ -124,14 +125,14 @@ struct ScreenshotAccessPrompt: View {
                     dismissed = true
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9 * scale, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .help("Hide this")
             }
-            .padding(.horizontal, 10 * scale)
-            .padding(.vertical, 3 * scale)
+            .padding(.horizontal, 9)
+            .frame(height: 20)
             .background(Capsule().fill(Color.accentColor.opacity(0.35)))
             .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 0.5))
         }

@@ -230,11 +230,11 @@ struct VitrinPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             searchBar
-            VitrinPanelRow(title: "Images", icon: "photo", items: model.rows[0], model: model)
-            VitrinPanelRow(title: "Text", icon: "text.alignleft", items: model.rows[1], model: model)
-            VitrinPanelRow(title: "Links", icon: "link", items: model.rows[2], model: model)
+            section("Images", "photo", model.rows[0])
+            section("Text", "text.alignleft", model.rows[1])
+            section("Links", "link", model.rows[2])
         }
-        .padding(18)
+        .padding(16)
         .frame(width: VitrinPanelController.size.width, height: VitrinPanelController.size.height)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black))
         .overlay {
@@ -260,10 +260,23 @@ struct VitrinPanelView: View {
         }
     }
 
+    private func section(_ title: String, _ icon: String, _ items: [ClipItem]) -> some View {
+        VitrinSection(
+            title: title,
+            icon: icon,
+            items: items,
+            selectedID: model.selectedID,
+            onCopy: { model.copy($0) },
+            onPin: { model.togglePin($0) },
+            onDelete: { model.delete($0) },
+            onAction: { model.perform($0) }
+        )
+    }
+
     private var searchBar: some View {
         HStack(spacing: 10) {
             searchField
-            ScreenshotAccessPrompt(scale: 1.1)
+            ScreenshotAccessPrompt()
         }
     }
 
@@ -426,62 +439,10 @@ private struct VitrinPreview: View {
     }
 }
 
-private struct VitrinPanelRow: View {
-    let title: String
-    let icon: String
-    let items: [ClipItem]
-    @ObservedObject var model: VitrinPanelModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 10, weight: .semibold))
-                Text(title).font(.system(size: 11, weight: .semibold))
-                Text("\(items.count)").font(.system(size: 10).monospacedDigit()).opacity(0.6)
-            }
-            .foregroundStyle(.gray)
-            .padding(.horizontal, 2)
-            if items.isEmpty {
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .frame(height: 104)
-                    .overlay(Text("Nothing here").font(.caption).foregroundStyle(.gray.opacity(0.7)))
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 10) {
-                            ForEach(items) { item in
-                                VitrinCard(
-                                    item: item,
-                                    size: CGSize(width: 180, height: 104),
-                                    scale: 1.2,
-                                    selected: model.selectedID == item.id,
-                                    onCopy: { model.copy(item) },
-                                    onPin: { model.togglePin(item) },
-                                    onDelete: { model.delete(item) },
-                                    onAction: { model.perform($0) }
-                                )
-                                .id(item.id)
-                            }
-                        }
-                        .padding(2)
-                    }
-                    .frame(height: 108)
-                    .onChange(of: model.selectedID) { _, id in
-                        if let id, items.contains(where: { $0.id == id }) {
-                            withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 @MainActor
 final class VitrinPanelController {
     static let shared = VitrinPanelController()
-    static let size = CGSize(width: 880, height: 480)
+    static let size = CGSize(width: 880, height: 520)
 
     private var panel: VitrinPanel?
     private let model = VitrinPanelModel()

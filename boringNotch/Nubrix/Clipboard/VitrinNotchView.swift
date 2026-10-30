@@ -30,39 +30,32 @@ struct VitrinTabView: View {
 
     var body: some View {
         let visible = store.items.filter { filter.matches($0) }
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             if !enabled {
                 VitrinEmptyState(message: "Vitrin is off", detail: "Turn it on in Settings.")
             } else {
-                chips
+                VitrinChipBar(selection: $filter, counts: counts) {
+                    ScreenshotAccessPrompt()
+                }
                 if visible.isEmpty {
                     VitrinEmptyState(
                         message: store.items.isEmpty ? "Nothing copied yet" : "No matches",
                         detail: store.items.isEmpty ? "Things you copy show up here." : "Try another filter."
                     )
                 } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 8) {
-                            ForEach(visible) { item in
-                                VitrinCard(
-                                    item: item,
-                                    size: CGSize(width: 120, height: 96),
-                                    onCopy: {
-                                        store.copy(item)
-                                        vm.close()
-                                    },
-                                    onPin: { store.togglePin(item) },
-                                    onDelete: { store.delete(item) },
-                                    onAction: { action in
-                                        store.copyTransformed(action.output)
-                                        vm.close()
-                                    }
-                                )
-                            }
+                    VitrinCardRow(
+                        items: visible,
+                        onCopy: { item in
+                            store.copy(item)
+                            vm.close()
+                        },
+                        onPin: { store.togglePin($0) },
+                        onDelete: { store.delete($0) },
+                        onAction: { action in
+                            store.copyTransformed(action.output)
+                            vm.close()
                         }
-                        .padding(.horizontal, 4)
-                    }
-                    .frame(height: 96)
+                    )
                 }
             }
         }
@@ -71,30 +64,15 @@ struct VitrinTabView: View {
         .onChange(of: navigation.requestedFilter) { _, _ in applyRequestedFilter() }
     }
 
+    private var counts: [VitrinFilter: Int] {
+        Dictionary(uniqueKeysWithValues: VitrinFilter.allCases.map { option in
+            (option, store.items.filter { option.matches($0) }.count)
+        })
+    }
+
     private func applyRequestedFilter() {
         guard let requested = navigation.requestedFilter else { return }
         filter = requested
         navigation.requestedFilter = nil
-    }
-
-    private var chips: some View {
-        HStack(spacing: 6) {
-            ForEach(VitrinFilter.allCases) { option in
-                Button {
-                    withAnimation(.smooth(duration: 0.2)) { filter = option }
-                } label: {
-                    Text(option.rawValue)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(filter == option ? .black : .white.opacity(0.8))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(filter == option ? Color.white : Color.white.opacity(0.1)))
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-            ScreenshotAccessPrompt()
-        }
-        .padding(.horizontal, 4)
     }
 }

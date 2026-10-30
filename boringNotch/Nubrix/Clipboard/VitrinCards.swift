@@ -1,66 +1,92 @@
 import SwiftUI
 
+enum VitrinMetrics {
+    static let cornerRadius: CGFloat = 10
+    static let fill = Color.white.opacity(0.06)
+    static let fillHover = Color.white.opacity(0.10)
+    static let stroke = Color.white.opacity(0.08)
+    static let strokeHover = Color.white.opacity(0.18)
+    static let meta = Color.white.opacity(0.5)
+}
+
+enum VitrinAge {
+    static func label(from date: Date, now: Date) -> String {
+        let seconds = now.timeIntervalSince(date)
+        if seconds < 60 { return "now" }
+        if seconds < 3600 { return "\(Int(seconds / 60))m" }
+        let calendar = Calendar.current
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        if seconds < 86_400 { return "\(Int(seconds / 3600))h" }
+        return date.formatted(.dateTime.day().month(.abbreviated))
+    }
+}
+
 struct VitrinCard: View {
     let item: ClipItem
     var size: CGSize
     var scale: CGFloat = 1
     var selected: Bool = false
+    var now: Date = Date()
+    var forceHover: Bool = false
     var onCopy: () -> Void
     var onPin: () -> Void
     var onDelete: () -> Void
     var onAction: (ClipInsightAction) -> Void = { _ in }
 
-    @State private var hovering = false
+    @State private var hoverState = false
+
+    private var hovering: Bool { hoverState || forceHover }
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: VitrinMetrics.cornerRadius * scale, style: .continuous)
+    }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 12 * scale)
-                .fill(Color.white.opacity(hovering ? 0.12 : 0.07))
-            content
-                .clipShape(RoundedRectangle(cornerRadius: 12 * scale))
-            if item.pinned {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 9 * scale, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(4 * scale)
-                    .background(Circle().fill(Color.orange))
-                    .padding(5 * scale)
-            }
-        }
-        .overlay(alignment: .topTrailing) {
-            if hovering {
-                Button(action: onPin) {
-                    Image(systemName: item.pinned ? "pin.slash.fill" : "pin.fill")
-                        .font(.system(size: 10 * scale, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 22 * scale, height: 22 * scale)
-                        .background(Circle().fill(Color.black.opacity(0.7)))
+        content
+            .frame(width: size.width, height: size.height)
+            .background(hovering ? VitrinMetrics.fillHover : VitrinMetrics.fill)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(hovering ? VitrinMetrics.strokeHover : VitrinMetrics.stroke, lineWidth: 1))
+            .overlay {
+                if selected {
+                    shape.strokeBorder(Color.accentColor, lineWidth: 2)
                 }
-                .buttonStyle(.plain)
-                .padding(5 * scale)
-                .help(item.pinned ? "Unpin" : "Pin")
             }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12 * scale)
-                .strokeBorder(Color.accentColor, lineWidth: selected ? 2 : 0)
-        }
-        .frame(width: size.width, height: size.height)
-        .contentShape(RoundedRectangle(cornerRadius: 12 * scale))
-        .onHover { hovering = $0 }
-        .onTapGesture(perform: onCopy)
-        .onDrag { ClipStore.shared.itemProvider(for: item) }
-        .contextMenu {
-            Button("Copy", action: onCopy)
-            Button(item.pinned ? "Unpin" : "Pin", action: onPin)
-            if let insight = ClipInsightCache.shared.insight(for: item), !insight.actions.isEmpty {
+            .overlay(alignment: .topTrailing) { pinButton }
+            .contentShape(shape)
+            .scaleEffect(hovering ? 1.02 : 1)
+            .animation(.snappy(duration: 0.18), value: hovering)
+            .onHover { hoverState = $0 }
+            .onTapGesture(perform: onCopy)
+            .onDrag { ClipStore.shared.itemProvider(for: item) }
+            .contextMenu {
+                Button("Copy", action: onCopy)
+                Button(item.pinned ? "Unpin" : "Pin", action: onPin)
+                if let insight = ClipInsightCache.shared.insight(for: item), !insight.actions.isEmpty {
+                    Divider()
+                    ForEach(insight.actions) { action in
+                        Button(action.title) { onAction(action) }
+                    }
+                }
                 Divider()
-                ForEach(insight.actions) { action in
-                    Button(action.title) { onAction(action) }
-                }
+                Button("Delete", role: .destructive, action: onDelete)
             }
-            Divider()
-            Button("Delete", role: .destructive, action: onDelete)
+    }
+
+    @ViewBuilder
+    private var pinButton: some View {
+        if hovering {
+            Button(action: onPin) {
+                Image(systemName: item.pinned ? "pin.slash.fill" : "pin.fill")
+                    .font(.system(size: 9 * scale, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 20 * scale, height: 20 * scale)
+                    .background(Circle().fill(Color.black.opacity(0.6)))
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .padding(6 * scale)
+            .help(item.pinned ? "Unpin" : "Pin")
+            .transition(.opacity)
         }
     }
 
@@ -68,107 +94,146 @@ struct VitrinCard: View {
     private var content: some View {
         switch item.kind {
         case .image:
-            ImageCardContent(item: item, scale: scale)
+            ImageCardContent(item: item, scale: scale, now: now, hovering: hovering)
         case .text:
-            TextCardContent(item: item, scale: scale)
+            TextCardContent(item: item, scale: scale, now: now)
         case .link:
-            LinkCardContent(text: item.text ?? "", scale: scale)
+            LinkCardContent(item: item, scale: scale, now: now)
         }
+    }
+}
+
+private struct PinDot: View {
+    let scale: CGFloat
+
+    var body: some View {
+        Image(systemName: "pin.fill")
+            .font(.system(size: 7 * scale, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 14 * scale, height: 14 * scale)
+            .background(Circle().fill(Color.orange))
+    }
+}
+
+private struct CardFooter: View {
+    let item: ClipItem
+    let glyph: String
+    let scale: CGFloat
+    let now: Date
+    var detail: String?
+
+    var body: some View {
+        HStack(spacing: 4 * scale) {
+            Image(systemName: glyph)
+                .font(.system(size: 9 * scale, weight: .medium))
+            Text(VitrinAge.label(from: item.createdAt, now: now))
+                .lineLimit(1)
+            if let detail {
+                Spacer(minLength: 4 * scale)
+                Text(detail)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+        }
+        .font(.system(size: 9.5 * scale, weight: .medium))
+        .foregroundStyle(VitrinMetrics.meta)
     }
 }
 
 private struct ImageCardContent: View {
     let item: ClipItem
     let scale: CGFloat
+    let now: Date
+    let hovering: Bool
     @State private var image: NSImage?
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color.black.opacity(0.25)
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "photo")
-                    .font(.system(size: 22 * scale))
-                    .foregroundStyle(.gray)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+        Color.black.opacity(0.25)
+            .overlay {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 20 * scale))
+                        .foregroundStyle(.gray)
+                }
             }
-            if item.imageWidth > 0 {
-                Text("\(item.imageWidth)\u{00D7}\(item.imageHeight)")
-                    .font(.system(size: 9 * scale, weight: .medium).monospacedDigit())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 5 * scale)
-                    .padding(.vertical, 2 * scale)
-                    .background(Capsule().fill(Color.black.opacity(0.65)))
-                    .padding(5 * scale)
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [.black.opacity(0), .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 40 * scale)
+                    .allowsHitTesting(false)
             }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if item.isScreenshot {
-                Image(systemName: "camera.viewfinder")
-                    .font(.system(size: 9 * scale, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(4 * scale)
-                    .background(Circle().fill(Color.black.opacity(0.65)))
-                    .padding(5 * scale)
-                    .help("Screenshot")
+            .overlay(alignment: .bottom) {
+                CardFooter(
+                    item: item,
+                    glyph: item.isScreenshot ? "camera.viewfinder" : "photo",
+                    scale: scale,
+                    now: now,
+                    detail: hovering && item.imageWidth > 0 ? "\(item.imageWidth)\u{00D7}\(item.imageHeight)" : nil
+                )
+                .foregroundStyle(.white.opacity(0.8))
+                .padding(.horizontal, 8 * scale)
+                .padding(.bottom, 6 * scale)
             }
-        }
-        .task(id: item.id) {
-            image = ClipStore.shared.thumbnail(for: item)
-        }
+            .overlay(alignment: .topLeading) {
+                if item.pinned {
+                    PinDot(scale: scale).padding(6 * scale)
+                }
+            }
+            .clipped()
+            .task(id: item.id) {
+                image = ClipStore.shared.thumbnail(for: item)
+            }
     }
 }
 
 private struct TextCardContent: View {
     let item: ClipItem
     let scale: CGFloat
+    let now: Date
 
     var body: some View {
         let text = item.text ?? ""
         let insight = ClipInsightCache.shared.insight(for: item)
         let code = insight?.isCode ?? ClipClassifier.looksLikeCode(text)
-        ZStack(alignment: .bottomLeading) {
-            VStack(alignment: .leading, spacing: 4 * scale) {
-                if let color = insight?.color {
-                    RoundedRectangle(cornerRadius: 6 * scale)
-                        .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
-                        .overlay(RoundedRectangle(cornerRadius: 6 * scale).strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                        .frame(height: 34 * scale)
-                } else if code {
-                    Text(ClipInsightCache.shared.cardText(for: item, language: insight?.language))
-                        .font(.system(size: 10 * scale, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.92))
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(nil)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                } else {
-                    Text(String(text.prefix(400)))
-                        .font(.system(size: 11.5 * scale))
-                        .foregroundStyle(.white.opacity(0.92))
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(nil)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
-                if insight?.color != nil {
-                    Text(String(text.prefix(60)))
-                        .font(.system(size: 10 * scale, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 4 * scale) {
+            if insight != nil || item.pinned {
+                HStack(spacing: 4 * scale) {
+                    if item.pinned { PinDot(scale: scale) }
+                    if let insight { InsightBadge(insight: insight, scale: scale) }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.horizontal, 9 * scale)
-            .padding(.top, 9 * scale)
-            .padding(.bottom, insight == nil ? 6 * scale : 22 * scale)
-            if let insight {
-                InsightBadge(insight: insight, scale: scale)
-                    .padding(5 * scale)
+            if let color = insight?.color {
+                RoundedRectangle(cornerRadius: 6 * scale, style: .continuous)
+                    .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
+                    .overlay(RoundedRectangle(cornerRadius: 6 * scale, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                    .frame(height: 24 * scale)
+                Text(String(text.prefix(60)))
+                    .font(.system(size: 10.5 * scale, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            } else if code {
+                Text(ClipInsightCache.shared.cardText(for: item, language: insight?.language))
+                    .font(.system(size: 10.5 * scale, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(4)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            } else {
+                Text(String(text.prefix(400)))
+                    .font(.system(size: 11.5 * scale))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(4)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            Spacer(minLength: 0)
+            CardFooter(item: item, glyph: "text.alignleft", scale: scale, now: now)
         }
+        .padding(8 * scale)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -182,46 +247,54 @@ struct InsightBadge: View {
                 Circle()
                     .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
-                    .frame(width: 8 * scale, height: 8 * scale)
+                    .frame(width: 7 * scale, height: 7 * scale)
             }
             Text(insight.date ?? insight.label)
                 .lineLimit(1)
         }
-        .font(.system(size: 9 * scale, weight: .medium).monospacedDigit())
-        .foregroundStyle(.white)
+        .font(.system(size: 9 * scale, weight: .semibold).monospacedDigit())
+        .foregroundStyle(Color.accentColor)
         .padding(.horizontal, 6 * scale)
-        .padding(.vertical, 2 * scale)
-        .background(Capsule().fill(Color.black.opacity(0.65)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .frame(height: 14 * scale)
+        .background(Capsule().fill(Color.accentColor.opacity(0.18)))
     }
 }
 
 private struct LinkCardContent: View {
-    let text: String
+    let item: ClipItem
     let scale: CGFloat
+    let now: Date
 
     var body: some View {
-        let parts = Self.parts(text)
-        VStack(alignment: .leading, spacing: 4 * scale) {
-            Image(systemName: "link")
-                .font(.system(size: 12 * scale, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-            Spacer(minLength: 0)
+        let parts = Self.parts(item.text ?? "")
+        VStack(alignment: .leading, spacing: 3 * scale) {
+            HStack(spacing: 5 * scale) {
+                if item.pinned { PinDot(scale: scale) }
+                Image(systemName: "link")
+                    .font(.system(size: 9 * scale, weight: .bold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 22 * scale, height: 22 * scale)
+                    .background(Circle().fill(Color.accentColor.opacity(0.18)))
+            }
+            .padding(.bottom, 3 * scale)
             Text(parts.host)
-                .font(.system(size: 13 * scale, weight: .semibold))
+                .font(.system(size: 12 * scale, weight: .semibold))
                 .foregroundStyle(.white)
-                .lineLimit(2)
+                .lineLimit(1)
                 .truncationMode(.middle)
             if !parts.rest.isEmpty {
                 Text(parts.rest)
-                    .font(.system(size: 10 * scale))
-                    .foregroundStyle(.gray)
+                    .font(.system(size: 10.5 * scale))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .truncationMode(.middle)
             }
+            Spacer(minLength: 0)
+            CardFooter(item: item, glyph: "link", scale: scale, now: now)
         }
+        .padding(8 * scale)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(9 * scale)
     }
 
     static func parts(_ text: String) -> (host: String, rest: String) {
@@ -233,20 +306,213 @@ private struct LinkCardContent: View {
     }
 }
 
+private struct ScrollMetrics: Equatable {
+    var offset: CGFloat = 0
+    var content: CGFloat = 0
+    var viewport: CGFloat = 0
+}
+
+private struct ScrollMetricsKey: PreferenceKey {
+    static var defaultValue = ScrollMetrics()
+    static func reduce(value: inout ScrollMetrics, nextValue: () -> ScrollMetrics) {
+        let next = nextValue()
+        if next.content > 0 { value.offset = next.offset; value.content = next.content }
+        if next.viewport > 0 { value.viewport = next.viewport }
+    }
+}
+
+struct VitrinCardScroller<Content: View>: View {
+    var height: CGFloat
+    var spacing: CGFloat
+    var inset: CGFloat
+    var vertical: CGFloat
+    @ViewBuilder var content: Content
+
+    @State private var metrics = ScrollMetrics()
+    private let fade: CGFloat = 16
+    private let space = "vitrin.scroller"
+
+    var body: some View {
+        let leading = metrics.offset < -2
+        let trailing = metrics.content > metrics.viewport + 2 && metrics.content + metrics.offset > metrics.viewport + 2
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: spacing) { content }
+                .padding(.horizontal, inset)
+                .padding(.vertical, vertical)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: ScrollMetricsKey.self,
+                            value: ScrollMetrics(offset: proxy.frame(in: .named(space)).minX, content: proxy.size.width)
+                        )
+                    }
+                )
+        }
+        .coordinateSpace(name: space)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: ScrollMetricsKey.self, value: ScrollMetrics(viewport: proxy.size.width))
+            }
+        )
+        .onPreferenceChange(ScrollMetricsKey.self) { metrics = $0 }
+        .mask {
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.black.opacity(leading ? 0 : 1), .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fade)
+                Rectangle().fill(Color.black)
+                LinearGradient(colors: [.black, .black.opacity(trailing ? 0 : 1)], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fade)
+            }
+            .animation(.smooth(duration: 0.2), value: leading)
+            .animation(.smooth(duration: 0.2), value: trailing)
+        }
+        .frame(height: height)
+    }
+}
+
+struct VitrinCardRow: View {
+    let items: [ClipItem]
+    var onCopy: (ClipItem) -> Void
+    var onPin: (ClipItem) -> Void
+    var onDelete: (ClipItem) -> Void
+    var onAction: (ClipInsightAction) -> Void
+
+    static let cardSize = CGSize(width: 132, height: 100)
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            VitrinCardScroller(height: Self.cardSize.height + 8, spacing: 10, inset: 6, vertical: 4) {
+                ForEach(items) { item in
+                    VitrinCard(
+                        item: item,
+                        size: Self.cardSize,
+                        now: context.date,
+                        onCopy: { onCopy(item) },
+                        onPin: { onPin(item) },
+                        onDelete: { onDelete(item) },
+                        onAction: onAction
+                    )
+                }
+            }
+        }
+    }
+}
+
+struct VitrinChipBar<Trailing: View>: View {
+    @Binding var selection: VitrinFilter
+    let counts: [VitrinFilter: Int]
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(VitrinFilter.allCases.filter { $0 == .all || (counts[$0] ?? 0) > 0 || $0 == selection }) { option in
+                chip(option)
+            }
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.horizontal, 6)
+        .frame(height: 20)
+    }
+
+    private func chip(_ option: VitrinFilter) -> some View {
+        let selected = selection == option
+        return Button {
+            withAnimation(.smooth(duration: 0.2)) { selection = option }
+        } label: {
+            HStack(spacing: 4) {
+                Text(option.rawValue)
+                if option != .all, let count = counts[option] {
+                    Text("\(count)")
+                        .font(.system(size: 10.5, weight: .regular).monospacedDigit())
+                        .opacity(0.55)
+                }
+            }
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(selected ? Color.black : Color.white.opacity(0.75))
+            .padding(.horizontal, 9)
+            .frame(height: 20)
+            .background(Capsule().fill(selected ? Color.white : Color.white.opacity(0.08)))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct VitrinSection: View {
+    let title: String
+    let icon: String
+    let items: [ClipItem]
+    var selectedID: Int64?
+    var onCopy: (ClipItem) -> Void
+    var onPin: (ClipItem) -> Void
+    var onDelete: (ClipItem) -> Void
+    var onAction: (ClipInsightAction) -> Void
+
+    static let cardSize = CGSize(width: 180, height: 112)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 10, weight: .semibold))
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.5)
+                Text("\(items.count)")
+                    .font(.system(size: 10.5, weight: .regular).monospacedDigit())
+                    .opacity(0.7)
+            }
+            .foregroundStyle(.white.opacity(0.55))
+            .padding(.horizontal, 2)
+            if items.isEmpty {
+                RoundedRectangle(cornerRadius: VitrinMetrics.cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .frame(height: Self.cardSize.height)
+                    .overlay(Text("Nothing here").font(.system(size: 11)).foregroundStyle(.white.opacity(0.4)))
+                    .padding(.vertical, 4)
+            } else {
+                ScrollViewReader { proxy in
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        VitrinCardScroller(height: Self.cardSize.height + 8, spacing: 12, inset: 4, vertical: 4) {
+                            ForEach(items) { item in
+                                VitrinCard(
+                                    item: item,
+                                    size: Self.cardSize,
+                                    selected: selectedID == item.id,
+                                    now: context.date,
+                                    onCopy: { onCopy(item) },
+                                    onPin: { onPin(item) },
+                                    onDelete: { onDelete(item) },
+                                    onAction: onAction
+                                )
+                                .id(item.id)
+                            }
+                        }
+                    }
+                    .onChange(of: selectedID) { _, id in
+                        if let id, items.contains(where: { $0.id == id }) {
+                            withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct VitrinEmptyState: View {
     var message = "Nothing copied yet"
     var detail = "Things you copy show up here."
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 5) {
             Image(systemName: "square.stack.3d.up.fill")
-                .font(.title2)
+                .font(.system(size: 18))
                 .foregroundStyle(.gray)
             Text(message)
-                .font(.subheadline.weight(.semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white)
             Text(detail)
-                .font(.caption)
+                .font(.system(size: 10.5))
                 .foregroundStyle(.gray)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
