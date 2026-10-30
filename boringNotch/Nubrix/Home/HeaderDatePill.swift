@@ -66,7 +66,7 @@ struct HeaderDatePillView: View {
 struct HeaderDatePill: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject private var model = TodayTileModel.shared
-    @ObservedObject private var coordinator = BoringViewCoordinator.shared
+    @ObservedObject private var host = NotchExtensionHost.shared
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -77,7 +77,7 @@ struct HeaderDatePill: View {
                     event: model.nextEvent(now: context.date),
                     access: model.access,
                     locale: .autoupdatingCurrent),
-                active: coordinator.currentView == .calendar,
+                active: host.currentID == NubrixCalendarSheet.extensionID && host.phase != .closing,
                 action: toggle)
         }
         .onAppear { model.refresh() }
@@ -87,12 +87,6 @@ struct HeaderDatePill: View {
     }
 
     private func toggle() {
-        withAnimation(.smooth) {
-            if coordinator.currentView == .calendar {
-                coordinator.dismissOverlay()
-            } else {
-                coordinator.showOverlay(.calendar)
-            }
-        }
+        NubrixCalendarSheet.toggle(screenUUID: vm.screenUUID)
     }
 }

@@ -4,138 +4,81 @@ import Defaults
 import SwiftUI
 
 @MainActor
-final class MirrorMode: ObservableObject {
+final class MirrorMode {
     static let shared = MirrorMode()
-
-    private struct Host {
-        weak var vm: BoringViewModel?
-    }
-
-    @Published private(set) var isActive = false
+    static let extensionID = "dev.nubrix.mirror"
 
     let camera = MirrorCamera()
 
-    private let coordinator = BoringViewCoordinator.shared
-    private var hosts: [Host] = []
-    private weak var activeHost: BoringViewModel?
-    private var monitors: [Any] = []
-    private var viewCancellable: AnyCancellable?
+    private let host = NotchExtensionHost.shared
 
-    private init() {
-        viewCancellable = coordinator.$currentView
-            .removeDuplicates()
-            .sink { [weak self] view in
-                MainActor.assumeIsolated { self?.setActive(view == .mirror) }
-            }
-    }
+    private init() {}
 
-    func register(_ vm: BoringViewModel) {
-        hosts.removeAll { $0.vm == nil }
-        guard !hosts.contains(where: { $0.vm === vm }) else { return }
-        hosts.append(Host(vm: vm))
-    }
+    var isActive: Bool { host.isPresenting(Self.extensionID) }
 
-    func toggle() {
+    func toggle(screenUUID: String? = nil) {
         if isActive {
-            exit(closeNotch: true)
-        } else if let vm = hostUnderMouse() {
-            enter(on: vm)
+            exit()
+        } else {
+            present(screenUUID: screenUUID)
         }
     }
 
-    func toggle(on vm: BoringViewModel) {
+    func toggleUnderMouse() {
         if isActive {
-            exit(closeNotch: false)
-        } else {
-            enter(on: vm)
+            exit()
+            return
         }
+        var uuid: String?
+        if Defaults[.showOnAllDisplays] {
+            let mouse = NSEvent.mouseLocation
+            uuid = NSScreen.screens.first { $0.frame.contains(mouse) }?.displayUUID
+        }
+        present(screenUUID: uuid)
     }
 
-    func enter(on vm: BoringViewModel) {
-        activeHost = vm
-        if vm.notchState == .closed {
-            coordinator.showOverlay(.mirror)
-            withAnimation(.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)) {
-                vm.open()
-            }
-        } else {
-            withAnimation(.smooth) { coordinator.showOverlay(.mirror) }
-        }
+    func present(screenUUID: String? = nil) {
+        let camera = camera
+        host.present(
+            id: Self.extensionID,
+            mode: .detached(size: MirrorMetrics.size(large: Defaults[.mirrorLarge])),
+            screenUUID: screenUUID,
+            onPresented: { camera.start() },
+            onWillDismiss: { camera.stop() },
+            content: { MirrorPanelView(camera: camera) }
+        )
     }
 
-    func exit(closeNotch: Bool) {
-        guard isActive else { return }
-        let host = activeHost
-        if closeNotch {
-            coordinator.dismissOverlay()
-            host?.close()
-        } else {
-            withAnimation(.smooth) { coordinator.dismissOverlay() }
-        }
-    }
-
-    private func hostUnderMouse() -> BoringViewModel? {
-        hosts.removeAll { $0.vm == nil }
-        let live = hosts.compactMap(\.vm)
-        let mouse = NSEvent.mouseLocation
-        let underMouse = live.first { vm in
-            NSScreen.screen(withUUID: vm.screenUUID ?? coordinator.selectedScreenUUID)?.frame.contains(mouse) == true
-        }
-        return underMouse ?? live.first
-    }
-
-    private func setActive(_ on: Bool) {
-        guard on != isActive else { return }
-        isActive = on
-        if on {
-            SharingStateManager.shared.beginInteraction()
-            camera.start()
-            installMonitors()
-        } else {
-            camera.stop()
-            removeMonitors()
-            SharingStateManager.shared.endInteraction()
-        }
-    }
-
-    private func installMonitors() {
-        removeMonitors()
-        if let click = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] _ in
-            Task { @MainActor in self?.exit(closeNotch: true) }
-        }) {
-            monitors.append(click)
-        }
-        if let key = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
-            guard event.keyCode == 53 else { return event }
-            Task { @MainActor in self?.exit(closeNotch: true) }
-            return nil
-        }) {
-            monitors.append(key)
-        }
-    }
-
-    private func removeMonitors() {
-        monitors.forEach { NSEvent.removeMonitor($0) }
-        monitors.removeAll()
+    func exit(animated: Bool = true) {
+        host.dismiss(id: Self.extensionID, animated: animated)
     }
 }
 
-struct MirrorNotchView: View {
-    @ObservedObject private var mode = MirrorMode.shared
-    @ObservedObject private var camera = MirrorMode.shared.camera
+struct MirrorPanelView: View {
+    @ObservedObject var camera: MirrorCamera
     @Default(.mirrorFlipped) private var flipped
+    @Default(.mirrorLarge) private var large
+    @Environment(\.notchExtensionDismiss) private var dismiss
+    @State private var hovering = false
 
     var body: some View {
         MirrorChromeView(
             state: camera.state,
             preview: MirrorPreviewView(session: camera.session, mirrored: flipped),
+            large: large,
+            controlsVisible: hovering,
             onFlip: { flipped.toggle() },
-            onClose: { mode.exit(closeNotch: false) },
+            onToggleSize: {
+                large.toggle()
+                NotchExtensionHost.shared.resize(to: MirrorMetrics.size(large: large))
+            },
+            onClose: { dismiss() },
             onOpenSettings: {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
                     NSWorkspace.shared.open(url)
                 }
             }
         )
+        .notchHover { hovering = $0 }
     }
 }

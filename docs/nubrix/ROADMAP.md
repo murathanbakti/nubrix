@@ -105,3 +105,15 @@ Left for publishing:
 - Private vulnerability reporting channel.
 - Screenshots, final app icon, and `CFBundleDisplayName`/`CFBundleName` in the
   Xcode project (still "Boring Notch").
+
+## Notch extensions
+
+`Nubrix/Shell/NotchExtensionHost` presents content that grows out of the notch
+(goo/mitosis transition) in a borderless panel; one extension at a time.
+- Mirror: detached mode, the notch splits and the camera panel floats below it.
+  Global shortcut ⌃⌥M. The host handles Esc.
+- Calendar: attached mode, a sheet that drops from the notch (header date pill
+  or ⌃⌥K). The sheet takes key focus on open and activates Nubrix; on close the
+  previously frontmost app is re-activated. The calendar owns Esc (cancels a
+  form or the go-to field first, closes only when nothing is left to cancel).
+- The old in-notch calendar tab and the coordinator overlay API were removed.

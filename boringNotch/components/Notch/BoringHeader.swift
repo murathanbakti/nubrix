@@ -48,14 +48,14 @@ struct BoringHeader: View {
                         }
                         if Defaults[.showMirror] {
                             Button(action: {
-                                MirrorMode.shared.toggle(on: vm)
+                                MirrorMode.shared.toggle(screenUUID: vm.screenUUID)
                             }) {
                                 Capsule()
-                                    .fill(coordinator.currentView == .mirror ? Color.white : Color.black)
+                                    .fill(Color.black)
                                     .frame(width: 30, height: 30)
                                     .overlay {
                                         Image(systemName: "web.camera")
-                                            .foregroundColor(coordinator.currentView == .mirror ? .black : .white)
+                                            .foregroundColor(.white)
                                             .padding()
                                             .imageScale(.medium)
                                     }

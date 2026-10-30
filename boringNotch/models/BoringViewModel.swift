@@ -29,7 +29,6 @@ class BoringViewModel: NSObject, ObservableObject {
     @Published var hideOnClosed: Bool = true
 
     @Published var edgeAutoOpenActive: Bool = false
-    @Published var isHoveringCalendar: Bool = false
     @Published var isBatteryPopoverActive: Bool = false
 
     @Published var screenUUID: String?
@@ -67,6 +66,17 @@ class BoringViewModel: NSObject, ObservableObject {
             .store(in: &cancellables)
         
         setupDetectorObserver()
+
+        NotificationCenter.default.publisher(for: .notchExtensionRequestNotchClose)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] note in
+                guard let self, self.notchState == .open else { return }
+                self.close()
+                if self.notchState == .closed, let request = note.object as? NotchCloseRequest {
+                    request.didClose = true
+                }
+            }
+            .store(in: &cancellables)
     }
     
     private func setupDetectorObserver() {
@@ -202,7 +212,6 @@ class BoringViewModel: NSObject, ObservableObject {
         if SharingStateManager.shared.preventNotchClose {
             return
         }
-        coordinator.dismissOverlay()
         self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.closedNotchSize = self.notchSize
         self.notchState = .closed

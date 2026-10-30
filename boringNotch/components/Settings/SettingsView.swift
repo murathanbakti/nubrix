@@ -1745,6 +1745,11 @@ struct Shortcuts: View {
             } header: {
                 Text("Mirror")
             }
+            Section {
+                KeyboardShortcuts.Recorder("Toggle Calendar:", name: .toggleCalendar)
+            } header: {
+                Text("Calendar")
+            }
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Shortcuts")
