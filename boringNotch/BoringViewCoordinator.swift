@@ -51,6 +51,21 @@ class BoringViewCoordinator: ObservableObject {
     static let shared = BoringViewCoordinator()
 
     @Published var currentView: NotchViews = .home
+    private var overlayReturnView: NotchViews = .home
+
+    var isOverlayShowing: Bool {
+        currentView == .calendar || currentView == .mirror
+    }
+
+    func showOverlay(_ view: NotchViews) {
+        if !isOverlayShowing { overlayReturnView = currentView }
+        currentView = view
+    }
+
+    func dismissOverlay() {
+        guard isOverlayShowing else { return }
+        currentView = overlayReturnView
+    }
     @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
     private var expandingViewDispatch: DispatchWorkItem?

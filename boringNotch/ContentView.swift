@@ -268,6 +268,7 @@ struct ContentView: View {
         .background(dragDetector)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
+        .onAppear { MirrorMode.shared.register(vm) }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
             anyDropDebounceTask?.cancel()
 
@@ -424,6 +425,10 @@ struct ContentView: View {
                         AgentSessionsView()
                     case .dev:
                         DevTabView()
+                    case .calendar:
+                        CalendarNotchView()
+                    case .mirror:
+                        MirrorNotchView()
                     }
                 }
                 .transition(

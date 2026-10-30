@@ -2,7 +2,6 @@ import Defaults
 import KeyboardShortcuts
 
 extension Defaults.Keys {
-    static let mirrorSizeIndex = Key<Int>("mirrorSizeIndex", default: 1)
     static let mirrorFlipped = Key<Bool>("mirrorFlipped", default: true)
 }
 

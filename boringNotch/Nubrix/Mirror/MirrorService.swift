@@ -8,7 +8,7 @@ enum MirrorService {
 
     static func start() {
         KeyboardShortcuts.onKeyDown(for: .toggleMirror) {
-            Task { @MainActor in MirrorPanelController.shared.toggle() }
+            Task { @MainActor in MirrorMode.shared.toggle() }
         }
         guard workspaceTokens.isEmpty else { return }
         let center = NSWorkspace.shared.notificationCenter
@@ -19,7 +19,7 @@ enum MirrorService {
         ]
         workspaceTokens = names.map { name in
             center.addObserver(forName: name, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { MirrorPanelController.shared.close() }
+                MainActor.assumeIsolated { MirrorMode.shared.exit(closeNotch: true) }
             }
         }
         lockToken = DistributedNotificationCenter.default().addObserver(
@@ -27,7 +27,7 @@ enum MirrorService {
             object: nil,
             queue: .main
         ) { _ in
-            MainActor.assumeIsolated { MirrorPanelController.shared.close() }
+            MainActor.assumeIsolated { MirrorMode.shared.exit(closeNotch: true) }
         }
     }
 
@@ -39,6 +39,6 @@ enum MirrorService {
             DistributedNotificationCenter.default().removeObserver(lockToken)
         }
         lockToken = nil
-        MirrorPanelController.shared.close()
+        MirrorMode.shared.exit(closeNotch: true)
     }
 }

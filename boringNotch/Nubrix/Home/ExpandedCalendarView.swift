@@ -164,3 +164,14 @@ struct ExpandedCalendarView: View {
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 }
+
+struct CalendarNotchView: View {
+    @EnvironmentObject var vm: BoringViewModel
+    @ObservedObject private var coordinator = BoringViewCoordinator.shared
+
+    var body: some View {
+        ExpandedCalendarView(onBack: { withAnimation(.smooth) { coordinator.dismissOverlay() } })
+            .onHover { vm.isHoveringCalendar = $0 }
+            .onDisappear { vm.isHoveringCalendar = false }
+    }
+}

@@ -14,7 +14,6 @@ struct BoringHeader: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var agents = AgentSessionStore.shared
-    @ObservedObject var mirror = MirrorPanelController.shared
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -38,22 +37,25 @@ struct BoringHeader: View {
                     }
             }
 
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 if vm.notchState == .open {
                     if isHUDType(coordinator.sneakPeek.type) && coordinator.sneakPeek.show && Defaults[.showOpenNotchHUD] {
                         OpenNotchHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon)
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
+                        if Defaults[.showCalendar] {
+                            HeaderDatePill()
+                        }
                         if Defaults[.showMirror] {
                             Button(action: {
-                                MirrorPanelController.shared.toggle()
+                                MirrorMode.shared.toggle(on: vm)
                             }) {
                                 Capsule()
-                                    .fill(mirror.isVisible ? Color.white : Color.black)
+                                    .fill(coordinator.currentView == .mirror ? Color.white : Color.black)
                                     .frame(width: 30, height: 30)
                                     .overlay {
                                         Image(systemName: "web.camera")
-                                            .foregroundColor(mirror.isVisible ? .black : .white)
+                                            .foregroundColor(coordinator.currentView == .mirror ? .black : .white)
                                             .padding()
                                             .imageScale(.medium)
                                     }
