@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import SwiftUI
 
 struct DevBannerView: View {
@@ -37,22 +38,42 @@ struct DevBannerView: View {
 struct DevTabView: View {
     @ObservedObject var monitor = DevPortMonitor.shared
     @ObservedObject var store = DevNotificationStore.shared
+    @ObservedObject var github = GitHubStore.shared
     @State private var copiedPort: Int?
+    @State private var section: DevSection = Defaults[.githubTokenSaved] ? .github : .servers
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            serversColumn
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            notificationsColumn
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        VStack(alignment: .leading, spacing: 6) {
+            DevSectionBar(selection: $section, github: github)
+            Group {
+                switch section {
+                case .github:
+                    GitHubSection(store: github)
+                case .servers:
+                    serversColumn
+                case .notifications:
+                    notificationsColumn
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .padding(.top, 4)
-        .onAppear {
-            DevPortMonitor.shared.setActive("tab", true)
+        .onReceive(DevTabNavigation.shared.$requested) { requested in
+            guard let requested else { return }
+            section = requested
+            DevTabNavigation.shared.requested = nil
         }
+        .onAppear { updateActivity() }
+        .onChange(of: section) { _, _ in updateActivity() }
         .onDisappear {
             DevPortMonitor.shared.setActive("tab", false)
+            GitHubStore.shared.setSectionVisible(false)
         }
+    }
+
+    private func updateActivity() {
+        DevPortMonitor.shared.setActive("tab", section == .servers)
+        GitHubStore.shared.setSectionVisible(section == .github)
     }
 
     private var serversColumn: some View {
@@ -65,7 +86,7 @@ struct DevTabView: View {
                 placeholder(icon: "bolt.horizontal", text: "Nothing listening", detail: "Watching localhost ports.")
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 4) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible())], spacing: 4) {
                         ForEach(monitor.servers) { server in
                             serverRow(server)
                         }

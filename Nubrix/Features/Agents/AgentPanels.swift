@@ -68,6 +68,7 @@ struct AgentContextBar: View {
 struct AgentSessionRowBody: View {
     let session: AgentSession
     var hovering = false
+    var pullRequest: GitHubPR? = nil
     var onRemove: () -> Void = {}
 
     var body: some View {
@@ -101,7 +102,10 @@ struct AgentSessionRowBody: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {
-                AgentSourceChip(source: session.source)
+                HStack(spacing: 4) {
+                    if let pullRequest { GitHubPRChip(pr: pullRequest) }
+                    AgentSourceChip(source: session.source)
+                }
                 if session.contextUsedPercent != nil || session.costUSD != nil {
                     HStack(spacing: 6) {
                         if let percent = session.contextUsedPercent {

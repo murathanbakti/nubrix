@@ -8,6 +8,7 @@ struct DevNotification: Identifiable, Equatable {
     let style: DevNotificationStyle
     let duration: Double
     let date: Date
+    var isGitHub = false
 }
 
 extension DevNotificationStyle {
@@ -55,6 +56,11 @@ final class DevNotificationStore: ObservableObject {
         if notifications.count > Self.capacity { notifications.removeLast(notifications.count - Self.capacity) }
         NubrixInbox.shared.notchctl(title: request.title, message: request.message)
         show(notification)
+    }
+
+    func showGitHub(title: String, message: String, style: DevNotificationStyle) {
+        guard Defaults[.devEnabled] else { return }
+        show(DevNotification(message: message, title: title, style: style, duration: 6, date: Date(), isGitHub: true))
     }
 
     func clear() {

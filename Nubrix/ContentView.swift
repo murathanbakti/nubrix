@@ -181,9 +181,11 @@ struct ContentView: View {
                             coordinator.currentView = .vitrin
                             screenshotBanner.dismissBanner()
                         } else if vm.notchState == .closed && devNotifications.banner != nil {
+                            if devNotifications.banner?.isGitHub == true { DevTabNavigation.shared.requested = .github }
                             coordinator.currentView = .dev
                             devNotifications.dismissBanner()
                             inbox.markRead(.notchctl)
+                            inbox.markRead(.github)
                         } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()

@@ -37,6 +37,12 @@ Everything runs locally. There is no account, no cloud service and no telemetry.
 - `notchctl` is a bash and curl CLI that shows a banner in the closed notch, for example `gh run watch && notchctl notify "CI green"`
 - The "Dev" tab keeps the last notifications and shows which localhost ports (3000, 5173, 8080, 5432 and others, configurable) are listening; clicking an HTTP port opens it in the browser
 
+**GitHub** (inside the Dev tab and on Claude session rows)
+- The Dev tab has a GitHub, Servers and Notifications switch. GitHub shows three columns: PRs where your review is requested, your open PRs (CI checks, review decision, merge conflicts, draft) and recent GitHub Actions runs of your watched repositories
+- A closed-notch banner and a notification entry appear for a new review request, your PR's CI turning red or green, a merge conflict, and a failed workflow run on a default branch, on your PR branches, on your Claude session branches or started by you
+- Each Claude session row shows the PR of its branch as a small chip (`#123` with a CI mark); click it to open the PR
+- Read-only: Nubrix never writes to GitHub. See [GitHub integration](#github-integration)
+
 ## Screenshots
 
 Screenshots will be added here.
@@ -106,7 +112,7 @@ Run `scripts/install-hooks.sh` and paste the snippet it prints, or add the hook 
 
 ### Source label, branch and jump
 
-The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch. Nothing else is read from your project.
+The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch and the GitHub repository (`owner/repo`, parsed from `git remote get-url origin`; only `github.com` https, ssh and `git@github.com:` remotes count, credentials in the URL are never forwarded, anything else sends nothing). Nothing else is read from your project.
 
 ### Context and usage meter (status line)
 
@@ -149,6 +155,21 @@ Manual setup: in `~/.claude/settings.json`, add a second hook next to the existi
   ] }
 ]
 ```
+
+## GitHub integration
+
+Nubrix reads GitHub with a **fine-grained, read-only personal access token** that you create for selected repositories (Settings, GitHub, "Create token on GitHub"). It is stored in the macOS Keychain (generic password, service `dev.nubrix.github`, account `token`, accessible after first unlock, this device only) and is never written to preferences, logs or files. With ad hoc signing the Keychain may ask once for access after you update Nubrix.
+
+Why this and not something else:
+- **Not the `gh` CLI login.** Its token carries broad write scopes (repo, workflow, ...); anything that can read the Keychain item or a hook could push code. A fine-grained token can only read the repositories you tick.
+- **Not SSH keys.** They authenticate git over ssh, give full read and write access to every repository of the account, and cannot call the API that lists PRs, reviews and Actions runs.
+- The sandboxed app cannot use another tool's credentials anyway; a token that only Nubrix holds can be revoked on github.com without affecting anything else.
+
+Token permissions (all Read, everything else No access): Metadata (automatic), Pull requests, Actions, Commit statuses, and optionally Checks. Repository access: only select repositories.
+
+How it talks to GitHub: `POST /graphql` (one query for your open PRs and your review requests with `statusCheckRollup`, `reviewDecision`, `mergeable`, `isDraft`), `GET /user`, `GET /user/repos` (the repositories the token can read, refreshed every 10 minutes), `GET /repos/{owner}/{repo}/actions/runs?per_page=10` with `If-None-Match` (a 304 costs no rate limit) for at most 10 watched repositories, and, only if GraphQL cannot read the check rollup, `GET /repos/{owner}/{repo}/commits/{sha}/status` and `.../check-runs`. Requests carry `X-GitHub-Api-Version: 2022-11-28`, redirects are never followed and the token only goes to `api.github.com`. `X-RateLimit-Remaining` and `Retry-After` are honoured: below a 25 request reserve, or after a 403/429, Nubrix stops until the reset time.
+
+Polling: every 120 s, every 30 s while the GitHub section is visible or a run is in progress; paused while the Mac sleeps or is locked and without a token; refresh on opening the section. Watched repositories: the ones the token can read (switch them off in Settings), repositories you add by hand, the repositories of your Claude sessions and of your open PRs.
 
 ## notchctl
 

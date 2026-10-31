@@ -5,7 +5,7 @@ extension InboxSource {
     var targetTab: NotchViews {
         switch self {
         case .claude: return .agents
-        case .notchctl: return .dev
+        case .notchctl, .github: return .dev
         }
     }
 
@@ -13,6 +13,7 @@ extension InboxSource {
         switch self {
         case .claude: return "Claude Code"
         case .notchctl: return "notchctl"
+        case .github: return "GitHub"
         }
     }
 
@@ -20,14 +21,15 @@ extension InboxSource {
         switch self {
         case .claude: return Defaults[.inboxClaudeEnabled]
         case .notchctl: return Defaults[.inboxNotchctlEnabled]
+        case .github: return Defaults[.inboxGithubEnabled]
         }
     }
 
-    init?(tab: NotchViews) {
+    static func sources(for tab: NotchViews) -> [InboxSource] {
         switch tab {
-        case .agents: self = .claude
-        case .dev: self = .notchctl
-        default: return nil
+        case .agents: return [.claude]
+        case .dev: return [.notchctl, .github]
+        default: return []
         }
     }
 }
@@ -53,7 +55,7 @@ final class NubrixInbox: ObservableObject {
     var showsWing: Bool { Defaults[.inboxKeepIconInNotch] && ledger.unreadCount > 0 }
 
     func severity(for tab: NotchViews) -> InboxSeverity? {
-        InboxSource(tab: tab).flatMap { ledger.topSeverity(for: $0) }
+        InboxSource.sources(for: tab).compactMap { ledger.topSeverity(for: $0) }.max()
     }
 
     func sessionChanged(id: String, project: String, state: AgentSessionState, detail: String?) {
@@ -87,9 +89,25 @@ final class NubrixInbox: ObservableObject {
         update { $0.recordNotice(title: title ?? "notchctl", message: message) }
     }
 
+    func github(_ event: GitHubEvent) {
+        guard InboxSource.github.isEnabled else { return }
+        let severity: InboxSeverity
+        switch event.kind {
+        case .reviewRequested: severity = .notice
+        case .ciPassed: severity = .done
+        case .ciFailed, .runFailed, .conflict: severity = .failed
+        }
+        update { $0.recordGitHub(key: event.key, severity: severity, title: event.title, message: event.message) }
+    }
+
+    func githubResolved(_ keys: [String]) {
+        update { $0.clearGitHub(keys: keys) }
+    }
+
     func markViewed(_ tab: NotchViews) {
-        guard let source = InboxSource(tab: tab), ledger.unreadCount(for: source) > 0 else { return }
-        update { $0.markRead(source: source) }
+        for source in InboxSource.sources(for: tab) where ledger.unreadCount(for: source) > 0 {
+            update { $0.markRead(source: source) }
+        }
     }
 
     func markRead(_ source: InboxSource) {

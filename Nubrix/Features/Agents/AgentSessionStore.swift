@@ -63,6 +63,7 @@ final class AgentSessionStore: ObservableObject {
         if let cwd = event.cwd, !cwd.isEmpty { session.cwd = cwd }
         session.source.merge(event.source)
         if let branch = event.branch, !branch.isEmpty { session.branch = branch }
+        if let remote = event.remote { session.remote = remote }
         session.state = next
         session.updatedAt = now
         if let detail = event.detail, !detail.isEmpty { session.detail = detail }

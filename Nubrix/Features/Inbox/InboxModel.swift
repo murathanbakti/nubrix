@@ -3,6 +3,7 @@ import Foundation
 enum InboxSource: String, CaseIterable {
     case claude
     case notchctl
+    case github
 }
 
 enum InboxSeverity: Int, Comparable {
@@ -23,6 +24,7 @@ struct InboxEntry: Identifiable, Equatable {
     let date: Date
     let sessionID: String?
     var isContextWarning = false
+    var key: String? = nil
 }
 
 struct InboxLedger {
@@ -70,6 +72,19 @@ struct InboxLedger {
     mutating func recordNotice(title: String, message: String, date: Date = Date()) -> Bool {
         insert(InboxEntry(source: .notchctl, severity: .notice, title: title, message: message, date: date, sessionID: nil))
         return true
+    }
+
+    @discardableResult
+    mutating func recordGitHub(key: String, severity: InboxSeverity, title: String, message: String, date: Date = Date()) -> Bool {
+        entries.removeAll { $0.source == .github && $0.key == key }
+        insert(InboxEntry(source: .github, severity: severity, title: title, message: message, date: date, sessionID: nil, key: key))
+        return true
+    }
+
+    @discardableResult
+    mutating func clearGitHub(keys: [String]) -> Bool {
+        let set = Set(keys)
+        return remove { $0.source == .github && $0.key.map(set.contains) == true }
     }
 
     @discardableResult

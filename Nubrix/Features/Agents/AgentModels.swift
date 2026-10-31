@@ -206,6 +206,7 @@ struct AgentSession: Identifiable, Equatable {
     var updatedAt: Date
     var source = AgentSourceInfo()
     var branch: String?
+    var remote: String?
     var contextUsedPercent: Double?
     var contextWindowSize: Int?
     var costUSD: Double?
@@ -281,6 +282,7 @@ struct AgentHookEvent {
     let toolKey: String?
     var source = AgentSourceInfo()
     var branch: String?
+    var remote: String?
 
     init?(json: Data) {
         guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],

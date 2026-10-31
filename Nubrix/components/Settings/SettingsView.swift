@@ -57,6 +57,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Dev") {
                     Label("Dev", systemImage: "terminal.fill")
                 }
+                NavigationLink(value: "GitHub") {
+                    Label("GitHub", systemImage: "arrow.triangle.branch")
+                }
                 NavigationLink(value: "Notifications") {
                     Label("Notifications", systemImage: "bell.badge.fill")
                 }
@@ -98,6 +101,8 @@ struct SettingsView: View {
                     VitrinSettings()
                 case "Dev":
                     DevSettings()
+                case "GitHub":
+                    GitHubSettings()
                 case "Notifications":
                     InboxSettings()
                 case "Shortcuts":
@@ -128,6 +133,11 @@ struct SettingsView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .tint(.effectiveAccent)
         .id(accentColorUpdateTrigger)
+        .onReceive(SettingsNavigation.shared.$requested) { requested in
+            guard let requested else { return }
+            selectedTab = requested
+            SettingsNavigation.shared.requested = nil
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AccentColorChanged"))) { _ in
             accentColorUpdateTrigger = UUID()
         }

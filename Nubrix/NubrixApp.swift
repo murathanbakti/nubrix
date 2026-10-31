@@ -285,6 +285,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AgentEventServer.shared.start()
+        GitHubStore.shared.start {
+            AgentSessionStore.shared.sessions.compactMap { session in
+                session.remote.map { GitHubSessionRef(repo: $0, branch: session.branch) }
+            }
+        }
         VitrinService.start()
         MirrorService.start()
         NubrixCalendarService.start()

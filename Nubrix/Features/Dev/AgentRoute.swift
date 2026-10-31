@@ -66,6 +66,7 @@ enum AgentRoute {
             }
             event.source = AgentSourceInfo(headers: request.headers)
             event.branch = branch(request)
+            event.remote = remote(request)
             return Outcome(status: "204 No Content", action: .hook(event))
         case statusPath:
             guard var update = AgentStatusUpdate(json: request.body) else {
@@ -107,6 +108,10 @@ enum AgentRoute {
     private static func branch(_ request: HTTPRequest) -> String? {
         let value = AgentText.sanitized(request.headers["x-nubrix-branch"], limit: 100)
         return value.isEmpty ? nil : value
+    }
+
+    private static func remote(_ request: HTTPRequest) -> String? {
+        GitHubRemote.normalized(request.headers["x-nubrix-remote"])
     }
 
     static func constantTimeEquals(_ lhs: String, _ rhs: String) -> Bool {

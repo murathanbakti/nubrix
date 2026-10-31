@@ -206,12 +206,14 @@ struct AgentSessionsView: View {
 struct AgentSessionRow: View {
     let session: AgentSession
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var github = GitHubStore.shared
     @State private var hovering = false
 
     var body: some View {
         AgentSessionRowBody(
             session: session,
             hovering: hovering,
+            pullRequest: github.pullRequest(repo: session.remote, branch: session.branch),
             onRemove: { withAnimation(.smooth) { agents.remove(session.id) } }
         )
         .onHover { hovering = $0 }

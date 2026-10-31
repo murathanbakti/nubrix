@@ -72,6 +72,7 @@ struct InboxSettings: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @Default(.inboxClaudeEnabled) var claudeEnabled
     @Default(.inboxNotchctlEnabled) var notchctlEnabled
+    @Default(.inboxGithubEnabled) var githubEnabled
 
     var body: some View {
         Form {
@@ -91,6 +92,9 @@ struct InboxSettings: View {
                 }
                 Defaults.Toggle(key: .inboxNotchctlEnabled) {
                     Text("notchctl")
+                }
+                Defaults.Toggle(key: .inboxGithubEnabled) {
+                    Text("GitHub")
                 }
             } header: {
                 Text("Sources")
@@ -135,6 +139,9 @@ struct InboxSettings: View {
         }
         .onChange(of: notchctlEnabled) { _, on in
             if !on { inbox.markRead(.notchctl) }
+        }
+        .onChange(of: githubEnabled) { _, on in
+            if !on { inbox.markRead(.github) }
         }
     }
 }

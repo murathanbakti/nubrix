@@ -99,7 +99,22 @@ UI:
   6379, 8000, 8080, 8888, 9000 …) with short TCP connects every few seconds and
   shows which are up in the "Dev" tab; clicking an HTTP port opens it in the
   browser.
-- A direct GitHub module is dropped: the sandbox cannot use `gh` credentials.
+- A GitHub module via the `gh` login was dropped (the sandbox cannot use `gh` credentials); it came back as a token-based integration, see below.
+
+## GitHub integration (done, not yet tried against live GitHub)
+
+- `Nubrix/Features/GitHub/`: Keychain token store, URLSession client (GraphQL for PR search,
+  REST for Actions runs with ETags, rate-limit headers and Retry-After honoured, redirects
+  blocked), polling store (120 s idle, 30 s while visible or a run is in progress, paused on
+  sleep and lock), change detector that decides which banners and inbox entries fire.
+- Dev tab: GitHub / Servers / Notifications switch with Review requested, My PRs and Actions
+  columns; Claude session rows show the PR of their branch (`nubrix-hook` sends
+  `X-Nubrix-Remote` with the branch); Settings, GitHub holds the token, watched repositories
+  and notification toggles; new inbox source `github`.
+- Auth is a fine-grained read-only PAT, not the `gh` login or SSH keys (see README).
+- Not verified yet: GraphQL `statusCheckRollup` with a fine-grained token (REST fallback is in
+  place), the exact set of permission names in GitHub's token form, Keychain prompts after an
+  ad hoc re-sign, fork PRs (the session's `origin` is the fork, the PR lives upstream).
 
 ## Phase 5: Open source release (local preparation done, publishing pending)
 
