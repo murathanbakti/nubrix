@@ -59,6 +59,7 @@ enum ClaudePlanFailure: String, Codable, Sendable {
     case notSubscriber
     case timeout
     case failed
+    case unsupported
 }
 
 struct ClaudePlanSnapshot: Codable, Equatable, Sendable {
@@ -133,6 +134,8 @@ enum ClaudePlanPolicy {
     static let openRefreshAge: TimeInterval = 2 * 60
     static let stopRefreshGap: TimeInterval = 2 * 60
     static let requestTimeout: TimeInterval = 45
+    static let dormantAfter: TimeInterval = 6 * 3600
+    static let batteryFactor = 2.0
 
     static func baseInterval(lastActivity: Date?, now: Date) -> TimeInterval {
         guard let lastActivity, now.timeIntervalSince(lastActivity) <= activityWindow else { return idleInterval }
@@ -142,7 +145,23 @@ enum ClaudePlanPolicy {
     static func delay(base: TimeInterval, failures: Int) -> TimeInterval {
         guard failures > 0 else { return base }
         let factor = pow(2.0, Double(min(failures, 8)))
-        return min(maxBackoff, max(base, base * factor))
+        return min(max(maxBackoff, base), max(base, base * factor))
+    }
+
+    static func effectiveBase(lastActivity: Date?, now: Date, onBattery: Bool) -> TimeInterval {
+        let base = baseInterval(lastActivity: lastActivity, now: now)
+        return onBattery ? base * batteryFactor : base
+    }
+
+    static func timerDelay(lastActivity: Date?, now: Date, failures: Int, onBattery: Bool, lowPower: Bool) -> TimeInterval? {
+        guard !lowPower, let lastActivity, now.timeIntervalSince(lastActivity) <= dormantAfter else { return nil }
+        let base = effectiveBase(lastActivity: lastActivity, now: now, onBattery: onBattery)
+        return delay(base: base, failures: failures)
+    }
+
+    static func resumeWait(lastAttempt: Date?, delay: TimeInterval, now: Date, minimum: TimeInterval) -> TimeInterval {
+        guard let lastAttempt else { return minimum }
+        return max(minimum, lastAttempt.addingTimeInterval(delay).timeIntervalSince(now))
     }
 
     static func shouldRefreshOnOpen(lastAttempt: Date?, lastSuccess: Date?, failures: Int,

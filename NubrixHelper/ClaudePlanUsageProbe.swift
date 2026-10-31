@@ -16,6 +16,7 @@ enum ProbeError: String, Codable {
     case notSubscriber
     case timeout
     case failed
+    case unsupported
 }
 
 struct ProbeResult: Codable, Equatable {
@@ -174,10 +175,67 @@ struct ProbeExecution {
     var launched = false
     var timedOut = false
     var overflowed = false
+    var unsupported = false
+}
+
+struct ProbeStreamInspector {
+    static let maxLine = 512 * 1024
+    private static let reportMarker = Data("usage_report".utf8)
+
+    private var pending = Data()
+    private var skipping = false
+    private(set) var unsupported = false
+
+    mutating func feed(_ chunk: Data) -> Bool {
+        guard !unsupported else { return false }
+        var rest = chunk[...]
+        while let newline = rest.firstIndex(of: 0x0A) {
+            let head = rest[rest.startIndex..<newline]
+            rest = rest[rest.index(after: newline)...]
+            if skipping {
+                skipping = false
+            } else {
+                pending.append(contentsOf: head)
+                let line = pending
+                pending.removeAll(keepingCapacity: true)
+                if inspect(line) { return true }
+            }
+        }
+        if !skipping {
+            pending.append(contentsOf: rest)
+            if pending.count > Self.maxLine {
+                pending.removeAll(keepingCapacity: false)
+                skipping = true
+            }
+        }
+        return false
+    }
+
+    private mutating func inspect(_ line: Data) -> Bool {
+        guard line.first == 0x7B, line.count <= Self.maxLine,
+              line.range(of: Self.reportMarker) == nil,
+              let object = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
+              let type = object["type"] as? String else { return false }
+        switch type {
+        case "system":
+            guard object["subtype"] as? String == "init" else { return false }
+            let commands = object["slash_commands"] as? [Any] ?? []
+            if !commands.contains(where: { ($0 as? String) == "usage" }) { unsupported = true }
+        case "result":
+            if let cost = object["total_cost_usd"] as? NSNumber, cost.doubleValue > 0 { unsupported = true }
+            if let turns = object["num_turns"] as? NSNumber, turns.intValue > 0 { unsupported = true }
+        default:
+            break
+        }
+        return unsupported
+    }
 }
 
 enum ClaudePlanUsageProbe {
-    static let arguments = ["-p", "--output-format", "stream-json", "--verbose", "--setting-sources", "project", "/usage"]
+    static let arguments = [
+        "-p", "--output-format", "stream-json", "--verbose", "--setting-sources", "project",
+        "--tools", "", "--strict-mcp-config", "--no-session-persistence", "/usage"
+    ]
     static let timeout: TimeInterval = 30
     static let outputCap = 1_048_576
     static let searchPath = "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin"
@@ -199,8 +257,9 @@ enum ClaudePlanUsageProbe {
             gate.unlock()
         }
 
-        guard let home = ClaudeExecutableLocator.realHome(),
-              let executable = ClaudeExecutableLocator.locate(home: home) else {
+        guard let home = ClaudeExecutableLocator.realHome() else { return .failure(.notInstalled) }
+        LegacyTranscriptCleaner.runOnce(home: home)
+        guard let executable = ClaudeExecutableLocator.locate(home: home) else {
             return .failure(.notInstalled)
         }
         guard let directory = makeScratchDirectory() else { return .failure(.failed) }
@@ -216,6 +275,7 @@ enum ClaudePlanUsageProbe {
         let run = execute(executable: executable, arguments: arguments, environment: environment,
                           directory: directory, timeout: timeout, cap: outputCap)
         guard run.launched else { return .failure(.failed) }
+        if run.unsupported { return .failure(.unsupported) }
         let parsed = ClaudePlanUsageParser.parse(run.data)
         if parsed.error == nil { return parsed }
         if run.timedOut { return .failure(.timeout) }
@@ -235,6 +295,7 @@ enum ClaudePlanUsageProbe {
         process.arguments = arguments
         process.environment = environment
         process.currentDirectoryURL = directory
+        process.qualityOfService = .utility
         process.standardInput = FileHandle(forReadingAtPath: "/dev/null")
         process.standardError = FileHandle(forWritingAtPath: "/dev/null")
         let pipe = Pipe()
@@ -258,7 +319,11 @@ enum ClaudePlanUsageProbe {
             while true {
                 let chunk = reader.availableData
                 if chunk.isEmpty { break }
-                if box.append(chunk) { kill(pid, SIGTERM) }
+                switch box.append(chunk) {
+                case .continue: break
+                case .overflow: kill(pid, SIGTERM)
+                case .unsupported: kill(pid, SIGKILL)
+                }
             }
             readerDone.signal()
         }
@@ -278,8 +343,15 @@ enum ClaudePlanUsageProbe {
         let snapshot = box.snapshot()
         execution.data = snapshot.data
         execution.overflowed = snapshot.overflowed
+        execution.unsupported = snapshot.unsupported
         return execution
     }
+}
+
+private enum OutputAction {
+    case `continue`
+    case overflow
+    case unsupported
 }
 
 private final class OutputBox: @unchecked Sendable {
@@ -287,26 +359,66 @@ private final class OutputBox: @unchecked Sendable {
     private let cap: Int
     private var data = Data()
     private var overflowed = false
+    private var inspector = ProbeStreamInspector()
 
     init(cap: Int) { self.cap = cap }
 
-    func append(_ chunk: Data) -> Bool {
+    func append(_ chunk: Data) -> OutputAction {
         lock.lock()
         defer { lock.unlock() }
-        guard !overflowed else { return false }
+        guard !overflowed else { return .continue }
         let room = cap - data.count
+        let wasUnsupported = inspector.unsupported
         if chunk.count > room {
             data.append(chunk.prefix(max(0, room)))
             overflowed = true
-            return true
+            _ = inspector.feed(chunk.prefix(max(0, room)))
+            return inspector.unsupported ? .unsupported : .overflow
         }
         data.append(chunk)
-        return false
+        if inspector.feed(chunk), !wasUnsupported { return .unsupported }
+        return .continue
     }
 
-    func snapshot() -> (data: Data, overflowed: Bool) {
+    func snapshot() -> (data: Data, overflowed: Bool, unsupported: Bool) {
         lock.lock()
         defer { lock.unlock() }
-        return (data, overflowed)
+        return (data, overflowed, inspector.unsupported)
+    }
+}
+
+enum LegacyTranscriptCleaner {
+    private static let lock = NSLock()
+    private static var done = false
+
+    static func runOnce(home: String) {
+        lock.lock()
+        let already = done
+        done = true
+        lock.unlock()
+        if already { return }
+        clean(projects: home + "/.claude/projects", uid: getuid())
+    }
+
+    static func matches(_ name: String) -> Bool {
+        let marker = "-T-nubrix-usage-"
+        guard name.hasPrefix("-private-var-folders-"),
+              let range = name.range(of: marker, options: .backwards) else { return false }
+        let suffix = name[range.upperBound...]
+        return suffix.count == 6 && suffix.unicodeScalars.allSatisfy {
+            ($0.value < 128) && CharacterSet.alphanumerics.contains($0)
+        }
+    }
+
+    static func clean(projects: String, uid: uid_t) {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: projects) else { return }
+        for name in names where matches(name) {
+            let path = projects + "/" + name
+            var entry = stat()
+            guard lstat(path, &entry) == 0,
+                  (entry.st_mode & S_IFMT) == S_IFDIR,
+                  entry.st_uid == uid else { continue }
+            try? FileManager.default.removeItem(atPath: path)
+        }
     }
 }

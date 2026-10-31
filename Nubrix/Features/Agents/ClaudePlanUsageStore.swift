@@ -1,6 +1,7 @@
 import AppKit
 import Defaults
 import Foundation
+import IOKit.ps
 
 protocol ClaudePlanFetching: Sendable {
     func fetch() async -> ClaudePlanFetchResult
@@ -38,6 +39,7 @@ final class ClaudePlanUsageStore: ObservableObject {
     private var started = false
     private var sleeping = false
     private var locked = false
+    private var halted = false
     private var loop: Task<Void, Never>?
     private var tracker: ClaudePlanAlertTracker
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
@@ -58,6 +60,16 @@ final class ClaudePlanUsageStore: ObservableObject {
     var isEnabled: Bool { Defaults[.claudePlanUsageEnabled] }
     var isPaused: Bool { sleeping || locked }
 
+    var statusText: String? {
+        failure == .unsupported ? "Update Claude Code to see plan usage" : nil
+    }
+
+    private static var onBattery: Bool {
+        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let type = IOPSGetProvidingPowerSourceType(info)?.takeUnretainedValue() as String? else { return false }
+        return type == kIOPSBatteryPowerValue
+    }
+
     var current: ClaudePlanSnapshot? {
         guard isEnabled, let snapshot else { return nil }
         return ClaudePlanSnapshot(limits: snapshot.limits, fetchedAt: fetchedAt ?? snapshot.fetchedAt)
@@ -72,6 +84,7 @@ final class ClaudePlanUsageStore: ObservableObject {
     }
 
     func settingChanged() {
+        halted = false
         if isEnabled {
             failures = 0
             restartLoop(initialDelay: 0)
@@ -87,16 +100,19 @@ final class ClaudePlanUsageStore: ObservableObject {
 
     func noteStop() {
         let now = Date()
-        guard started, isEnabled, !isPaused,
+        guard started, isEnabled, !isPaused, !halted,
               ClaudePlanPolicy.allowsStopRefresh(lastStopRefresh: lastStopRefresh, now: now) else { return }
+        let base = ClaudePlanPolicy.effectiveBase(lastActivity: lastActivity(), now: now, onBattery: Self.onBattery)
+        guard ClaudePlanPolicy.shouldRefreshOnOpen(lastAttempt: lastAttempt, lastSuccess: fetchedAt,
+                                                   failures: failures, base: base, now: now) else { return }
         lastStopRefresh = now
         restartLoop(initialDelay: 2)
     }
 
     func notchOpened() {
         let now = Date()
-        guard started, isEnabled, !isPaused else { return }
-        let base = ClaudePlanPolicy.baseInterval(lastActivity: lastActivity(), now: now)
+        guard started, isEnabled, !isPaused, !halted else { return }
+        let base = ClaudePlanPolicy.effectiveBase(lastActivity: lastActivity(), now: now, onBattery: Self.onBattery)
         guard ClaudePlanPolicy.shouldRefreshOnOpen(lastAttempt: lastAttempt, lastSuccess: fetchedAt,
                                                    failures: failures, base: base, now: now) else { return }
         restartLoop(initialDelay: 0)
@@ -109,28 +125,46 @@ final class ClaudePlanUsageStore: ObservableObject {
         if isPaused {
             loop?.cancel()
             loop = nil
-        } else if before, started, isEnabled {
-            restartLoop(initialDelay: 5)
+        } else if before {
+            rescheduleLoop()
         }
+    }
+
+    private func powerStateChanged() {
+        rescheduleLoop()
+    }
+
+    private func rescheduleLoop() {
+        let now = Date()
+        guard started, isEnabled, !isPaused, !halted else { return }
+        guard let delay = timerDelay(now: now) else {
+            if !inFlight {
+                loop?.cancel()
+                loop = nil
+            }
+            return
+        }
+        restartLoop(initialDelay: ClaudePlanPolicy.resumeWait(lastAttempt: lastAttempt, delay: delay, now: now, minimum: 5))
     }
 
     private func restartLoop(initialDelay: TimeInterval) {
         loop?.cancel()
-        guard started, isEnabled, !isPaused else { return }
+        guard started, isEnabled, !isPaused, !halted else { return }
         loop = Task { [weak self] in
             if initialDelay > 0 { try? await Task.sleep(for: .seconds(initialDelay)) }
             while !Task.isCancelled {
-                guard let self, self.isEnabled, !self.isPaused else { return }
+                guard let self, self.isEnabled, !self.isPaused, !self.halted else { return }
                 await self.refresh()
                 if Task.isCancelled { return }
-                try? await Task.sleep(for: .seconds(self.nextDelay(now: Date())))
+                guard let delay = self.timerDelay(now: Date()) else { return }
+                try? await Task.sleep(for: .seconds(delay))
             }
         }
     }
 
-    private func nextDelay(now: Date) -> TimeInterval {
-        let base = ClaudePlanPolicy.baseInterval(lastActivity: lastActivity(), now: now)
-        return ClaudePlanPolicy.delay(base: base, failures: failures)
+    private func timerDelay(now: Date) -> TimeInterval? {
+        ClaudePlanPolicy.timerDelay(lastActivity: lastActivity(), now: now, failures: failures,
+                                    onBattery: Self.onBattery, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
     }
 
     func refresh() async {
@@ -156,6 +190,11 @@ final class ClaudePlanUsageStore: ObservableObject {
         case .failure(let reason):
             failures = min(failures + 1, 8)
             if failure != reason { failure = reason }
+            if reason == .notInstalled || reason == .unsupported {
+                halted = true
+                loop?.cancel()
+                loop = nil
+            }
         }
     }
 
@@ -187,6 +226,7 @@ final class ClaudePlanUsageStore: ObservableObject {
             }
             observers.append((center, token))
         }
+        watch(.default, .NSProcessInfoPowerStateDidChange) { $0.powerStateChanged() }
         watch(workspace, NSWorkspace.willSleepNotification) { $0.setPaused(sleeping: true) }
         watch(workspace, NSWorkspace.didWakeNotification) { $0.setPaused(sleeping: false) }
         watch(workspace, NSWorkspace.screensDidSleepNotification) { $0.setPaused(sleeping: true) }

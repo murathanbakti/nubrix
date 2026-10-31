@@ -12,6 +12,8 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     /// This method is where the NSXPCListener configures, accepts, and resumes a new incoming NSXPCConnection.
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
         
+        newConnection.setCodeSigningRequirement("identifier \"dev.nubrix.app\"")
+
         // Configure the connection.
         // First, set the interface that the exported object implements.
         newConnection.exportedInterface = NSXPCInterface(with: (any NubrixHelperProtocol).self)

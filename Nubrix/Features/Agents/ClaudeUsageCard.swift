@@ -5,14 +5,15 @@ struct ClaudeUsageCardContent: View {
     let now: Date
     var width: CGFloat = 130
     var showsCost = true
+    var note: String?
     let onOpen: () -> Void
     @Environment(\.locale) private var locale
 
     var body: some View {
         Button(action: onOpen) {
             ViewThatFits(in: .vertical) {
-                cardBody(showsScoped: summary.highestScoped != nil)
-                cardBody(showsScoped: false)
+                cardBody(showsExtra: summary.highestScoped != nil || note != nil)
+                cardBody(showsExtra: false)
             }
             .padding(10)
             .frame(width: width, alignment: .topLeading)
@@ -27,7 +28,7 @@ struct ClaudeUsageCardContent: View {
         .accessibilityLabel(ClaudeUsageText.tooltip(summary, now: now, locale: locale))
     }
 
-    private func cardBody(showsScoped: Bool) -> some View {
+    private func cardBody(showsExtra: Bool) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 5) {
                 Image(systemName: "sparkle")
@@ -46,7 +47,12 @@ struct ClaudeUsageCardContent: View {
             }
             usageRow(title: ClaudeUsageText.fiveHourTitle(summary.fiveHour, locale: locale), row: summary.fiveHour, spark: false)
             usageRow(title: ClaudeUsageText.sevenDayTitle(summary.sevenDay, locale: locale), row: summary.sevenDay, spark: true)
-            if showsScoped, let scoped = summary.highestScoped {
+            if showsExtra, let note {
+                Text(note)
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(Color(white: 0.55))
+                    .lineLimit(2)
+            } else if showsExtra, let scoped = summary.highestScoped {
                 HStack(spacing: 4) {
                     Text(scoped.name)
                         .font(.system(size: 10, weight: .medium))
@@ -164,7 +170,7 @@ struct ClaudeUsageCard: View {
     @ViewBuilder
     private func content(now: Date) -> some View {
         if let summary = agents.usageSummary(now: now) {
-            ClaudeUsageCardContent(summary: summary, now: now, onOpen: onOpen)
+            ClaudeUsageCardContent(summary: summary, now: now, note: plan.statusText, onOpen: onOpen)
         }
     }
 }
