@@ -11,8 +11,8 @@ log="$(dirname "$derived")/build.log"
 mkdir -p "$(dirname "$log")"
 echo "Building Nubrix (Release)…"
 if ! xcodebuild -quiet \
-  -project "$root/boringNotch.xcodeproj" \
-  -scheme boringNotch \
+  -project "$root/Nubrix.xcodeproj" \
+  -scheme Nubrix \
   -configuration Release \
   -derivedDataPath "$derived" \
   -destination "platform=macOS,arch=$(uname -m)" \

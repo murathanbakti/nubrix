@@ -1,14 +1,14 @@
 # Nubrix
 
-Nubrix is a notch bar for macOS built for developers. It keeps the music, HUD and file shelf you know from [boring.notch](https://github.com/TheBoredTeam/boring.notch) and adds three things on top: live status of your Claude Code sessions, a clipboard showcase called Vitrin, and a small toolbox for scripts and local dev servers.
+Nubrix is a notch bar for macOS built for developers. It has music controls, volume and brightness HUDs and a file shelf, and adds three things on top: live status of your Claude Code sessions, a clipboard showcase called Vitrin, and a small toolbox for scripts and local dev servers.
 
 Everything runs locally. There is no account, no cloud service and no telemetry.
 
-> Nubrix is a personal project and a fork of boring.notch (GPL-3.0). It is unsigned and has no release builds yet; see [Build from source](#build-from-source).
+> Nubrix is a personal project and open source under GPL-3.0 (see [Credits](#credits)). It is unsigned and has no release builds yet; see [Build from source](#build-from-source).
 
 ## Features
 
-**Inherited from boring.notch**
+**Core notch features**
 - Live music activity with playback controls and a visualizer
 - Custom volume and brightness HUDs in the notch
 - File shelf with drag and drop and quick share
@@ -51,12 +51,10 @@ Screenshots will be added here.
 ```sh
 git clone <repository-url> nubrix
 cd nubrix
-xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Debug \
+xcodebuild -project Nubrix.xcodeproj -scheme Nubrix -configuration Debug \
   -derivedDataPath build -destination 'platform=macOS' build
 open build/Build/Products/Debug/Nubrix.app
 ```
-
-(The Xcode project, scheme and target keep the upstream name `boringNotch` so upstream changes stay easy to merge; the product is `Nubrix.app`.)
 
 The app is not signed with a Developer ID and not notarized. A local build is signed ad hoc, so it opens directly on the Mac that built it. If you copy a build to another Mac and Gatekeeper blocks it, right-click the app, choose Open, or remove the quarantine flag with `xattr -dr com.apple.quarantine Nubrix.app`. Each rebuild changes the ad hoc code identity, so macOS may ask again for permissions such as Accessibility or Camera.
 
@@ -151,7 +149,7 @@ See [cli/README.md](cli/README.md) for styles, duration and more examples.
 
 ## Privacy and security
 
-- Everything stays on your Mac. Nubrix has no analytics and sends nothing to a Nubrix server. (Inherited boring.notch features such as lyrics lookup or the YouTube Music controller make their own network requests when you use them.)
+- Everything stays on your Mac. Nubrix has no analytics and sends nothing to a Nubrix server. (Inherited features such as lyrics lookup or the YouTube Music controller make their own network requests when you use them.)
 - The event server binds to the loopback interface only (127.0.0.1) on a random port and requires a random bearer token. Port and token are written to `~/.config/nubrix/agent-endpoint` with mode 0600 in a 0700 directory.
 - Vitrin history is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet.
 - The secret guard is a heuristic. It reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.

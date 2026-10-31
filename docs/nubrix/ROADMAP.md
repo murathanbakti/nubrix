@@ -1,10 +1,10 @@
 # Nubrix roadmap
 
 Nubrix is a developer-friendly notch bar for macOS, forked from
-[boring.notch](https://github.com/TheBoredTeam/boring.notch) (GPL-3.0). It adds a
+an open-source notch app (GPL-3.0; see the README Credits). It adds a
 clipboard showcase ("Vitrin") and live Claude Code session status.
 
-Nubrix-specific code lives in `boringNotch/Nubrix/` (a file-system synchronized
+Nubrix-specific code lives in `Nubrix/Features/` (a file-system synchronized
 group, so new files are picked up by Xcode automatically). Changes to upstream
 files are kept small so upstream fixes can be merged.
 
@@ -97,8 +97,9 @@ UI:
 
 Done locally:
 - User-visible rebrand to Nubrix (strings, window titles, onboarding, tips, About
-  credits for boring.notch/GPL-3.0); Swift types, targets, bundle ids and
-  persistence paths keep upstream names to ease merges.
+  upstream credits/GPL-3.0); full rename of the Xcode project, targets, Swift
+  types, preference keys, identifiers and the XPC helper (`NubrixHelper`), with a
+  one-time `NubrixMigration` for old preference keys and the shelf folder.
 - Software-update UI hidden (Sparkle is not started and has no feed).
 - Original placeholder app icon and in-app logo.
 - README, CONTRIBUTING, SECURITY rewritten; upstream workflows, funding and
@@ -112,8 +113,7 @@ Left for publishing:
 - Own Sparkle feed and EdDSA keys, then re-enable the updater UI.
 - Encryption at rest for Vitrin (needs stable signing identity for Keychain access).
 - Private vulnerability reporting channel.
-- Screenshots, final app icon, and `CFBundleDisplayName`/`CFBundleName` in the
-  Xcode project (still "Boring Notch").
+- Screenshots and final app icon.
 
 ## Notch extensions
 

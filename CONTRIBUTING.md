@@ -13,15 +13,15 @@ Thanks for your interest. Nubrix is a small personal project, so keep changes fo
 2. Use macOS 14 or later with Xcode 26.
 3. Build:
    ```sh
-   xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Debug \
+   xcodebuild -project Nubrix.xcodeproj -scheme Nubrix -configuration Debug \
      -derivedDataPath build -destination 'platform=macOS' build
    ```
 
 ## Where things live
 
-- Nubrix code is in `boringNotch/Nubrix/`. It is a file-system synchronized group in Xcode, so new files are picked up automatically; avoid editing `project.pbxproj` by hand.
-- Files under the rest of `boringNotch/` come from [boring.notch](https://github.com/TheBoredTeam/boring.notch). Keep edits there small so upstream changes can still be merged.
-- Swift types, targets and bundle identifiers keep their upstream names on purpose. Only user-visible text uses the Nubrix name.
+- Nubrix code is in `Nubrix/Features/`. It is a file-system synchronized group in Xcode, so new files are picked up automatically; avoid editing `project.pbxproj` by hand.
+- Files under the rest of `Nubrix/` come from the upstream project (see Credits in the README). Keep edits there small so upstream changes can still be merged.
+- Everything carries the Nubrix name: targets, Swift types, preference keys and identifiers.
 
 ## Pull requests
 

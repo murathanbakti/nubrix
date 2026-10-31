@@ -12,4 +12,4 @@ Nubrix runs locally. Areas where reports are most useful:
 - Vitrin clipboard storage and the secret guard
 - the Claude Code hook script and `notchctl`
 
-Problems in third-party dependencies should be reported to their maintainers. Problems in code inherited from [boring.notch](https://github.com/TheBoredTeam/boring.notch) may also be relevant upstream.
+Problems in third-party dependencies should be reported to their maintainers. Problems in code inherited from the upstream project (see Credits in the README) may also be relevant upstream.

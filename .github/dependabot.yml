@@ -10,11 +10,6 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "pip"
-    directory: "/Configuration/dmg"
-    schedule:
-      interval: "weekly"
-
   - package-ecosystem: "swift"
     directory: "/"
     schedule:
