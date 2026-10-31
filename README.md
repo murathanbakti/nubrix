@@ -114,9 +114,21 @@ Run `scripts/install-hooks.sh` and paste the snippet it prints, or add the hook 
 
 The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch and the GitHub repository (`owner/repo`, parsed from `git remote get-url origin`; only `github.com` https, ssh and `git@github.com:` remotes count, credentials in the URL are never forwarded, anything else sends nothing). Nothing else is read from your project.
 
-### Context and usage meter (status line)
+### Usage, context and cost
 
-Claude Code passes context usage, cost and rate limits only to the status line command. `claude-plugin/scripts/nubrix-statusline` forwards that JSON to Nubrix in the background (it never delays the status line) and prints a compact line: `project · branch · model · ctx 42% · $1.23`. It works without `jq`; if `jq` is installed it is used for parsing. The plugin does not configure it; add it to `~/.claude/settings.json`:
+Where the numbers come from depends on how you run Claude Code:
+
+| | Desktop app and VS Code | Terminal |
+|---|---|---|
+| Context %, tokens, cost estimate | transcript, via the event hook | transcript, via the event hook |
+| Context %, cost (exact) | not available | status line |
+| 5h / 7d rate limits | not available | status line |
+
+**Transcript (works everywhere).** The desktop app never runs the `statusLine` command, but every hook payload names the session transcript. On `Stop` (and `SubagentStop`, if you configure that hook; the setup snippet does not), `nubrix-hook` reads only the tail of that file (at most the last 6 MB and 400 relevant lines, never the whole file; it needs the system `jq`) and sends Nubrix a handful of numbers: the context size (`input + cache_creation + cache_read` tokens of the last assistant message), the token totals of the turn since your last prompt, the model id and the id of the last message (to avoid counting a turn twice). No message text is read into the request or sent. The transcript must be a regular `.jsonl` file you own, not a symlink, under `~/.claude/`; anything else is ignored. A turn longer than about 4000 transcript lines is not counted (the context figure still is). The extra work is roughly 40 to 70 ms per `Stop` on a 20 MB transcript, in the background.
+
+Nubrix shows, per session, a context bar with the percentage and the session's tokens (input, output and cache writes; cache reads are not counted), and in the header `Today · 1.2M tokens · ~$4.20`, reset at local midnight (only these numbers are stored in your preferences). The context window is taken from the status line when known; otherwise it is 1M when the model id contains `[1m]` or when the context already exceeds 200k, and 200k otherwise. Costs are marked `~` because they are estimates from built-in list prices per million tokens (Opus 5.5 $4/$20, Opus 4.x and 5 $5/$25, Sonnet 5.x $2/$10, Sonnet 4.x $3/$15, Haiku 5.5 $0.10/$0.50, Haiku 4.5 $1/$5, cache writes 1.25x input, cache reads as listed or 0.1x input); plans, discounts and unknown models are not reflected. A status line cost, when present, replaces the estimate.
+
+**Status line (terminal only).** Claude Code passes exact context usage, cost and rate limits only to the status line command. `claude-plugin/scripts/nubrix-statusline` forwards that JSON to Nubrix in the background (it never delays the status line) and prints a compact line: `project · branch · model · ctx 42% · $1.23`. It works without `jq`; if `jq` is installed it is used for parsing. The plugin does not configure it; add it to `~/.claude/settings.json`:
 
 ```json
 {
@@ -127,7 +139,9 @@ Claude Code passes context usage, cost and rate limits only to the status line c
 }
 ```
 
-The context bar is green below 60%, orange up to 85% and red above. When a session crosses 85% Nubrix shows a banner and an inbox entry ("Context 87% - consider /compact"). The 5-hour limit appears in the Claude tab header when Claude Code reports it (claude.ai Pro, Max and Ultra subscribers, after the first response). If you already use a status line, call `nubrix-statusline` from it, or pipe its input to both.
+While a session sends status line updates, its percentage comes from there; otherwise from the transcript. The context bar is green below 60%, orange up to 85% and red above. When a session crosses 85% Nubrix shows a banner and an inbox entry ("Context 87% - consider /compact"). The 5-hour and 7-day limits appear in the Claude tab header when Claude Code reports them (claude.ai Pro, Max and Ultra subscribers, after the first response). If you already use a status line, call `nubrix-statusline` from it, or pipe its input to both.
+
+The ⓘ button in the Claude tab shows "All connected" when hook events arrived in the last 10 minutes and all four scripts are installed; otherwise it lists only what is wrong, with a one-line fix.
 
 ### Approving permissions from the notch
 

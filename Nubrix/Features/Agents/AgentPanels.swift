@@ -106,13 +106,16 @@ struct AgentSessionRowBody: View {
                     if let pullRequest { GitHubPRChip(pr: pullRequest) }
                     AgentSourceChip(source: session.source)
                 }
-                if session.contextUsedPercent != nil || session.costUSD != nil {
-                    HStack(spacing: 6) {
+                if session.contextUsedPercent != nil || session.sessionTokens > 0 {
+                    HStack(spacing: 5) {
                         if let percent = session.contextUsedPercent {
                             AgentContextBar(percent: percent)
+                            Text("\(Int(percent.rounded()))%")
+                                .font(.system(size: 10, weight: .medium).monospacedDigit())
+                                .foregroundStyle(Color(white: 0.72))
                         }
-                        if let cost = session.costUSD {
-                            Text(AgentMeter.cost(cost))
+                        if session.sessionTokens > 0 {
+                            Text(AgentUsageFormat.tokens(session.sessionTokens))
                                 .font(.system(size: 10).monospacedDigit())
                                 .foregroundStyle(.gray)
                         }
@@ -147,11 +150,20 @@ struct AgentSessionRowBody: View {
         var parts: [String] = []
         if let percent = session.contextUsedPercent {
             var text = "Context \(Int(percent.rounded()))%"
-            if let size = session.contextWindowSize { text += " of \(size >= 1_000_000 ? "\(size / 1_000_000)M" : "\(size / 1000)k")" }
+            if let tokens = session.contextTokens, let window = session.contextWindow {
+                text += " (\(AgentUsageFormat.tokens(tokens)) of \(AgentUsageFormat.window(window)))"
+            } else if let window = session.contextWindow {
+                text += " of \(AgentUsageFormat.window(window))"
+            }
             parts.append(text)
         }
-        if let model = session.modelName { parts.append(model) }
-        if let cost = session.costUSD { parts.append(AgentMeter.cost(cost)) }
+        if let model = session.displayModel { parts.append(model) }
+        if session.sessionTokens > 0 {
+            parts.append("\(AgentUsageFormat.tokens(session.sessionTokens)) tokens this session (cache reads not counted)")
+        }
+        if let cost = session.displayCost {
+            parts.append(cost.estimated ? "~\(AgentMeter.cost(cost.value)) estimated" : AgentMeter.cost(cost.value))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -164,6 +176,7 @@ struct AgentSessionRowBody: View {
 }
 
 struct AgentUsageHeader: View {
+    let today: AgentDailyUsage?
     let limits: AgentRateLimits?
     var clearVisible = false
     var infoActive = false
@@ -171,16 +184,18 @@ struct AgentUsageHeader: View {
     var onClear: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text("Claude Code")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.gray)
-            Spacer()
+        HStack(spacing: 10) {
+            Text(Self.todayText(today))
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundStyle(Color(white: 0.7))
+                .lineLimit(1)
+                .help("Tokens are input, output and cache writes counted from Claude Code transcripts since midnight; cache reads are not counted. Cost is an estimate from list prices.")
+            Spacer(minLength: 8)
             if let limits = limits?.current() {
                 if let percent = limits.fiveHourPercent {
                     meter("5h", percent: percent, reset: limits.fiveHourResetsAt)
                 }
-                if let percent = limits.sevenDayPercent, percent >= 80 {
+                if let percent = limits.sevenDayPercent {
                     meter("7d", percent: percent, reset: nil)
                 }
             }
@@ -196,17 +211,26 @@ struct AgentUsageHeader: View {
                     .foregroundStyle(infoActive ? Color.white : Color.gray)
             }
             .buttonStyle(.plain)
-            .help("How the Claude integration works")
+            .help("Connection status")
         }
         .padding(.horizontal, 4)
     }
 
+    static func todayText(_ today: AgentDailyUsage?) -> String {
+        guard let today, today.tokens > 0 else { return "Claude Code" }
+        var text = "Today · \(AgentUsageFormat.tokens(today.tokens)) tokens"
+        if today.costUSD > 0 { text += " · ~\(AgentMeter.cost(today.costUSD))" }
+        return text
+    }
+
     private func meter(_ title: String, percent: Double, reset: Date?) -> some View {
         HStack(spacing: 5) {
-            Circle().fill(AgentMeter.color(for: percent)).frame(width: 6, height: 6)
-            Text("\(title): \(Int(percent.rounded()))%" + (reset.map { " · resets \(AgentMeter.resetTime($0))" } ?? ""))
+            AgentContextBar(percent: percent, width: 28)
+            Text("\(title) \(Int(percent.rounded()))%" + (reset.map { " · resets \(AgentMeter.resetTime($0))" } ?? ""))
                 .font(.system(size: 11).monospacedDigit())
                 .foregroundStyle(Color(white: 0.7))
+                .lineLimit(1)
+                .fixedSize()
         }
     }
 }

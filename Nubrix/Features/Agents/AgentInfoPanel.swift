@@ -5,81 +5,54 @@ struct AgentInfoSnapshot {
     var lastHookEventAt: Date?
     var lastStatusAt: Date?
     var approvalsEnabled: Bool
-    var lastPermissionRequestAt: Date?
     var sealedScripts: Int
     var sealedTotal: Int
     var serverPort: UInt16?
 }
 
-enum AgentInfoLevel {
-    case ok
-    case warn
-    case none
-
-    var color: Color {
-        switch self {
-        case .ok: return .green
-        case .warn: return .orange
-        case .none: return Color(white: 0.4)
-        }
-    }
-}
-
-struct AgentInfoCheck: Identifiable {
+struct AgentInfoProblem: Identifiable, Equatable {
     let id: String
-    let title: String
-    let detail: String
-    let level: AgentInfoLevel
+    let message: String
 }
 
 enum AgentInfoModel {
     static let sealedNames = ["nubrix-hook", "nubrix-permission", "nubrix-statusline", "notchctl"]
+    static let hooksFreshness: TimeInterval = 10 * 60
+    static let statusLineNote = "Status line not available in the desktop app (terminal only) \u{2014} usage comes from transcripts instead."
 
     static func ago(_ date: Date, now: Date) -> String {
         let seconds = max(0, Int(now.timeIntervalSince(date)))
-        if seconds < 60 { return "\(seconds)s ago" }
-        if seconds < 3600 { return "\(seconds / 60)m ago" }
-        if seconds < 86400 { return "\(seconds / 3600)h ago" }
-        return "\(seconds / 86400)d ago"
+        if seconds < 60 { return "\(seconds)s" }
+        if seconds < 3600 { return "\(seconds / 60)m" }
+        if seconds < 86400 { return "\(seconds / 3600)h" }
+        return "\(seconds / 86400)d"
     }
 
-    static func checks(_ snapshot: AgentInfoSnapshot, now: Date) -> [AgentInfoCheck] {
-        var result: [AgentInfoCheck] = []
+    static func problems(_ snapshot: AgentInfoSnapshot, now: Date) -> [AgentInfoProblem] {
+        var result: [AgentInfoProblem] = []
+
+        if snapshot.serverPort == nil {
+            result.append(AgentInfoProblem(id: "server", message: "Local server is not running \u{2014} restart Nubrix"))
+        }
+
+        if snapshot.sealedScripts == 0 {
+            result.append(AgentInfoProblem(id: "sealed", message: "Hook scripts not installed \u{2014} run scripts/install-hooks.sh"))
+        } else if snapshot.sealedScripts < snapshot.sealedTotal {
+            result.append(AgentInfoProblem(id: "sealed", message: "\(snapshot.sealedScripts) of \(snapshot.sealedTotal) hook scripts installed \u{2014} run scripts/install-hooks.sh"))
+        }
 
         if let date = snapshot.lastHookEventAt {
-            result.append(AgentInfoCheck(id: "hooks", title: "Event hooks", detail: "last event \(ago(date, now: now))", level: .ok))
+            if now.timeIntervalSince(date) > hooksFreshness {
+                result.append(AgentInfoProblem(id: "hooks", message: "No hook events for \(ago(date, now: now)) \u{2014} if Claude is running, restart it"))
+            }
         } else {
-            result.append(AgentInfoCheck(id: "hooks", title: "Event hooks", detail: "No events yet", level: .none))
-        }
-
-        if let date = snapshot.lastStatusAt {
-            result.append(AgentInfoCheck(id: "status", title: "Status line", detail: "last update \(ago(date, now: now))", level: .ok))
-        } else {
-            result.append(AgentInfoCheck(id: "status", title: "Status line", detail: "Not configured", level: .none))
-        }
-
-        if !snapshot.approvalsEnabled {
-            result.append(AgentInfoCheck(id: "approvals", title: "Notch approvals", detail: "Off", level: .none))
-        } else if let date = snapshot.lastPermissionRequestAt {
-            result.append(AgentInfoCheck(id: "approvals", title: "Notch approvals", detail: "On · last request \(ago(date, now: now))", level: .ok))
-        } else {
-            result.append(AgentInfoCheck(id: "approvals", title: "Notch approvals", detail: "On · no request received yet", level: .warn))
-        }
-
-        if snapshot.sealedScripts >= snapshot.sealedTotal {
-            result.append(AgentInfoCheck(id: "sealed", title: "Sealed hooks", detail: "\(snapshot.sealedScripts) of \(snapshot.sealedTotal) scripts installed", level: .ok))
-        } else if snapshot.sealedScripts > 0 {
-            result.append(AgentInfoCheck(id: "sealed", title: "Sealed hooks", detail: "\(snapshot.sealedScripts) of \(snapshot.sealedTotal) scripts found", level: .warn))
-        } else {
-            result.append(AgentInfoCheck(id: "sealed", title: "Sealed hooks", detail: "Not installed", level: .none))
-        }
-
-        if let port = snapshot.serverPort {
-            result.append(AgentInfoCheck(id: "server", title: "Local server", detail: "127.0.0.1:\(port) · running", level: .ok))
-        } else {
-            result.append(AgentInfoCheck(id: "server", title: "Local server", detail: "Not running", level: .warn))
+            result.append(AgentInfoProblem(id: "hooks", message: "Hooks not seen yet \u{2014} run scripts/install-hooks.sh and restart Claude"))
         }
         return result
+    }
+
+    static func showsStatusLineNote(_ snapshot: AgentInfoSnapshot) -> Bool {
+        snapshot.lastStatusAt == nil
     }
 
     static func sealedCount(in directory: URL) -> Int {
@@ -123,31 +96,60 @@ struct AgentInfoPanel: View {
     let snapshot: AgentInfoSnapshot
     let now: Date
     var onCopy: () -> Void = {}
+    var onOpenSettings: () -> Void = {}
     @State private var copied = false
 
-    private static let features: [(icon: String, title: String, detail: String)] = [
-        ("circle.dotted", "Session status", "Working, needs you, done or failed, live in the notch."),
-        ("terminal", "Source & branch", "A Desktop, Terminal or VS Code chip per session; click a row to jump there."),
-        ("gauge.with.dots.needle.33percent", "Context & usage", "The status line feeds context %, cost and the 5h / 7d limits."),
-        ("checkmark.shield", "Approve from the notch", "Allow or Deny with the full command; risky ones need a second click. Answers are signed, and Claude's own dialog is the fallback."),
-        ("bell.badge", "notchctl", "Send notifications to the notch from your own scripts.")
-    ]
-
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 8) {
-                section("Status")
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 4) {
-                    ForEach(AgentInfoModel.checks(snapshot, now: now)) { check in
-                        statusRow(check)
+        let problems = AgentInfoModel.problems(snapshot, now: now)
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 5) {
+                if problems.isEmpty {
+                    HStack(spacing: 7) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.green)
+                        Text("All connected")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                } else {
+                    ForEach(problems) { problem in
+                        HStack(alignment: .firstTextBaseline, spacing: 7) {
+                            Circle().fill(Color.orange).frame(width: 6, height: 6)
+                            Text(problem.message)
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color(white: 0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
-                section("What it does")
-                VStack(spacing: 4) {
-                    ForEach(Self.features, id: \.title) { feature in
-                        featureRow(feature.icon, feature.title, feature.detail)
-                    }
+                if AgentInfoModel.showsStatusLineNote(snapshot) {
+                    Text(AgentInfoModel.statusLineNote)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color(white: 0.5))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+
+            HStack(spacing: 8) {
+                Button(action: onOpenSettings) {
+                    HStack(spacing: 4) {
+                        Text("Approvals in the notch: \(snapshot.approvalsEnabled ? "On" : "Off")")
+                            .font(.system(size: 11, weight: .medium))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                    .foregroundStyle(Color(white: 0.8))
+                }
+                .buttonStyle(.plain)
+                .help("Open Settings, Notifications")
+                Spacer(minLength: 8)
                 Button {
                     onCopy()
                     copied = true
@@ -170,59 +172,15 @@ struct AgentInfoPanel: View {
                 .buttonStyle(.plain)
                 .help("Copies the settings.json snippet for ~/.claude/settings.json")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 2)
-        }
-    }
-
-    private func section(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(.system(size: 9, weight: .semibold))
-            .tracking(0.6)
-            .foregroundStyle(Color(white: 0.5))
             .padding(.horizontal, 4)
-    }
 
-    private func statusRow(_ check: AgentInfoCheck) -> some View {
-        HStack(spacing: 7) {
-            Circle().fill(check.level.color).frame(width: 6, height: 6)
-            Text(check.title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .fixedSize()
-            Text(check.detail)
-                .font(.system(size: 11))
-                .foregroundStyle(.gray)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
+            if let port = snapshot.serverPort {
+                Text(verbatim: "Local server 127.0.0.1:\(port)")
+                    .font(.system(size: 9).monospacedDigit())
+                    .foregroundStyle(Color(white: 0.4))
+                    .padding(.horizontal, 4)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-    }
-
-    private func featureRow(_ icon: String, _ title: String, _ detail: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(AgentSessionState.working.tint)
-                .frame(width: 16)
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 130, alignment: .leading)
-            Text(detail)
-                .font(.system(size: 11))
-                .foregroundStyle(.gray)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

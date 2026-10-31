@@ -111,8 +111,61 @@ filter='def cap($n): if type == "string" and length > $n then .[0:$n] else . end
   message: (.message | cap(2000)),
   prompt: (.prompt | cap(2000)),
   last_assistant_message: (.last_assistant_message | cap(2000)),
-  tool_input: (if (.tool_input | type) == "object" then (.tool_input | walk(cap(8192))) else null end)
+  tool_input: (if (.tool_input | type) == "object" then (.tool_input | walk(cap(8192))) else null end),
+  transcript_path: (if (.hook_event_name == "Stop" or .hook_event_name == "SubagentStop") and (.transcript_path | type) == "string" then .transcript_path else null end)
 } | with_entries(select(.value != null))'
+
+usage_filter='def n: if type == "number" and . >= 0 and . < 1e12 then floor else 0 end;
+def id: tostring | gsub("[^A-Za-z0-9._:+\\[\\]-]"; "") | .[0:64];
+def prompt: .type == "user" and (.isSidechain != true) and (.isMeta != true) and (.isCompactSummary != true)
+  and ((.message.content | type) == "string"
+       or ((.message.content | type) == "array" and any(.message.content[]?; .type != "tool_result")));
+def has_usage: .type == "assistant" and ((.message.usage | type) == "object") and .message.model != "<synthetic>";
+def ctx: (.message.usage.input_tokens | n) + (.message.usage.cache_creation_input_tokens | n) + (.message.usage.cache_read_input_tokens | n);
+[inputs | fromjson? | select(type == "object")] as $e
+| ([$e | to_entries[] | select(.value | prompt) | .key] | last) as $p
+| ([$e[] | select(has_usage and .isSidechain != true)] | last) as $last
+| if $last == null then empty else
+  ({contextTokens: ($last | ctx), model: ($last.message.model | id)}
+   + (if $p == null then {} else
+      ([$e[$p + 1:][] | select(has_usage)] | reduce .[] as $x ({}; .[($x.message.id // $x.uuid // "") | id] = $x.message.usage) | [.[]]) as $u
+      | if ($u | length) == 0 then {} else
+        {turnInput: ([$u[] | .input_tokens | n] | add),
+         turnOutput: ([$u[] | .output_tokens | n] | add),
+         turnCacheRead: ([$u[] | .cache_read_input_tokens | n] | add),
+         turnCacheWrite: ([$u[] | .cache_creation_input_tokens | n] | add),
+         messageId: ([$e[$p + 1:][] | select(has_usage)] | last | .message.id | id)}
+        end
+      end))
+  end'
+
+nubrix_skip() {
+  local size
+  size="$(/usr/bin/stat -f '%z' "$1" 2>/dev/null)" || size=0
+  case "$size" in ''|*[!0-9]*) size=0 ;; esac
+  if [ "$size" -gt "$2" ]; then echo $(( (size - $2) / 65536 )); else echo 0; fi
+}
+
+nubrix_usage() {
+  [ -n "$jq_bin" ] || return 0
+  local path="$1" dir base root real window out
+  case "$path" in /*.jsonl) ;; *) return 0 ;; esac
+  [ ! -L "$path" ] && [ -f "$path" ] || return 0
+  [ "$(/usr/bin/stat -f '%u' "$path" 2>/dev/null)" = "$UID" ] || return 0
+  dir="$(cd "$(dirname "$path")" 2>/dev/null && pwd -P)" || return 0
+  base="$(basename "$path")"
+  root="$(cd "$HOME/.claude" 2>/dev/null && pwd -P)" || return 0
+  case "$dir/" in "$root/"*) ;; *) return 0 ;; esac
+  real="$dir/$base"
+  [ ! -L "$real" ] || return 0
+  for window in "6291456 400" "25165824 4000"; do
+    set -- $window
+    out="$(/bin/dd if="$real" bs=65536 iseek="$(nubrix_skip "$real" "$1")" 2>/dev/null | /usr/bin/grep -E '"type": *"(assistant|user)"' | /usr/bin/grep -Ev '"type": *"tool_result"' | /usr/bin/tail -n "$2" | "$jq_bin" -Rnc "$usage_filter" 2>/dev/null)" || out=""
+    [ -n "$out" ] || return 0
+    case "$out" in *'"turnInput"'*) printf '%s' "$out"; return 0 ;; esac
+  done
+  printf '%s' "$out"
+}
 
 if [ -n "$jq_bin" ]; then
   body="$("$jq_bin" -c "$filter" 2>/dev/null)" || body=""
@@ -141,6 +194,21 @@ case "$event" in
     [ -n "$branch" ] && source_args+=(-H "X-Nubrix-Branch: $branch")
     remote="$(nubrix_remote "$work_dir")"
     [ -n "$remote" ] && source_args+=(-H "X-Nubrix-Remote: $remote")
+    ;;
+esac
+
+case "$event" in
+  Stop|SubagentStop)
+    case "$body" in
+      *',"transcript_path":"'*'"}')
+        transcript="${body##*\"transcript_path\":\"}"
+        transcript="${transcript%\"\}}"
+        body="${body%,\"transcript_path\":\"*}"
+        usage=""
+        case "$transcript" in *\\*|*\"*) ;; *) usage="$(nubrix_usage "$transcript")" ;; esac
+        if [ -n "$usage" ]; then body="$body,\"nubrix_usage\":$usage}"; else body="$body}"; fi
+        ;;
+    esac
     ;;
 esac
 

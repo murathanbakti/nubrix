@@ -212,6 +212,27 @@ struct AgentSession: Identifiable, Equatable {
     var costUSD: Double?
     var modelName: String?
     var contextWarned = false
+    var contextTokens: Int?
+    var usageModel: String?
+    var sessionTokens = 0
+    var estimatedCostUSD: Double?
+    var lastUsageMessageID: String?
+
+    var contextWindow: Int? {
+        if let contextWindowSize, contextWindowSize > 0 { return contextWindowSize }
+        guard let contextTokens else { return nil }
+        return AgentContextWindow.infer(model: usageModel, contextTokens: contextTokens)
+    }
+
+    var displayModel: String? {
+        modelName ?? AgentPricing.friendlyName(usageModel) ?? usageModel
+    }
+
+    var displayCost: (value: Double, estimated: Bool)? {
+        if let costUSD { return (costUSD, false) }
+        if let estimatedCostUSD { return (estimatedCostUSD, true) }
+        return nil
+    }
 
     var project: String {
         let name = URL(fileURLWithPath: cwd).lastPathComponent
@@ -283,6 +304,7 @@ struct AgentHookEvent {
     var source = AgentSourceInfo()
     var branch: String?
     var remote: String?
+    let usage: AgentUsageSample?
 
     init?(json: Data) {
         guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
@@ -291,6 +313,7 @@ struct AgentHookEvent {
         else { return nil }
         self.name = name
         self.sessionID = sessionID
+        usage = (name == "Stop" || name == "SubagentStop") ? AgentUsageSample(object: object["nubrix_usage"] as? [String: Any]) : nil
         cwd = object["cwd"] as? String
         notificationType = object["notification_type"] as? String
         let tool = object["tool_name"] as? String

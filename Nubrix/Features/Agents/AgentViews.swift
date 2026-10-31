@@ -136,7 +136,6 @@ struct AgentInfoPanelContainer: View {
                     lastHookEventAt: agents.lastHookEventAt,
                     lastStatusAt: agents.lastStatusAt,
                     approvalsEnabled: approvals,
-                    lastPermissionRequestAt: agents.lastPermissionRequestAt,
                     sealedScripts: AgentInfoModel.sealedCount(in: AgentEventServer.configDirectory.appendingPathComponent("bin", isDirectory: true)),
                     sealedTotal: AgentInfoModel.sealedNames.count,
                     serverPort: agents.serverPort
@@ -145,7 +144,8 @@ struct AgentInfoPanelContainer: View {
                 onCopy: {
                     let bin = AgentEventServer.configDirectory.appendingPathComponent("bin", isDirectory: true).path
                     ClipStore.shared.copyTransformed(AgentInfoModel.setupSnippet(binDirectory: bin))
-                }
+                },
+                onOpenSettings: { SettingsNavigation.shared.open("Notifications") }
             )
         }
     }
@@ -160,6 +160,7 @@ struct AgentSessionsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             AgentUsageHeader(
+                today: agents.today.current(now: Date()),
                 limits: agents.rateLimits,
                 clearVisible: !showsInfo && agents.sessions.contains(where: { [.done, .failed, .idle].contains($0.state) }),
                 infoActive: showsInfo,

@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 import SwiftUI
 
@@ -8,6 +9,7 @@ final class AgentSessionStore: ObservableObject {
     @Published private(set) var sessions: [AgentSession] = []
     @Published private(set) var banner: AgentBanner?
     @Published private(set) var rateLimits: AgentRateLimits?
+    @Published private(set) var today: AgentDailyUsage
 
     static let contextWarningThreshold = 85.0
     static let contextRearmThreshold = 70.0
@@ -16,12 +18,15 @@ final class AgentSessionStore: ObservableObject {
     @Published private(set) var lastPermissionRequestAt: Date?
     @Published var serverPort: UInt16?
     private var rateLimitsUpdatedAt = Date.distantPast
+    private var statusSeen: [String: Date] = [:]
+    static let statusFreshness: TimeInterval = 120
 
     private var bannerTask: Task<Void, Never>?
     private var sweepTask: Task<Void, Never>?
     private let retention: TimeInterval = 12 * 60 * 60
 
     private init() {
+        today = AgentDailyUsage(stored: Defaults[.claudeDailyUsage])
         sweepTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
@@ -55,6 +60,14 @@ final class AgentSessionStore: ObservableObject {
         }
 
         let index = sessions.firstIndex { $0.id == event.sessionID }
+        if event.name == "SubagentStop" {
+            if let index, let usage = event.usage {
+                var session = sessions[index]
+                absorb(usage, into: &session, accumulate: false, now: now)
+                if session != sessions[index] { sessions[index] = session }
+            }
+            return
+        }
         let current = index.map { sessions[$0].state }
         guard let next = Self.state(after: event, current: current) else { return }
 
@@ -67,6 +80,8 @@ final class AgentSessionStore: ObservableObject {
         session.state = next
         session.updatedAt = now
         if let detail = event.detail, !detail.isEmpty { session.detail = detail }
+        let warnedBefore = session.contextWarned
+        if let usage = event.usage { absorb(usage, into: &session, accumulate: true, now: now, banner: false) }
 
         if let index {
             var unchanged = session
@@ -85,6 +100,10 @@ final class AgentSessionStore: ObservableObject {
         if next != current, [.done, .failed, .needsAttention].contains(next) {
             show(AgentBanner(sessionID: session.id, project: session.projectWithBranch, state: next))
         }
+
+        if !warnedBefore, session.contextWarned, let percent = session.contextUsedPercent {
+            showContextBanner(session, percent: percent)
+        }
     }
 
     func apply(_ update: AgentStatusUpdate) {
@@ -95,6 +114,7 @@ final class AgentSessionStore: ObservableObject {
             rateLimitsUpdatedAt = now
         }
         guard let index = sessions.firstIndex(where: { $0.id == update.sessionID }) else { return }
+        statusSeen[update.sessionID] = now
         var session = sessions[index]
         if let cwd = update.cwd, !cwd.isEmpty { session.cwd = cwd }
         session.source.merge(update.source)
@@ -102,18 +122,42 @@ final class AgentSessionStore: ObservableObject {
         if let name = update.modelName { session.modelName = name }
         if let size = update.contextWindowSize { session.contextWindowSize = size }
         if let cost = update.costUSD { session.costUSD = cost }
-        if let percent = update.contextUsedPercent {
-            session.contextUsedPercent = percent
-            if percent >= Self.contextWarningThreshold, !session.contextWarned {
-                session.contextWarned = true
-                NubrixInbox.shared.contextWarning(id: session.id, project: session.projectWithBranch, percent: percent)
-                show(AgentBanner(sessionID: session.id, project: session.projectWithBranch, state: .needsAttention,
-                                 note: "Context \(Int(percent.rounded()))%"))
-            } else if percent < Self.contextRearmThreshold {
-                session.contextWarned = false
-            }
-        }
+        if let percent = update.contextUsedPercent { registerContext(percent: percent, in: &session) }
         if session != sessions[index] { sessions[index] = session }
+    }
+
+    private func registerContext(percent: Double, in session: inout AgentSession, banner: Bool = true) {
+        session.contextUsedPercent = percent
+        if percent >= Self.contextWarningThreshold, !session.contextWarned {
+            session.contextWarned = true
+            NubrixInbox.shared.contextWarning(id: session.id, project: session.projectWithBranch, percent: percent)
+            if banner { showContextBanner(session, percent: percent) }
+        } else if percent < Self.contextRearmThreshold {
+            session.contextWarned = false
+        }
+    }
+
+    private func showContextBanner(_ session: AgentSession, percent: Double) {
+        show(AgentBanner(sessionID: session.id, project: session.projectWithBranch, state: .needsAttention,
+                         note: "Context \(Int(percent.rounded()))%"))
+    }
+
+    private func absorb(_ usage: AgentUsageSample, into session: inout AgentSession, accumulate: Bool, now: Date, banner: Bool = true) {
+        if let model = usage.model { session.usageModel = model }
+        session.contextTokens = usage.contextTokens
+        let statuslineFresh = statusSeen[session.id].map { now.timeIntervalSince($0) < Self.statusFreshness } ?? false
+        if !statuslineFresh, let window = session.contextWindow, window > 0 {
+            registerContext(percent: min(100, Double(usage.contextTokens) / Double(window) * 100), in: &session, banner: banner)
+        }
+        guard accumulate, let turn = usage.turn, turn.messageID != session.lastUsageMessageID else { return }
+        session.lastUsageMessageID = turn.messageID
+        session.sessionTokens += turn.billableTokens
+        let cost = AgentPricing.cost(of: turn, model: usage.model ?? session.usageModel)
+        if let cost { session.estimatedCostUSD = (session.estimatedCostUSD ?? 0) + cost }
+        var next = today
+        next.add(tokens: turn.billableTokens, costUSD: cost ?? 0, now: now)
+        today = next
+        Defaults[.claudeDailyUsage] = next.stored
     }
 
     func session(_ id: String) -> AgentSession? {
@@ -155,8 +199,12 @@ final class AgentSessionStore: ObservableObject {
     }
 
     private func sweep() {
-        let cutoff = Date().addingTimeInterval(-retention)
+        let now = Date()
+        let cutoff = now.addingTimeInterval(-retention)
         sessions.removeAll { $0.updatedAt < cutoff }
+        let live = Set(sessions.map(\.id))
+        statusSeen = statusSeen.filter { live.contains($0.key) }
+        if !today.isCurrent(now: now) { today = today.current(now: now) }
     }
 
     private static func state(after event: AgentHookEvent, current: AgentSessionState?) -> AgentSessionState? {
