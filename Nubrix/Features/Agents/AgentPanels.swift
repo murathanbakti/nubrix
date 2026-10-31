@@ -177,11 +177,13 @@ struct AgentSessionRowBody: View {
 
 struct AgentUsageHeader: View {
     let today: AgentDailyUsage?
-    let limits: AgentRateLimits?
+    let summary: ClaudeUsageSummary?
+    var now = Date()
     var clearVisible = false
     var infoActive = false
     var onInfo: () -> Void = {}
     var onClear: () -> Void = {}
+    @Environment(\.locale) private var locale
 
     var body: some View {
         HStack(spacing: 10) {
@@ -191,13 +193,17 @@ struct AgentUsageHeader: View {
                 .lineLimit(1)
                 .help("Tokens are input, output and cache writes counted from Claude Code transcripts since midnight; cache reads are not counted. Cost is an estimate from list prices.")
             Spacer(minLength: 8)
-            if let limits = limits?.current() {
-                if let percent = limits.fiveHourPercent {
-                    meter("5h", percent: percent, reset: limits.fiveHourResetsAt)
+            if let summary, summary.fiveHour.source == .official || summary.sevenDay.source == .official {
+                HStack(spacing: 10) {
+                    if summary.fiveHour.source == .official, let percent = summary.fiveHour.percent {
+                        meter(ClaudeUsageText.fiveHourTitle(summary.fiveHour, locale: locale), percent: percent,
+                              reset: summary.fiveHour.resetsAt)
+                    }
+                    if summary.sevenDay.source == .official, let percent = summary.sevenDay.percent {
+                        meter(ClaudeUsageText.sevenDayTitle(summary.sevenDay, locale: locale), percent: percent, reset: nil)
+                    }
                 }
-                if let percent = limits.sevenDayPercent {
-                    meter("7d", percent: percent, reset: nil)
-                }
+                .help(ClaudeUsageText.tooltip(summary, now: now, locale: locale))
             }
             if clearVisible {
                 Button("Clear finished", action: onClear)
@@ -226,7 +232,7 @@ struct AgentUsageHeader: View {
     private func meter(_ title: String, percent: Double, reset: Date?) -> some View {
         HStack(spacing: 5) {
             AgentContextBar(percent: percent, width: 28)
-            Text("\(title) \(Int(percent.rounded()))%" + (reset.map { " · resets \(AgentMeter.resetTime($0))" } ?? ""))
+            Text("\(title) \(Int(percent.rounded()))%" + (reset.map { " · " + ClaudeUsageText.clock($0, locale: locale) } ?? ""))
                 .font(.system(size: 11).monospacedDigit())
                 .foregroundStyle(Color(white: 0.7))
                 .lineLimit(1)

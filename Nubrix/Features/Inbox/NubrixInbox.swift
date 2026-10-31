@@ -84,6 +84,21 @@ final class NubrixInbox: ObservableObject {
         update { $0.recordContextWarning(id: id, title: project, message: "Context \(Int(percent.rounded()))% — consider /compact") }
     }
 
+    func planUsage(_ alert: ClaudePlanAlert) {
+        guard InboxSource.claude.isEnabled else { return }
+        let locale = Locale.current
+        let name = alert.isSession ? ClaudeUsageText.session(locale) : ClaudeUsageText.week(locale)
+        let percent = ClaudeUsageText.percent(alert.percent)
+        let reset = ClaudeUsageText.resets(alert.resetsAt, now: Date(), locale: locale)
+        let tr = ClaudeUsageText.isTurkish(locale)
+        let message = tr ? "\(name) limitinin \(percent) kısmı kullanıldı · \(reset)" : "\(name) limit \(percent) used · \(reset)"
+        update {
+            $0.recordPlanUsage(key: "plan|\(alert.kind)|\(alert.threshold)|\(Int(alert.resetsAt.timeIntervalSince1970))",
+                               severity: alert.threshold >= 95 ? .failed : .notice,
+                               title: "Claude", message: message)
+        }
+    }
+
     func notchctl(title: String?, message: String) {
         guard InboxSource.notchctl.isEnabled else { return }
         update { $0.recordNotice(title: title ?? "notchctl", message: message) }

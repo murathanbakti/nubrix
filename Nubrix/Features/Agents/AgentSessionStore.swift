@@ -84,6 +84,7 @@ final class AgentSessionStore: ObservableObject {
     func apply(_ event: AgentHookEvent) {
         let now = Date()
         lastHookEventAt = now
+        if event.name == "Stop" { ClaudePlanUsageStore.shared.noteStop() }
         if event.name == "SessionEnd" {
             sessions.removeAll { $0.id == event.sessionID }
             NubrixInbox.shared.sessionEnded(id: event.sessionID)
@@ -226,7 +227,15 @@ final class AgentSessionStore: ObservableObject {
     }
 
     func usageSummary(now: Date) -> ClaudeUsageSummary? {
-        ClaudeUsageResolver.summary(ledger: ledger, limits: rateLimits, limitsUpdatedAt: rateLimitsUpdatedAt, now: now)
+        ClaudeUsageResolver.summary(ledger: ledger, limits: rateLimits, limitsUpdatedAt: rateLimitsUpdatedAt,
+                                    plan: ClaudePlanUsageStore.shared.current, now: now)
+    }
+
+    func showPlanUsageBanner(_ alert: ClaudePlanAlert) {
+        let name = alert.isSession ? ClaudeUsageText.session(Locale.current) : ClaudeUsageText.week(Locale.current)
+        show(AgentBanner(sessionID: "plan-usage", project: "Claude",
+                         state: alert.threshold >= 95 ? .failed : .needsAttention,
+                         note: "\(name) \(ClaudeUsageText.percent(alert.percent))"))
     }
 
     func session(_ id: String) -> AgentSession? {

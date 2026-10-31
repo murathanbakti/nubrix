@@ -154,14 +154,17 @@ struct AgentInfoPanelContainer: View {
 struct AgentSessionsView: View {
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var permissions = AgentPermissionStore.shared
+    @ObservedObject var plan = ClaudePlanUsageStore.shared
 
     @State private var showsInfo = false
 
     var body: some View {
+        let now = Date()
         VStack(alignment: .leading, spacing: 6) {
             AgentUsageHeader(
-                today: agents.today.current(now: Date()),
-                limits: agents.rateLimits,
+                today: agents.today.current(now: now),
+                summary: agents.usageSummary(now: now),
+                now: now,
                 clearVisible: !showsInfo && agents.sessions.contains(where: { [.done, .failed, .idle].contains($0.state) }),
                 infoActive: showsInfo,
                 onInfo: { withAnimation(.smooth(duration: 0.2)) { showsInfo.toggle() } },
@@ -186,6 +189,7 @@ struct AgentSessionsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 4)
+        .onAppear { plan.notchOpened() }
     }
 
     private var emptyState: some View {

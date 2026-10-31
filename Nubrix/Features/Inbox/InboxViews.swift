@@ -71,6 +71,7 @@ struct InboxLiveActivity: View {
 struct InboxSettings: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @Default(.inboxClaudeEnabled) var claudeEnabled
+    @Default(.claudePlanUsageEnabled) var planUsageEnabled
     @Default(.inboxNotchctlEnabled) var notchctlEnabled
     @Default(.inboxGithubEnabled) var githubEnabled
 
@@ -111,10 +112,13 @@ struct InboxSettings: View {
                 Defaults.Toggle(key: .homeShowClaudeUsage) {
                     Text("Show 5-hour and weekly usage on the Home tab")
                 }
+                Defaults.Toggle(key: .claudePlanUsageEnabled) {
+                    Text("Show official plan usage (runs `claude /usage` in the background)")
+                }
             } header: {
                 Text("Claude Code")
             } footer: {
-                Text("When Claude Code asks for permission, the notch shows the command with Allow and Deny. Nothing is ever approved automatically; if Nubrix is not running or you do not answer in time, Claude Code asks in its own window as usual. Requires the nubrix-permission hook. The Home tab card shows the official 5-hour and 7-day limits when the Claude status line reports them, otherwise an estimate from your Claude Code transcripts; it is hidden while a meeting countdown is showing.")
+                Text("When Claude Code asks for permission, the notch shows the command with Allow and Deny. Nothing is ever approved automatically; if Nubrix is not running or you do not answer in time, Claude Code asks in its own window as usual. Requires the nubrix-permission hook. The Home tab card shows your official session and weekly usage from Claude. Plan usage is read by running `claude /usage` with the installed Claude Code CLI every 5 to 30 minutes; it costs no tokens, loads no hooks or project settings, and only the percentages and reset times are kept. Without it, the card falls back to the status line limits or an estimate from your Claude Code transcripts. It is hidden while a meeting countdown is showing.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -137,6 +141,7 @@ struct InboxSettings: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Notifications")
+        .onChange(of: planUsageEnabled) { _, _ in ClaudePlanUsageStore.shared.settingChanged() }
         .onChange(of: claudeEnabled) { _, on in
             if !on { inbox.markRead(.claude) }
         }

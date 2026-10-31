@@ -290,6 +290,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 session.remote.map { GitHubSessionRef(repo: $0, branch: session.branch) }
             }
         }
+        ClaudePlanUsageStore.shared.start()
         VitrinService.start()
         MirrorService.start()
         NubrixCalendarService.start()

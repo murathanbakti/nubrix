@@ -425,6 +425,7 @@ struct NotchHomeView: View {
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @ObservedObject var meeting = MeetingWatcher.shared
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var plan = ClaudePlanUsageStore.shared
     @Default(.homeShowClaudeUsage) private var showClaudeUsage
     let albumArtNamespace: Namespace.ID
 
@@ -436,6 +437,10 @@ struct NotchHomeView: View {
         }
         // simplified: use a straightforward opacity transition
         .transition(.opacity)
+        .onAppear { if vm.notchState == .open { plan.notchOpened() } }
+        .onChange(of: vm.notchState) { _, state in
+            if state == .open { plan.notchOpened() }
+        }
     }
 
     private var shouldShowCamera: Bool {

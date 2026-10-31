@@ -59,6 +59,14 @@ struct InboxLedger {
     }
 
     @discardableResult
+    mutating func recordPlanUsage(key: String, severity: InboxSeverity, title: String, message: String, date: Date = Date()) -> Bool {
+        let family = key.split(separator: "|").prefix(2).joined(separator: "|") + "|"
+        entries.removeAll { $0.source == .claude && $0.key?.hasPrefix(family) == true }
+        insert(InboxEntry(source: .claude, severity: severity, title: title, message: message, date: date, sessionID: nil, key: key))
+        return true
+    }
+
+    @discardableResult
     mutating func clearSession(_ id: String) -> Bool {
         remove { $0.source == .claude && $0.sessionID == id && $0.isContextWarning }
     }

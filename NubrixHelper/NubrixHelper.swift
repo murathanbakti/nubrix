@@ -139,6 +139,12 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         reply(false)
     }
 
+    @objc func fetchClaudePlanUsage(with reply: @escaping (Data) -> Void) {
+        DispatchQueue.global(qos: .utility).async {
+            reply(ClaudePlanUsageProbe.fetch().encoded())
+        }
+    }
+
     // MARK: - Private helpers for DisplayServices / IOKit access
     private func displayServicesGetBrightness(displayID: CGDirectDisplayID, out: inout Float) -> Bool {
         guard let sym = dlsym(DisplayServicesHandle.handle, "DisplayServicesGetBrightness") else { return false }

@@ -10,19 +10,9 @@ struct ClaudeUsageCardContent: View {
 
     var body: some View {
         Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 9) {
-                HStack(spacing: 5) {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AgentSessionState.working.tint)
-                    Text("Claude")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
-                usageRow(title: ClaudeUsageText.fiveHour(locale), row: summary.fiveHour, spark: false)
-                usageRow(title: ClaudeUsageText.sevenDay(locale), row: summary.sevenDay, spark: true)
-                Spacer(minLength: 0)
+            ViewThatFits(in: .vertical) {
+                cardBody(showsScoped: summary.highestScoped != nil)
+                cardBody(showsScoped: false)
             }
             .padding(10)
             .frame(width: width, alignment: .topLeading)
@@ -35,6 +25,41 @@ struct ClaudeUsageCardContent: View {
         .help(ClaudeUsageText.tooltip(summary, now: now, locale: locale))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(ClaudeUsageText.tooltip(summary, now: now, locale: locale))
+    }
+
+    private func cardBody(showsScoped: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 5) {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AgentSessionState.working.tint)
+                Text("Claude")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if summary.hasPlanData && summary.isPlanStale(now: now) {
+                    Image(systemName: "clock.badge.exclamationmark")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(Color(white: 0.55))
+                }
+            }
+            usageRow(title: ClaudeUsageText.fiveHourTitle(summary.fiveHour, locale: locale), row: summary.fiveHour, spark: false)
+            usageRow(title: ClaudeUsageText.sevenDayTitle(summary.sevenDay, locale: locale), row: summary.sevenDay, spark: true)
+            if showsScoped, let scoped = summary.highestScoped {
+                HStack(spacing: 4) {
+                    Text(scoped.name)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color(white: 0.62))
+                        .lineLimit(1)
+                    Spacer(minLength: 2)
+                    Text(ClaudeUsageText.percent(scoped.percent))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Color(white: 0.85))
+                }
+            }
+            Spacer(minLength: 0)
+        }
     }
 
     private func usageRow(title: String, row: ClaudeUsageRow, spark: Bool) -> some View {
@@ -122,6 +147,7 @@ struct ClaudeUsageSpark: View {
 
 struct ClaudeUsageCard: View {
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var plan = ClaudePlanUsageStore.shared
     let isActive: Bool
     let onOpen: () -> Void
 

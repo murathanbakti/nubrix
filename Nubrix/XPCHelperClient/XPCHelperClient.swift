@@ -241,6 +241,24 @@ final class XPCHelperClient: NSObject {
             return false
         }
     }
+
+    // MARK: - Claude plan usage
+
+    nonisolated func fetchClaudePlanUsage() async -> ClaudePlanFetchResult {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            let data: Data = try await service.withContinuation { service, continuation in
+                service.fetchClaudePlanUsage { data in
+                    continuation.resume(returning: data)
+                }
+            }
+            return ClaudePlanFetchResult.decode(data)
+        } catch {
+            return .failure(.failed)
+        }
+    }
 }
 
 extension Notification.Name {
