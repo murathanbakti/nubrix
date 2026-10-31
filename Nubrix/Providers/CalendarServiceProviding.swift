@@ -13,7 +13,13 @@ import Foundation
 protocol CalendarServiceProviding {
     func requestAccess(to type: EKEntityType) async throws -> Bool
     func calendars() async -> [CalendarModel]
-    func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel]
+    func events(from start: Date, to end: Date, calendars: [String], includeReminders: Bool) async -> [EventModel]
+}
+
+extension CalendarServiceProviding {
+    func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel] {
+        await events(from: start, to: end, calendars: calendars, includeReminders: false)
+    }
 }
 
 final class CalendarService: CalendarServiceProviding, @unchecked Sendable {
@@ -49,9 +55,9 @@ final class CalendarService: CalendarServiceProviding, @unchecked Sendable {
         }
     }
 
-    func events(from start: Date, to end: Date, calendars ids: [String]) async -> [EventModel] {
+    func events(from start: Date, to end: Date, calendars ids: [String], includeReminders: Bool = false) async -> [EventModel] {
         let wantsEvents = hasAccess(to: .event)
-        let wantsReminders = hasAccess(to: .reminder)
+        let wantsReminders = includeReminders && hasAccess(to: .reminder)
         guard wantsEvents || wantsReminders else { return [] }
 
         let fetched: (events: [EventModel], reminderCalendars: [EKCalendar]) = await eventStore.perform { store in
@@ -76,10 +82,18 @@ final class CalendarService: CalendarServiceProviding, @unchecked Sendable {
 
     private func fetchReminders(from start: Date, to end: Date, calendars: [EKCalendar]) async -> [EventModel] {
         let boxed = EventKitBox(value: calendars)
-        return await withCheckedContinuation { continuation in
+        let incomplete = await fetchReminders(from: start, to: end, calendars: boxed, completed: false)
+        let completed = await fetchReminders(from: start, to: end, calendars: boxed, completed: true)
+        return incomplete + completed
+    }
+
+    private func fetchReminders(from start: Date, to end: Date, calendars boxed: EventKitBox<[EKCalendar]>, completed: Bool) async -> [EventModel] {
+        await withCheckedContinuation { continuation in
             eventStore.queue.async {
                 let store = self.eventStore.store
-                let predicate = store.predicateForReminders(in: boxed.value)
+                let predicate = completed
+                    ? store.predicateForCompletedReminders(withCompletionDateStarting: start, ending: end, calendars: boxed.value)
+                    : store.predicateForIncompleteReminders(withDueDateStarting: start, ending: end, calendars: boxed.value)
                 store.fetchReminders(matching: predicate) { reminders in
                     let models = (reminders ?? []).compactMap { reminder -> EventModel? in
                         guard let dueDate = reminder.dueDateComponents?.date, dueDate >= start, dueDate <= end else { return nil }

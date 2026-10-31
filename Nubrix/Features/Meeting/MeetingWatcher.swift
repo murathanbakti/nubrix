@@ -56,6 +56,12 @@ final class MeetingWatcher: ObservableObject {
             self?.refresh()
         }
         .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refresh()
+            }
+            .store(in: &cancellables)
         refresh()
     }
 
@@ -67,10 +73,10 @@ final class MeetingWatcher: ObservableObject {
             stopTimer()
             return
         }
-        scheduleTimer(after: current)
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
             fetchTask?.cancel()
             clear()
+            stopTimer()
             return
         }
         let lead = MeetingLeadOption.normalized(Defaults[.meetingLeadMinutes])
@@ -84,7 +90,7 @@ final class MeetingWatcher: ObservableObject {
         fetchTask?.cancel()
         let windowEnd = end.addingTimeInterval(Self.prefetchExtra)
         fetchTask = Task { [service] in
-            let events = await service.events(from: start, to: windowEnd, calendars: ids)
+            let events = await service.events(from: start, to: windowEnd, calendars: ids, includeReminders: false)
             guard !Task.isCancelled else { return }
             self.cachedEvents = events
             self.cacheWindow = (start, windowEnd)
@@ -126,8 +132,10 @@ final class MeetingWatcher: ObservableObject {
             clear()
             publishedMinute = nil
             if !fired.isEmpty { fired.removeAll() }
+            scheduleTimer(at: idleWake(candidates, now: date, lead: lead))
             return
         }
+        scheduleTimer(at: Self.nextMinute(after: date))
         let info = Self.info(model, id: picked.id)
         let minute = Int(date.timeIntervalSinceReferenceDate / 60)
         if publishedMinute != minute {
@@ -160,15 +168,29 @@ final class MeetingWatcher: ObservableObject {
         }
     }
 
-    private func scheduleTimer(after date: Date) {
-        timer?.invalidate()
+    private static func nextMinute(after date: Date) -> Date {
         let seconds = date.timeIntervalSinceReferenceDate
-        let boundary = (seconds / 60).rounded(.down) * 60 + 60 + 0.2
-        let fire = Date(timeIntervalSinceReferenceDate: boundary)
+        return Date(timeIntervalSinceReferenceDate: (seconds / 60).rounded(.down) * 60 + 60 + 0.2)
+    }
+
+    private func idleWake(_ candidates: [MeetingCandidate], now: Date, lead: Int) -> Date {
+        let leadSeconds = TimeInterval(max(1, lead) * 60)
+        var wake = Self.nextMinute(after: now).addingTimeInterval(30 * 60)
+        if let window = cacheWindow {
+            wake = min(wake, window.end.addingTimeInterval(-TimeInterval(lead * 60 + 120) + 0.2))
+        }
+        for candidate in candidates where !candidate.isAllDay && !candidate.isDeclined && !dismissed.contains(candidate.id) && candidate.start > now {
+            wake = min(wake, candidate.start.addingTimeInterval(-leadSeconds + 0.2))
+        }
+        return max(wake, now.addingTimeInterval(1))
+    }
+
+    private func scheduleTimer(at fire: Date) {
+        timer?.invalidate()
         let timer = Timer(fire: fire, interval: 0, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
-        timer.tolerance = 0.1
+        timer.tolerance = 1
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }

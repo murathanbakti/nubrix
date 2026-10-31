@@ -52,13 +52,20 @@ final class TodayTileModel: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var dirty = true
     private var loadedDay: Date?
+    private var isVisible = false
+
+    func setVisible(_ visible: Bool) {
+        isVisible = visible
+        if visible { refresh() }
+    }
 
     private init() {
         SharedEventStore.shared.changes
             .sink { [weak self] in
                 MainActor.assumeIsolated {
-                    self?.dirty = true
-                    self?.refresh()
+                    guard let self else { return }
+                    self.dirty = true
+                    if self.isVisible { self.refresh() }
                 }
             }
             .store(in: &cancellables)
@@ -67,8 +74,9 @@ final class TodayTileModel: ObservableObject {
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.dirty = true
-                self?.refresh()
+                guard let self else { return }
+                self.dirty = true
+                if self.isVisible { self.refresh() }
             }
             .store(in: &cancellables)
     }
@@ -94,7 +102,7 @@ final class TodayTileModel: ObservableObject {
         let end = calendar.date(byAdding: .day, value: 2, to: start) ?? start
         let ids = Array(CalendarManager.shared.selectedCalendarIDs)
         loadTask = Task { [service] in
-            let result = await service.events(from: start, to: end, calendars: ids)
+            let result = await service.events(from: start, to: end, calendars: ids, includeReminders: false)
             guard !Task.isCancelled else { return }
             if self.events != result { self.events = result }
         }

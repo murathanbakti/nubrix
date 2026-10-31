@@ -1,5 +1,7 @@
 import AppKit
 import Defaults
+import IOKit.ps
+import Network
 import SwiftUI
 
 struct GitHubSessionRef: Equatable, Sendable {
@@ -21,6 +23,8 @@ final class GitHubStore: ObservableObject {
     static let shared = GitHubStore()
     static let idleInterval: TimeInterval = 120
     static let activeInterval: TimeInterval = 30
+    static let quietInterval: TimeInterval = 450
+    static let maxFailureDelay: TimeInterval = 900
     static let minimumGap: TimeInterval = 5
     static let repoListLifetime: TimeInterval = 600
     static let maxWatchedRepos = 10
@@ -44,6 +48,9 @@ final class GitHubStore: ObservableObject {
     private var sectionVisible = false
     private var sleeping = false
     private var locked = false
+    private var offline = false
+    private var consecutiveFailures = 0
+    private var pathMonitor: NWPathMonitor?
     private var started = false
     private var refreshing = false
     private var lastRefreshStart = Date.distantPast
@@ -58,7 +65,7 @@ final class GitHubStore: ObservableObject {
     }
 
     var hasToken: Bool { connection != .noToken }
-    var isPaused: Bool { sleeping || locked }
+    var isPaused: Bool { sleeping || locked || offline }
 
     var hasRunInProgress: Bool { runs.contains { $0.state == .running } }
 
@@ -157,14 +164,17 @@ final class GitHubStore: ObservableObject {
         restartLoop(ignoringGap: true)
     }
 
-    func setPaused(sleeping: Bool? = nil, locked: Bool? = nil) {
+    func setPaused(sleeping: Bool? = nil, locked: Bool? = nil, offline: Bool? = nil) {
         let before = isPaused
         if let sleeping { self.sleeping = sleeping }
         if let locked { self.locked = locked }
+        if let offline { self.offline = offline }
         if isPaused {
             loop?.cancel()
             loop = nil
+            if offline == true, hasToken, connection == .connected { replace(connection: .failing("Offline")) }
         } else if before, hasToken {
+            consecutiveFailures = 0
             restartLoop()
         }
     }
@@ -217,22 +227,38 @@ final class GitHubStore: ObservableObject {
         loop = Task { [weak self] in
             if !ignoringGap, let self {
                 let wait = Self.minimumGap - Date().timeIntervalSince(self.lastRefreshStart)
-                if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+                if wait > 0 { try? await Task.sleep(for: .seconds(wait), tolerance: .seconds(1)) }
             }
             while !Task.isCancelled {
                 guard let self else { return }
                 await self.refresh()
                 if Task.isCancelled { return }
                 if self.connection == .unauthorized { return }
-                try? await Task.sleep(for: .seconds(self.nextDelay()))
+                try? await Task.sleep(for: .seconds(self.nextDelay()), tolerance: .seconds(5))
             }
         }
     }
 
     private func nextDelay(now: Date = Date()) -> TimeInterval {
-        let base = (sectionVisible || hasRunInProgress) ? Self.activeInterval : Self.idleInterval
+        var base = Self.idleInterval
+        let runActive = hasRunInProgress
+        if sectionVisible || (runActive && !Self.onBattery && !ProcessInfo.processInfo.isLowPowerModeEnabled) {
+            base = Self.activeInterval
+        } else if !sectionVisible, !runActive, sessionSource().isEmpty {
+            base = Self.quietInterval
+        }
         if case .rateLimited(let until) = connection { return max(base, until.timeIntervalSince(now) + 1) }
+        if consecutiveFailures > 0 {
+            let factor = pow(2, Double(min(consecutiveFailures, 10)))
+            return max(base, min(base * factor, Self.maxFailureDelay))
+        }
         return base
+    }
+
+    private static var onBattery: Bool {
+        guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue() else { return false }
+        let type = IOPSGetProvidingPowerSourceType(info)?.takeUnretainedValue() as String?
+        return type == kIOPSBatteryPowerValue
     }
 
     private func refresh() async {
@@ -276,6 +302,7 @@ final class GitHubStore: ObservableObject {
             let context = GitHubDiffContext(login: name, defaultBranches: defaults, extraBranches: branches)
             let diff = GitHubChangeDetector.diff(previous: snapshot, current: next, context: context)
             snapshot = next
+            consecutiveFailures = 0
             replace(connection: .connected, mine: next.mine, reviews: next.reviewRequests, runs: Self.displayRuns(next.runs))
             lastRefresh = Date()
             GitHubNotifier.deliver(diff)
@@ -283,10 +310,15 @@ final class GitHubStore: ObservableObject {
             switch failure {
             case .unauthorized: replace(connection: .unauthorized)
             case .rateLimited(let until): replace(connection: .rateLimited(until))
-            case .network: replace(connection: .failing("Offline"))
-            default: replace(connection: .failing("GitHub error"))
+            case .network:
+                consecutiveFailures += 1
+                replace(connection: .failing("Offline"))
+            default:
+                consecutiveFailures += 1
+                replace(connection: .failing("GitHub error"))
             }
         } catch {
+            consecutiveFailures += 1
             replace(connection: .failing("GitHub error"))
         }
     }
@@ -333,22 +365,15 @@ final class GitHubStore: ObservableObject {
     }
 
     private func fetchRuns(_ repos: [String]) async throws -> [GitHubRun] {
-        let client = self.client
-        return try await withThrowingTaskGroup(of: [GitHubRun].self) { group in
-            for repo in repos {
-                group.addTask {
-                    do {
-                        return try await client.runs(repo: repo).runs
-                    } catch let failure as GitHubFailure {
-                        if failure == .unauthorized || failure.isRateLimit { throw failure }
-                        return []
-                    }
-                }
+        var all: [GitHubRun] = []
+        for repo in repos {
+            do {
+                all += try await client.runs(repo: repo).runs
+            } catch let failure as GitHubFailure {
+                if failure == .unauthorized || failure.isRateLimit { throw failure }
             }
-            var all: [GitHubRun] = []
-            for try await batch in group { all += batch }
-            return all.sorted { $0.id > $1.id }
         }
+        return all.sorted { $0.id > $1.id }
     }
 
     nonisolated static func displayRuns(_ all: [GitHubRun]) -> [GitHubRun] {
@@ -380,5 +405,12 @@ final class GitHubStore: ObservableObject {
         watch(workspace, NSWorkspace.sessionDidBecomeActiveNotification) { $0.setPaused(locked: false) }
         watch(distributed, Notification.Name("com.apple.screenIsLocked")) { $0.setPaused(locked: true) }
         watch(distributed, Notification.Name("com.apple.screenIsUnlocked")) { $0.setPaused(locked: false) }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            let offline = path.status != .satisfied
+            Task { @MainActor in self?.setPaused(offline: offline) }
+        }
+        monitor.start(queue: DispatchQueue(label: "dev.nubrix.github.path", qos: .utility))
+        pathMonitor = monitor
     }
 }

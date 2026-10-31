@@ -32,7 +32,7 @@ final class DevPortMonitor: ObservableObject {
             loop = Task { [weak self] in
                 while !Task.isCancelled {
                     await self?.scan()
-                    try? await Task.sleep(for: .seconds(5))
+                    try? await Task.sleep(for: .seconds(15), tolerance: .seconds(2))
                 }
             }
         }

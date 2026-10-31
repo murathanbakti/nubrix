@@ -16,13 +16,9 @@ import SwiftUIIntrospect
 @MainActor
 struct ContentView: View {
     @EnvironmentObject var vm: NubrixViewModel
-    @ObservedObject var webcamManager = WebcamManager.shared
-
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
-    @ObservedObject var brightnessManager = BrightnessManager.shared
-    @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared

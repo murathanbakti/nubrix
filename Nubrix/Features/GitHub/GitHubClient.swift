@@ -32,13 +32,15 @@ actor GitHubClient {
     static let apiVersion = "2022-11-28"
     static let reserve = 25
     static let secondaryBackoff: TimeInterval = 60
+    static let resources = ["core", "graphql"]
 
     private let base: URL
     private let session: URLSession
     private var token: String?
     private var runCache: [String: (etag: String, runs: [GitHubRun])] = [:]
     private var blockedUntil: Date?
-    private(set) var rateLimit: GitHubRateLimit?
+    private var resourceBlocked: [String: Date] = [:]
+    private var rateLimits: [String: GitHubRateLimit] = [:]
     private(set) var requestCount = 0
     private(set) var notModifiedCount = 0
 
@@ -58,19 +60,29 @@ actor GitHubClient {
         }
     }
 
+    var rateLimit: GitHubRateLimit? {
+        rateLimits["core"] ?? rateLimits.values.min { $0.remaining < $1.remaining }
+    }
+
     func setToken(_ value: String?) {
         token = value
         runCache.removeAll()
         blockedUntil = nil
-        rateLimit = nil
+        resourceBlocked.removeAll()
+        rateLimits.removeAll()
     }
 
     var hasToken: Bool { token != nil }
 
-    func resetBackoff() { blockedUntil = nil }
+    func resetBackoff() {
+        blockedUntil = nil
+        resourceBlocked.removeAll()
+    }
 
     func backoffUntil(now: Date = Date()) -> Date? {
         if let blockedUntil, blockedUntil > now { return blockedUntil }
+        let active = Self.resources.compactMap { resourceBlocked[$0] }.filter { $0 > now }
+        if active.count == Self.resources.count { return active.min() }
         return nil
     }
 
@@ -146,10 +158,12 @@ actor GitHubClient {
                       etag: String? = nil) async throws -> (Data, HTTPURLResponse) {
         guard let token else { throw GitHubFailure.noToken }
         let now = Date()
+        let resource = path == "/graphql" ? "graphql" : "core"
         if let blockedUntil, blockedUntil > now { throw GitHubFailure.rateLimited(until: blockedUntil) }
-        if let rateLimit, rateLimit.remaining <= Self.reserve, rateLimit.resetAt > now {
-            blockedUntil = rateLimit.resetAt
-            throw GitHubFailure.rateLimited(until: rateLimit.resetAt)
+        if let until = resourceBlocked[resource], until > now { throw GitHubFailure.rateLimited(until: until) }
+        if let limit = rateLimits[resource], limit.remaining <= Self.reserve, limit.resetAt > now {
+            resourceBlocked[resource] = limit.resetAt
+            throw GitHubFailure.rateLimited(until: limit.resetAt)
         }
         guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { throw GitHubFailure.malformed }
         components.path = (components.path == "/" ? "" : components.path) + path
@@ -179,15 +193,19 @@ actor GitHubClient {
         } catch {
             throw GitHubFailure.network
         }
-        updateRateLimit(response)
+        updateRateLimit(response, fallback: resource)
         switch response.statusCode {
         case 200...299, 304:
             return (data, response)
         case 401:
             throw GitHubFailure.unauthorized
         case 403, 429:
-            if let until = limitedUntil(response, data: data) {
-                blockedUntil = until
+            if let until = limitedUntil(response, data: data, resource: resource) {
+                if rateLimits[resource].map({ $0.remaining == 0 && $0.resetAt == until }) == true {
+                    resourceBlocked[resource] = until
+                } else {
+                    blockedUntil = until
+                }
                 throw GitHubFailure.rateLimited(until: until)
             }
             throw GitHubFailure.forbidden
@@ -198,19 +216,20 @@ actor GitHubClient {
         }
     }
 
-    private func updateRateLimit(_ response: HTTPURLResponse) {
+    private func updateRateLimit(_ response: HTTPURLResponse, fallback: String) {
         guard let remaining = response.value(forHTTPHeaderField: "X-RateLimit-Remaining").flatMap({ Int($0) }),
               let reset = response.value(forHTTPHeaderField: "X-RateLimit-Reset").flatMap({ TimeInterval($0) })
         else { return }
-        rateLimit = GitHubRateLimit(remaining: remaining, resetAt: Date(timeIntervalSince1970: reset))
+        let resource = response.value(forHTTPHeaderField: "X-RateLimit-Resource")?.lowercased() ?? fallback
+        rateLimits[resource] = GitHubRateLimit(remaining: remaining, resetAt: Date(timeIntervalSince1970: reset))
     }
 
-    private func limitedUntil(_ response: HTTPURLResponse, data: Data) -> Date? {
+    private func limitedUntil(_ response: HTTPURLResponse, data: Data, resource: String) -> Date? {
         let now = Date()
         if let retry = response.value(forHTTPHeaderField: "Retry-After").flatMap({ TimeInterval($0) }) {
             return now.addingTimeInterval(max(1, min(retry, 3600)))
         }
-        if let rateLimit, rateLimit.remaining == 0, rateLimit.resetAt > now { return rateLimit.resetAt }
+        if let limit = rateLimits[resource], limit.remaining == 0, limit.resetAt > now { return limit.resetAt }
         let message = String(data: data.prefix(2000), encoding: .utf8)?.lowercased() ?? ""
         if message.contains("rate limit") { return now.addingTimeInterval(Self.secondaryBackoff) }
         return response.statusCode == 429 ? now.addingTimeInterval(Self.secondaryBackoff) : nil

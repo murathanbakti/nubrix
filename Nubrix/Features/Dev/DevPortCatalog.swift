@@ -15,7 +15,7 @@ enum DevPortCatalog {
         4000: DevPortInfo(label: "Dev server", isDatabase: false),
         4200: DevPortInfo(label: "Angular", isDatabase: false),
         4321: DevPortInfo(label: "Astro", isDatabase: false),
-        5000: DevPortInfo(label: "Flask / Dev", isDatabase: false),
+        5000: DevPortInfo(label: "AirPlay / Flask", isDatabase: false),
         5173: DevPortInfo(label: "Vite", isDatabase: false),
         5432: DevPortInfo(label: "Postgres", isDatabase: true),
         6379: DevPortInfo(label: "Redis", isDatabase: true),

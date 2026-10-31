@@ -80,8 +80,13 @@ struct HeaderDatePill: View {
                 active: host.currentID == NubrixCalendarSheet.extensionID && host.phase != .closing,
                 action: toggle)
         }
-        .onAppear { model.refresh() }
+        .onAppear {
+            model.setVisible(vm.notchState == .open)
+            model.refresh()
+        }
+        .onDisappear { model.setVisible(false) }
         .onChange(of: vm.notchState) { _, state in
+            model.setVisible(state == .open)
             if state == .open { model.refresh() }
         }
     }
