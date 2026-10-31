@@ -167,7 +167,7 @@ private struct ImageCardContent: View {
             }
             .overlay(alignment: .bottom) {
                 LinearGradient(colors: [.black.opacity(0), .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 40 * scale)
+                    .frame(height: 32 * scale)
                     .allowsHitTesting(false)
             }
             .overlay(alignment: .bottom) {
@@ -375,21 +375,33 @@ struct VitrinCardRow: View {
     var onDelete: (ClipItem) -> Void
     var onAction: (ClipInsightAction) -> Void
 
-    static let cardSize = CGSize(width: 132, height: 100)
+    static let defaultCardSize = CGSize(width: 145, height: 100)
+
+    var cardSize: CGSize = Self.defaultCardSize
+    var scale: CGFloat = 1
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            VitrinCardScroller(height: Self.cardSize.height + 8, spacing: 10, inset: 6, vertical: 4) {
-                ForEach(items) { item in
-                    VitrinCard(
-                        item: item,
-                        size: Self.cardSize,
-                        now: context.date,
-                        onCopy: { onCopy(item) },
-                        onPin: { onPin(item) },
-                        onDelete: { onDelete(item) },
-                        onAction: onAction
-                    )
+        ScrollViewReader { proxy in
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                VitrinCardScroller(height: cardSize.height + 6, spacing: 10, inset: 6, vertical: 3) {
+                    ForEach(items) { item in
+                        VitrinCard(
+                            item: item,
+                            size: cardSize,
+                            scale: scale,
+                            now: context.date,
+                            onCopy: { onCopy(item) },
+                            onPin: { onPin(item) },
+                            onDelete: { onDelete(item) },
+                            onAction: onAction
+                        )
+                        .id(item.id)
+                    }
+                }
+            }
+            .onChange(of: items.first?.id) { _, id in
+                if let id {
+                    withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id, anchor: .leading) }
                 }
             }
         }

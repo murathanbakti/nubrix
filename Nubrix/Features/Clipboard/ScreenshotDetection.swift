@@ -4,7 +4,7 @@ enum ScreenshotDetection {
     static let sourceID = "com.apple.screenshot"
     static let captureAttribute = "com.apple.metadata:kMDItemIsScreenCapture"
     static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "tiff", "tif"]
-    static let creationTolerance: TimeInterval = 2
+    static let creationTolerance: TimeInterval = 15
 
     static var realHome: String {
         getpwuid(getuid()).flatMap { String(validatingUTF8: $0.pointee.pw_dir) } ?? NSHomeDirectory()
