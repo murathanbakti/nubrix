@@ -29,7 +29,9 @@ verify_bundle() {
   [ -z "$stale" ] || fail "stale upstream files: $stale"
 
   codesign --verify --strict --deep "$b" >/dev/null 2>&1 || fail "codesign verification failed"
-  codesign -dv "$b" 2>&1 | grep -q 'flags=.*runtime' || fail "hardened runtime is off"
+  local details
+  details="$(codesign -dv "$b" 2>&1)"
+  grep -q 'flags=.*runtime' <<< "$details" || fail "hardened runtime is off"
 
   entitlements="$(codesign -d --entitlements :- "$b" 2>/dev/null)"
   ! grep -q 'com.apple.security.get-task-allow' <<< "$entitlements" || fail "get-task-allow is present"
