@@ -11,11 +11,14 @@ struct ClaudeUsageRow: Equatable {
     var relative: Double?
     var origin: Origin = .none
     var updatedAt: Date? = nil
+    var didReset: Bool = false
 }
 
 struct ClaudeUsageScoped: Equatable {
     var name: String
     var percent: Double
+    var resetsAt: Date? = nil
+    var didReset: Bool = false
 }
 
 struct ClaudeUsageSummary: Equatable {
@@ -25,11 +28,13 @@ struct ClaudeUsageSummary: Equatable {
     var scoped: [ClaudeUsageScoped] = []
     var planFetchedAt: Date? = nil
 
-    var highestScoped: ClaudeUsageScoped? {
-        scoped.filter { $0.percent > 0 }.max { $0.percent < $1.percent }
+    var primaryScoped: ClaudeUsageScoped? {
+        scoped.max { $0.percent < $1.percent }
     }
 
     var hasPlanData: Bool { fiveHour.origin == .plan || sevenDay.origin == .plan }
+
+    var hasOfficial: Bool { fiveHour.source == .official || sevenDay.source == .official }
 
     func isPlanStale(now: Date) -> Bool {
         guard let planFetchedAt else { return false }
@@ -59,8 +64,12 @@ enum ClaudeUsageResolver {
         let peak = ledger.peakTokens(window: ClaudeUsageLedger.fiveHours, now: now)
         let relative = peak > 0 ? min(1, Double(five.tokens) / Double(peak)) : nil
         let scoped = (plan?.limits ?? [])
-            .filter { $0.kind == ClaudePlanLimit.scopedKind && $0.scopeModel != nil && ($0.resetsAt.map { $0 > now } ?? true) }
-            .map { ClaudeUsageScoped(name: $0.scopeModel ?? "", percent: $0.percent) }
+            .filter { $0.kind == ClaudePlanLimit.scopedKind && $0.scopeModel != nil && $0.percent.isFinite }
+            .map { limit -> ClaudeUsageScoped in
+                let passed = limit.resetsAt.map { $0 <= now } ?? false
+                return ClaudeUsageScoped(name: limit.scopeModel ?? "", percent: passed ? 0 : max(0, limit.percent),
+                                         resetsAt: limit.resetsAt, didReset: passed)
+            }
         let usesPlan = officialFive?.origin == .plan || officialSeven?.origin == .plan
         return ClaudeUsageSummary(
             fiveHour: row(official: officialFive, totals: five, relative: relative),
@@ -75,12 +84,14 @@ enum ClaudeUsageResolver {
         var resetsAt: Date?
         var updatedAt: Date
         var origin: ClaudeUsageRow.Origin
+        var didReset: Bool = false
     }
 
     static func planValue(_ limit: ClaudePlanLimit?, fetchedAt: Date?, now: Date) -> OfficialValue? {
         guard let limit, let fetchedAt, limit.percent.isFinite, fetchedAt <= now.addingTimeInterval(60) else { return nil }
-        if let reset = limit.resetsAt, reset <= now { return nil }
-        return OfficialValue(percent: max(0, limit.percent), resetsAt: limit.resetsAt, updatedAt: fetchedAt, origin: .plan)
+        let passed = limit.resetsAt.map { $0 <= now } ?? false
+        return OfficialValue(percent: passed ? 0 : max(0, limit.percent), resetsAt: limit.resetsAt,
+                             updatedAt: fetchedAt, origin: .plan, didReset: passed)
     }
 
     static func fresher(_ plan: OfficialValue?, _ status: OfficialValue?) -> OfficialValue? {
@@ -98,7 +109,8 @@ enum ClaudeUsageResolver {
     private static func row(official: OfficialValue?, totals: ClaudeUsageTotals, relative: Double?) -> ClaudeUsageRow {
         if let official {
             return ClaudeUsageRow(source: .official, percent: official.percent, resetsAt: official.resetsAt,
-                                  totals: totals, relative: nil, origin: official.origin, updatedAt: official.updatedAt)
+                                  totals: totals, relative: nil, origin: official.origin, updatedAt: official.updatedAt,
+                                  didReset: official.didReset)
         }
         return ClaudeUsageRow(source: .estimate, percent: nil, resetsAt: nil, totals: totals, relative: relative)
     }
@@ -131,21 +143,50 @@ enum ClaudeUsageText {
         return formatter.string(from: date)
     }
 
-    static func percent(_ value: Double) -> String { "\(Int(value.rounded()))%" }
-
-    static func cost(_ value: Double) -> String {
-        "~" + (value < 10 ? String(format: "$%.2f", value) : String(format: "$%.0f", value))
+    static func clock24(_ date: Date, calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
 
-    static func resets(_ date: Date, now: Date, locale: Locale, calendar: Calendar = .current) -> String {
+    static func percent(_ value: Double) -> String { "\(Int(value.rounded()))%" }
+
+    static func percent(_ value: Double, locale: Locale) -> String {
+        let number = Int(value.rounded())
+        return isTurkish(locale) ? "%\(number)" : "\(number)%"
+    }
+
+    static func stamp(_ date: Date, now: Date, locale: Locale, calendar: Calendar = .current) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         let sameDay = calendar.isDate(date, inSameDayAs: now)
         formatter.setLocalizedDateFormatFromTemplate(sameDay ? "jmm" : "EEEjmm")
-        let stamp = formatter.string(from: date)
-        return (isTurkish(locale) ? "sıfırlanma " : "resets ") + stamp
+        return formatter.string(from: date)
+    }
+
+    static func resetCaption(_ date: Date?, didReset: Bool, now: Date, locale: Locale, calendar: Calendar = .current) -> String? {
+        if didReset { return isTurkish(locale) ? "Sıfırlandı · güncelleniyor" : "Reset · updating" }
+        guard let date else { return nil }
+        let prefix = isTurkish(locale) ? "Sıfırlanma " : "Resets "
+        return prefix + stamp(date, now: now, locale: locale, calendar: calendar)
+    }
+
+    static func shortReset(_ date: Date?, didReset: Bool, now: Date, locale: Locale, calendar: Calendar = .current) -> String? {
+        guard !didReset, let date else { return nil }
+        return stamp(date, now: now, locale: locale, calendar: calendar)
+    }
+
+    static func cost(_ value: Double) -> String {
+        "~" + (value < 10 ? String(format: "$%.2f", value) : String(format: "$%.0f", value))
+    }
+
+    static func resets(_ date: Date, now: Date, locale: Locale, calendar: Calendar = .current) -> String {
+        (isTurkish(locale) ? "sıfırlanma " : "resets ") + stamp(date, now: now, locale: locale, calendar: calendar)
     }
 
     static func turns(_ count: Int, locale: Locale) -> String {
@@ -155,13 +196,18 @@ enum ClaudeUsageText {
     static func tooltip(_ summary: ClaudeUsageSummary, now: Date, locale: Locale, calendar: Calendar = .current) -> String {
         let tr = isTurkish(locale)
         let used = tr ? " kullanıldı" : " used"
-        func line(_ name: String, _ row: ClaudeUsageRow) -> String {
-            var parts = [name + ": "]
-            if row.source == .official, let percent = row.percent {
-                parts.append(Self.percent(percent) + used)
-                if let reset = row.resetsAt { parts.append(" · " + resets(reset, now: now, locale: locale, calendar: calendar)) }
-                return parts.joined()
+        func officialLine(_ name: String, percent: Double, reset: Date?, didReset: Bool) -> String {
+            var text = name + ": " + Self.percent(percent, locale: locale) + used
+            if let caption = resetCaption(reset, didReset: didReset, now: now, locale: locale, calendar: calendar) {
+                text += " · " + caption
             }
+            return text
+        }
+        func line(_ name: String, _ row: ClaudeUsageRow) -> String {
+            if row.source == .official, let percent = row.percent {
+                return officialLine(name, percent: percent, reset: row.resetsAt, didReset: row.didReset)
+            }
+            var parts = [name + ": "]
             parts.append("\(AgentUsageFormat.tokens(row.totals.tokens)) token")
             if row.totals.costUSD > 0 { parts.append(" · " + cost(row.totals.costUSD)) }
             parts.append(" · " + turns(row.totals.turns, locale: locale))
@@ -170,7 +216,7 @@ enum ClaudeUsageText {
         var lines = [line(fiveHourTitle(summary.fiveHour, locale: locale), summary.fiveHour),
                      line(sevenDayTitle(summary.sevenDay, locale: locale), summary.sevenDay)]
         for scoped in summary.scoped {
-            lines.append("\(scoped.name): \(percent(scoped.percent))" + used)
+            lines.append(officialLine(scoped.name, percent: scoped.percent, reset: scoped.resetsAt, didReset: scoped.didReset))
         }
         if let fetched = summary.planFetchedAt {
             let when = clock(fetched, locale: locale, calendar: calendar)

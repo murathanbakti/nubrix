@@ -191,16 +191,21 @@ struct AgentUsageHeader: View {
                 .font(.system(size: 11, weight: .medium).monospacedDigit())
                 .foregroundStyle(Color(white: 0.7))
                 .lineLimit(1)
+                .layoutPriority(-1)
                 .help("Tokens are input, output and cache writes counted from Claude Code transcripts since midnight; cache reads are not counted. Cost is an estimate from list prices.")
             Spacer(minLength: 8)
-            if let summary, summary.fiveHour.source == .official || summary.sevenDay.source == .official {
+            if let summary, summary.hasOfficial {
                 HStack(spacing: 10) {
                     if summary.fiveHour.source == .official, let percent = summary.fiveHour.percent {
                         meter(ClaudeUsageText.fiveHourTitle(summary.fiveHour, locale: locale), percent: percent,
-                              reset: summary.fiveHour.resetsAt)
+                              reset: summary.fiveHour.resetsAt, didReset: summary.fiveHour.didReset)
                     }
                     if summary.sevenDay.source == .official, let percent = summary.sevenDay.percent {
-                        meter(ClaudeUsageText.sevenDayTitle(summary.sevenDay, locale: locale), percent: percent, reset: nil)
+                        meter(ClaudeUsageText.sevenDayTitle(summary.sevenDay, locale: locale), percent: percent,
+                              reset: summary.sevenDay.resetsAt, didReset: summary.sevenDay.didReset)
+                    }
+                    if let scoped = summary.primaryScoped, scoped.percent > 0 {
+                        meter(scoped.name, percent: scoped.percent, reset: nil, didReset: scoped.didReset, showsBar: false)
                     }
                 }
                 .help(ClaudeUsageText.tooltip(summary, now: now, locale: locale))
@@ -229,10 +234,14 @@ struct AgentUsageHeader: View {
         return text
     }
 
-    private func meter(_ title: String, percent: Double, reset: Date?) -> some View {
-        HStack(spacing: 5) {
-            AgentContextBar(percent: percent, width: 28)
-            Text("\(title) \(Int(percent.rounded()))%" + (reset.map { " · " + ClaudeUsageText.clock($0, locale: locale) } ?? ""))
+    private func meter(_ title: String, percent: Double, reset: Date?, didReset: Bool, showsBar: Bool = true) -> some View {
+        var text = "\(title) \(ClaudeUsageText.percent(percent, locale: locale))"
+        if let short = ClaudeUsageText.shortReset(reset, didReset: didReset, now: now, locale: locale) {
+            text += " · " + short
+        }
+        return HStack(spacing: 5) {
+            if showsBar { AgentContextBar(percent: percent, width: 28) }
+            Text(text)
                 .font(.system(size: 11).monospacedDigit())
                 .foregroundStyle(Color(white: 0.7))
                 .lineLimit(1)

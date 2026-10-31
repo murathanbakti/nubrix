@@ -39,10 +39,11 @@ final class ClaudePlanUsageStore: ObservableObject {
     private var started = false
     private var sleeping = false
     private var locked = false
-    private var halted = false
     private var loop: Task<Void, Never>?
     private var tracker: ClaudePlanAlertTracker
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    private var powerSource: CFRunLoopSource?
+    private var lastOnBattery = false
 
     init(fetcher: ClaudePlanFetching = XPCClaudePlanFetcher(),
          lastActivity: @escaping @MainActor () -> Date? = {
@@ -55,13 +56,21 @@ final class ClaudePlanUsageStore: ObservableObject {
 
     deinit {
         for (center, token) in observers { center.removeObserver(token) }
+        if let powerSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSource, .defaultMode) }
     }
 
     var isEnabled: Bool { Defaults[.claudePlanUsageEnabled] }
     var isPaused: Bool { sleeping || locked }
 
     var statusText: String? {
-        failure == .unsupported ? "Update Claude Code to see plan usage" : nil
+        guard snapshot == nil, let failure else { return nil }
+        let turkish = Locale.current.language.languageCode?.identifier == "tr"
+        switch failure {
+        case .unsupported: return turkish ? "Plan kullanımı için Claude Code'u güncelleyin" : "Update Claude Code to see plan usage"
+        case .notInstalled: return turkish ? "Claude Code bulunamadı" : "Claude Code not found"
+        case .notSubscriber: return turkish ? "Plan kullanımı Claude aboneliği gerektirir" : "Plan usage needs a Claude subscription"
+        case .timeout, .failed: return nil
+        }
     }
 
     private static var onBattery: Bool {
@@ -80,11 +89,11 @@ final class ClaudePlanUsageStore: ObservableObject {
         started = true
         restoreCache()
         registerObservers()
+        registerPowerSource()
         restartLoop(initialDelay: 3)
     }
 
     func settingChanged() {
-        halted = false
         if isEnabled {
             failures = 0
             restartLoop(initialDelay: 0)
@@ -100,21 +109,17 @@ final class ClaudePlanUsageStore: ObservableObject {
 
     func noteStop() {
         let now = Date()
-        guard started, isEnabled, !isPaused, !halted,
+        guard started, isEnabled, !isPaused,
               ClaudePlanPolicy.allowsStopRefresh(lastStopRefresh: lastStopRefresh, now: now) else { return }
-        let base = ClaudePlanPolicy.effectiveBase(lastActivity: lastActivity(), now: now, onBattery: Self.onBattery)
-        guard ClaudePlanPolicy.shouldRefreshOnOpen(lastAttempt: lastAttempt, lastSuccess: fetchedAt,
-                                                   failures: failures, base: base, now: now) else { return }
+        guard shouldRefreshNow(now: now) else { return }
         lastStopRefresh = now
         restartLoop(initialDelay: 2)
     }
 
     func notchOpened() {
         let now = Date()
-        guard started, isEnabled, !isPaused, !halted else { return }
-        let base = ClaudePlanPolicy.effectiveBase(lastActivity: lastActivity(), now: now, onBattery: Self.onBattery)
-        guard ClaudePlanPolicy.shouldRefreshOnOpen(lastAttempt: lastAttempt, lastSuccess: fetchedAt,
-                                                   failures: failures, base: base, now: now) else { return }
+        guard started, isEnabled, !isPaused else { return }
+        guard shouldRefreshNow(now: now) else { return }
         restartLoop(initialDelay: 0)
     }
 
@@ -130,40 +135,61 @@ final class ClaudePlanUsageStore: ObservableObject {
         }
     }
 
+    private func shouldRefreshNow(now: Date) -> Bool {
+        let base = ClaudePlanPolicy.effectiveBase(lastActivity: lastActivity(), now: now, onBattery: Self.onBattery,
+                                                  lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+        return ClaudePlanPolicy.shouldRefreshOnOpen(lastAttempt: lastAttempt, lastSuccess: fetchedAt,
+                                                    failures: failures, base: base,
+                                                    hardFailure: failure?.isHard == true, now: now)
+    }
+
     private func powerStateChanged() {
         rescheduleLoop()
     }
 
+    private func powerSourceChanged() {
+        let onBattery = Self.onBattery
+        guard onBattery != lastOnBattery else { return }
+        lastOnBattery = onBattery
+        rescheduleLoop()
+    }
+
+    private func registerPowerSource() {
+        lastOnBattery = Self.onBattery
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        guard let source = IOPSNotificationCreateRunLoopSource({ context in
+            guard let context else { return }
+            let store = Unmanaged<ClaudePlanUsageStore>.fromOpaque(context).takeUnretainedValue()
+            Task { @MainActor in store.powerSourceChanged() }
+        }, context)?.takeRetainedValue() else { return }
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+        powerSource = source
+    }
+
     private func rescheduleLoop() {
         let now = Date()
-        guard started, isEnabled, !isPaused, !halted else { return }
-        guard let delay = timerDelay(now: now) else {
-            if !inFlight {
-                loop?.cancel()
-                loop = nil
-            }
-            return
-        }
-        restartLoop(initialDelay: ClaudePlanPolicy.resumeWait(lastAttempt: lastAttempt, delay: delay, now: now, minimum: 5))
+        guard started, isEnabled, !isPaused else { return }
+        restartLoop(initialDelay: ClaudePlanPolicy.resumeWait(lastAttempt: lastAttempt, delay: timerDelay(now: now),
+                                                              now: now, minimum: 5))
     }
 
     private func restartLoop(initialDelay: TimeInterval) {
         loop?.cancel()
-        guard started, isEnabled, !isPaused, !halted else { return }
+        guard started, isEnabled, !isPaused else { return }
         loop = Task { [weak self] in
             if initialDelay > 0 { try? await Task.sleep(for: .seconds(initialDelay)) }
             while !Task.isCancelled {
-                guard let self, self.isEnabled, !self.isPaused, !self.halted else { return }
+                guard let self, self.isEnabled, !self.isPaused else { return }
                 await self.refresh()
                 if Task.isCancelled { return }
-                guard let delay = self.timerDelay(now: Date()) else { return }
-                try? await Task.sleep(for: .seconds(delay))
+                try? await Task.sleep(for: .seconds(self.timerDelay(now: Date())))
             }
         }
     }
 
-    private func timerDelay(now: Date) -> TimeInterval? {
-        ClaudePlanPolicy.timerDelay(lastActivity: lastActivity(), now: now, failures: failures,
+    private func timerDelay(now: Date) -> TimeInterval {
+        if failure?.isHard == true { return ClaudePlanPolicy.hardRetryInterval }
+        return ClaudePlanPolicy.timerDelay(lastActivity: lastActivity(), now: now, failures: failures,
                                     onBattery: Self.onBattery, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
     }
 
@@ -190,11 +216,6 @@ final class ClaudePlanUsageStore: ObservableObject {
         case .failure(let reason):
             failures = min(failures + 1, 8)
             if failure != reason { failure = reason }
-            if reason == .notInstalled || reason == .unsupported {
-                halted = true
-                loop?.cancel()
-                loop = nil
-            }
         }
     }
 

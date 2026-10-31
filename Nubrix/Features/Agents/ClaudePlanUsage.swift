@@ -60,6 +60,8 @@ enum ClaudePlanFailure: String, Codable, Sendable {
     case timeout
     case failed
     case unsupported
+
+    var isHard: Bool { self == .notInstalled || self == .unsupported }
 }
 
 struct ClaudePlanSnapshot: Codable, Equatable, Sendable {
@@ -135,11 +137,18 @@ enum ClaudePlanPolicy {
     static let stopRefreshGap: TimeInterval = 2 * 60
     static let requestTimeout: TimeInterval = 45
     static let dormantAfter: TimeInterval = 6 * 3600
+    static let dormantInterval: TimeInterval = 2 * 3600
+    static let hardRetryInterval: TimeInterval = 6 * 3600
+    static let maxDelay: TimeInterval = 4 * 3600
     static let batteryFactor = 2.0
+    static let lowPowerFactor = 4.0
 
     static func baseInterval(lastActivity: Date?, now: Date) -> TimeInterval {
-        guard let lastActivity, now.timeIntervalSince(lastActivity) <= activityWindow else { return idleInterval }
-        return activeInterval
+        guard let lastActivity else { return idleInterval }
+        let age = now.timeIntervalSince(lastActivity)
+        if age <= activityWindow { return activeInterval }
+        if age <= dormantAfter { return idleInterval }
+        return dormantInterval
     }
 
     static func delay(base: TimeInterval, failures: Int) -> TimeInterval {
@@ -148,15 +157,15 @@ enum ClaudePlanPolicy {
         return min(max(maxBackoff, base), max(base, base * factor))
     }
 
-    static func effectiveBase(lastActivity: Date?, now: Date, onBattery: Bool) -> TimeInterval {
+    static func effectiveBase(lastActivity: Date?, now: Date, onBattery: Bool, lowPower: Bool) -> TimeInterval {
         let base = baseInterval(lastActivity: lastActivity, now: now)
+        if lowPower { return base * lowPowerFactor }
         return onBattery ? base * batteryFactor : base
     }
 
-    static func timerDelay(lastActivity: Date?, now: Date, failures: Int, onBattery: Bool, lowPower: Bool) -> TimeInterval? {
-        guard !lowPower, let lastActivity, now.timeIntervalSince(lastActivity) <= dormantAfter else { return nil }
-        let base = effectiveBase(lastActivity: lastActivity, now: now, onBattery: onBattery)
-        return delay(base: base, failures: failures)
+    static func timerDelay(lastActivity: Date?, now: Date, failures: Int, onBattery: Bool, lowPower: Bool) -> TimeInterval {
+        let base = effectiveBase(lastActivity: lastActivity, now: now, onBattery: onBattery, lowPower: lowPower)
+        return min(maxDelay, delay(base: base, failures: failures))
     }
 
     static func resumeWait(lastAttempt: Date?, delay: TimeInterval, now: Date, minimum: TimeInterval) -> TimeInterval {
@@ -165,10 +174,11 @@ enum ClaudePlanPolicy {
     }
 
     static func shouldRefreshOnOpen(lastAttempt: Date?, lastSuccess: Date?, failures: Int,
-                                    base: TimeInterval, now: Date) -> Bool {
+                                    base: TimeInterval, hardFailure: Bool = false, now: Date) -> Bool {
         if let lastAttempt {
             let gap = now.timeIntervalSince(lastAttempt)
             if gap < openRefreshAge { return false }
+            if hardFailure { return gap >= hardRetryInterval }
             if failures > 0 { return gap >= delay(base: base, failures: failures) }
         }
         guard let lastSuccess else { return true }
