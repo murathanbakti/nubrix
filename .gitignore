@@ -53,3 +53,11 @@ build/
 *.xcarchive
 *.dSYM
 
+
+# Secrets and local data
+.env*
+*.p12
+*.cer
+*.mobileprovision
+*.sqlite*
+.claude/settings.local.json

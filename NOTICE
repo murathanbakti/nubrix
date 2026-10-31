@@ -1,0 +1,18 @@
+Nubrix
+Copyright (C) 2026 Murathan Bakti (modifications)
+
+Nubrix is a modified version of boring.notch
+(https://github.com/TheBoredTeam/boring.notch).
+
+It was forked from boring.notch at commit 23e7705 on 2026-10-30 and has been
+modified by Murathan Bakti since 2026-10-30. The original code is
+Copyright (C) TheBoredTeam and contributors. The modifications are
+Copyright (C) 2026 Murathan Bakti.
+
+Nubrix is free software licensed under the GNU General Public License,
+version 3. See the LICENSE file for the full text.
+
+The welcome sound Nubrix/nubrix-hello.m4a comes from boring.notch.
+
+Notices for third-party code and libraries used by Nubrix are listed in
+THIRD_PARTY_LICENSES.

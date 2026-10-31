@@ -39,7 +39,7 @@ jobs:
           xcodebuild -version
 
       - name: Resolve Swift packages
-        run: xcodebuild -resolvePackageDependencies -project "$PROJECT_NAME.xcodeproj"
+        run: xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile -project "$PROJECT_NAME.xcodeproj"
 
       - name: Build
         run: |
@@ -50,6 +50,7 @@ jobs:
             -configuration Debug \
             -destination "platform=macOS" \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -onlyUsePackageVersionsFromResolvedFile \
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -70,6 +71,11 @@ jobs:
             echo "bash -n $f"
             bash -n "$f"
           done
+
+      - name: ShellCheck
+        run: |
+          shopt -s nullglob
+          shellcheck -S error claude-plugin/scripts/* cli/notchctl scripts/*.sh
 
       - name: JSON manifests
         run: |

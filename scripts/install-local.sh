@@ -8,7 +8,7 @@ open_after=0
 [ "${1:-}" = "--open" ] && open_after=1
 
 expected_xpc="NubrixHelper.xpc"
-expected_frameworks="Lottie.framework MediaRemoteAdapter.framework Sparkle.framework"
+expected_frameworks="Lottie.framework MediaRemoteAdapter.framework"
 
 fail() {
   echo "Bundle check failed: $*" >&2

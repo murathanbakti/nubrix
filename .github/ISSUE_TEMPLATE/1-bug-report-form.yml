@@ -32,10 +32,8 @@ body:
     attributes:
       label: Nubrix Version
       description: >-
-        What version of our software are you running? (Go to ✦ in the menu bar >
-        Settings > About). The "Report a Bug" button in the About pane prefills
-        the exact version, build number, and update channel.
-      placeholder: "v2.7.3 (build 274, beta channel)"
+        What version of Nubrix are you running? (Settings > About > Version)
+      placeholder: "0.1.0"
     validations:
       required: true
   - type: input
