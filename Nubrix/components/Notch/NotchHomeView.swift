@@ -424,6 +424,8 @@ struct NotchHomeView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @ObservedObject var meeting = MeetingWatcher.shared
+    @ObservedObject var agents = AgentSessionStore.shared
+    @Default(.homeShowClaudeUsage) private var showClaudeUsage
     let albumArtNamespace: Namespace.ID
 
     var body: some View {
@@ -440,6 +442,10 @@ struct NotchHomeView: View {
         Defaults[.showMirror] && webcamManager.cameraAvailable && vm.isCameraExpanded
     }
 
+    private var showsClaudeCard: Bool {
+        showClaudeUsage && !meeting.isCountdownActive && !shouldShowCamera && agents.usageSummary(now: Date()) != nil
+    }
+
     private var mainContent: some View {
         ZStack(alignment: .top) {
             homeRow
@@ -454,6 +460,13 @@ struct NotchHomeView: View {
             if meeting.isCountdownActive && !shouldShowCamera {
                 MeetingCardView()
                     .transition(.opacity)
+            }
+
+            if showsClaudeCard {
+                ClaudeUsageCard(isActive: vm.notchState == .open) {
+                    coordinator.currentView = .agents
+                }
+                .transition(.opacity)
             }
 
             if shouldShowCamera {

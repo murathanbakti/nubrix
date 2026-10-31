@@ -1,3 +1,4 @@
+import AppKit
 import Defaults
 import Foundation
 import SwiftUI
@@ -10,6 +11,7 @@ final class AgentSessionStore: ObservableObject {
     @Published private(set) var banner: AgentBanner?
     @Published private(set) var rateLimits: AgentRateLimits?
     @Published private(set) var today: AgentDailyUsage
+    @Published private(set) var ledger: ClaudeUsageLedger
 
     static let contextWarningThreshold = 85.0
     static let contextRearmThreshold = 70.0
@@ -17,7 +19,7 @@ final class AgentSessionStore: ObservableObject {
     @Published private(set) var lastStatusAt: Date?
     @Published private(set) var lastPermissionRequestAt: Date?
     @Published var serverPort: UInt16?
-    private var rateLimitsUpdatedAt = Date.distantPast
+    private(set) var rateLimitsUpdatedAt = Date.distantPast
     private var statusSeen: [String: Date] = [:]
     static let statusFreshness: TimeInterval = 120
 
@@ -25,8 +27,38 @@ final class AgentSessionStore: ObservableObject {
     private var sweepTask: Task<Void, Never>?
     private let retention: TimeInterval = 12 * 60 * 60
 
-    private init() {
-        today = AgentDailyUsage(stored: Defaults[.claudeDailyUsage])
+    private let ledgerURL: URL
+    private let ledgerQueue = DispatchQueue(label: "nubrix.claude-usage-ledger", qos: .utility)
+    private var ledgerSaveTask: Task<Void, Never>?
+    private var terminationObserver: NSObjectProtocol?
+
+    private convenience init() {
+        self.init(ledgerURL: ClaudeUsageLedgerFile.defaultURL)
+    }
+
+    init(ledgerURL: URL) {
+        self.ledgerURL = ledgerURL
+        let now = Date()
+        var loaded = ClaudeUsageLedgerFile.load(from: ledgerURL, now: now)
+        var migrated = false
+        if !FileManager.default.fileExists(atPath: ledgerURL.path) {
+            let stored = AgentDailyUsage(stored: Defaults[.claudeDailyUsage], now: now)
+            if let record = ClaudeUsageLedger.migratedRecord(daily: stored) {
+                loaded.append(record, now: now)
+                migrated = true
+            }
+        }
+        ledger = loaded
+        today = loaded.today(now: now)
+        if migrated {
+            ClaudeUsageLedgerFile.write(loaded, to: ledgerURL)
+            Defaults[.claudeDailyUsage] = [:]
+        }
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.flushLedger(wait: true) }
+        }
         sweepTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
@@ -154,10 +186,47 @@ final class AgentSessionStore: ObservableObject {
         session.sessionTokens += turn.billableTokens
         let cost = AgentPricing.cost(of: turn, model: usage.model ?? session.usageModel)
         if let cost { session.estimatedCostUSD = (session.estimatedCostUSD ?? 0) + cost }
-        var next = today
-        next.add(tokens: turn.billableTokens, costUSD: cost ?? 0, now: now)
-        today = next
-        Defaults[.claudeDailyUsage] = next.stored
+        recordTurn(session: session.id, tokens: turn.billableTokens, cost: cost ?? 0,
+                   model: usage.model ?? session.usageModel, now: now)
+    }
+
+    func recordTurn(session id: String, tokens: Int, cost: Double, model: String?, now: Date) {
+        var next = ledger
+        next.append(ClaudeUsageRecord(date: now, session: ClaudeUsageRecord.sessionHash(id), tokens: tokens,
+                                      costUSD: cost, model: model), now: now)
+        ledger = next
+        refreshToday(now: now)
+        scheduleLedgerSave()
+    }
+
+    private func refreshToday(now: Date) {
+        let value = ledger.today(now: now)
+        if value != today { today = value }
+    }
+
+    private func scheduleLedgerSave() {
+        guard ledgerSaveTask == nil else { return }
+        ledgerSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            self?.flushLedger(wait: false)
+        }
+    }
+
+    func flushLedger(wait: Bool) {
+        ledgerSaveTask?.cancel()
+        ledgerSaveTask = nil
+        let snapshot = ledger
+        let url = ledgerURL
+        if wait {
+            ledgerQueue.sync { _ = ClaudeUsageLedgerFile.write(snapshot, to: url) }
+        } else {
+            ledgerQueue.async { _ = ClaudeUsageLedgerFile.write(snapshot, to: url) }
+        }
+    }
+
+    func usageSummary(now: Date) -> ClaudeUsageSummary? {
+        ClaudeUsageResolver.summary(ledger: ledger, limits: rateLimits, limitsUpdatedAt: rateLimitsUpdatedAt, now: now)
     }
 
     func session(_ id: String) -> AgentSession? {
@@ -204,7 +273,13 @@ final class AgentSessionStore: ObservableObject {
         sessions.removeAll { $0.updatedAt < cutoff }
         let live = Set(sessions.map(\.id))
         statusSeen = statusSeen.filter { live.contains($0.key) }
-        if !today.isCurrent(now: now) { today = today.current(now: now) }
+        var pruned = ledger
+        pruned.prune(now: now)
+        if pruned != ledger {
+            ledger = pruned
+            scheduleLedgerSave()
+        }
+        refreshToday(now: now)
     }
 
     private static func state(after event: AgentHookEvent, current: AgentSessionState?) -> AgentSessionState? {

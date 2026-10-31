@@ -108,10 +108,13 @@ struct InboxSettings: View {
                 Defaults.Toggle(key: .claudeNotchApprovals) {
                     Text("Approve Claude Code permissions from the notch")
                 }
+                Defaults.Toggle(key: .homeShowClaudeUsage) {
+                    Text("Show 5-hour and weekly usage on the Home tab")
+                }
             } header: {
-                Text("Claude Code approvals")
+                Text("Claude Code")
             } footer: {
-                Text("When Claude Code asks for permission, the notch shows the command with Allow and Deny. Nothing is ever approved automatically; if Nubrix is not running or you do not answer in time, Claude Code asks in its own window as usual. Requires the nubrix-permission hook.")
+                Text("When Claude Code asks for permission, the notch shows the command with Allow and Deny. Nothing is ever approved automatically; if Nubrix is not running or you do not answer in time, Claude Code asks in its own window as usual. Requires the nubrix-permission hook. The Home tab card shows the official 5-hour and 7-day limits when the Claude status line reports them, otherwise an estimate from your Claude Code transcripts; it is hidden while a meeting countdown is showing.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
