@@ -9,44 +9,79 @@ import SwiftUI
 import Lottie
 import ObjectiveC
 
+final class LottieHostView: NSView {
+    let animationView = LottieAnimationView(configuration: LottieConfiguration(renderingEngine: .coreAnimation))
+    var wantsPlayback = true { didSet { syncPlayback() } }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        animationView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(animationView)
+        NSLayoutConstraint.activate([
+            animationView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            animationView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            animationView.topAnchor.constraint(equalTo: topAnchor),
+            animationView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        syncPlayback()
+    }
+
+    func syncPlayback() {
+        guard animationView.animation != nil else { return }
+        if wantsPlayback && window != nil {
+            if !animationView.isAnimationPlaying {
+                animationView.play()
+            }
+        } else if animationView.isAnimationPlaying {
+            animationView.pause()
+        }
+    }
+}
+
 struct LottieView: NSViewRepresentable {
     let url: URL
     let speed: Double
     let loopMode: LottieLoopMode
+    var isPlaying: Bool = true
 
     private static var associatedURLKey: UInt8 = 0
 
-    func makeNSView(context: Context) -> NSView {
-        let animationView = LottieAnimationView()
-        animationView.translatesAutoresizingMaskIntoConstraints = false
-        let container = NSView()
-        container.addSubview(animationView)
-        NSLayoutConstraint.activate([
-            animationView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            animationView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            animationView.topAnchor.constraint(equalTo: container.topAnchor),
-            animationView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-        return container
+    func makeNSView(context: Context) -> LottieHostView {
+        let host = LottieHostView()
+        host.wantsPlayback = isPlaying
+        return host
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        guard let animationView = nsView.subviews.first as? LottieAnimationView else { return }
+    func updateNSView(_ host: LottieHostView, context: Context) {
+        let animationView = host.animationView
+        host.wantsPlayback = isPlaying
         let lastURL = objc_getAssociatedObject(animationView, &Self.associatedURLKey) as? URL
         if lastURL != url {
-            LottieAnimation.loadedFrom(url: url) { animation in
-                animationView.animation = animation
-                animationView.loopMode = loopMode
-                animationView.animationSpeed = CGFloat(speed)
-                animationView.play()
-                objc_setAssociatedObject(animationView, &Self.associatedURLKey, url, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(animationView, &Self.associatedURLKey, url, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            let loopMode = loopMode
+            let speed = speed
+            LottieAnimation.loadedFrom(url: url) { [weak host] animation in
+                guard let host, objc_getAssociatedObject(host.animationView, &Self.associatedURLKey) as? URL == url else { return }
+                host.animationView.animation = animation
+                host.animationView.loopMode = loopMode
+                host.animationView.animationSpeed = CGFloat(speed)
+                host.syncPlayback()
             }
         } else {
             animationView.loopMode = loopMode
             animationView.animationSpeed = CGFloat(speed)
-            if !animationView.isAnimationPlaying {
-                animationView.play()
-            }
+            host.syncPlayback()
         }
+    }
+
+    static func dismantleNSView(_ host: LottieHostView, coordinator: ()) {
+        host.wantsPlayback = false
+        host.animationView.stop()
     }
 }

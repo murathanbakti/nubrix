@@ -19,7 +19,7 @@ struct MusicPlayerView: View {
     var body: some View {
         HStack {
             AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
-            MusicControlsView().drawingGroup().compositingGroup()
+            MusicControlsView().compositingGroup()
         }
     }
 }
@@ -113,9 +113,6 @@ struct MusicControlsView: View {
     @ObservedObject var musicManager = MusicManager.shared
         @EnvironmentObject var vm: NubrixViewModel
         @ObservedObject var webcamManager = WebcamManager.shared
-    @State private var sliderValue: Double = 0
-    @State private var dragging: Bool = false
-    @State private var lastDragged: Date = .distantPast
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
 
@@ -147,67 +144,22 @@ struct MusicControlsView: View {
                 $musicManager.artistName,
                 font: .headline,
                 nsFont: .headline,
+                weight: .medium,
                 textColor: Defaults[.playerColorTinting]
                     ? Color(nsColor: musicManager.avgColor)
                         .ensureMinimumBrightness(factor: 0.6) : .gray,
                 frameWidth: width
             )
-            .fontWeight(.medium)
             if Defaults[.enableLyrics] {
-                TimelineView(.animation(minimumInterval: 0.25)) { timeline in
-                    let currentElapsed: Double = {
-                        guard musicManager.isPlaying else { return musicManager.elapsedTime }
-                        let delta = timeline.date.timeIntervalSince(musicManager.timestampDate)
-                        let progressed = musicManager.elapsedTime + (delta * musicManager.playbackRate)
-                        return min(max(progressed, 0), musicManager.songDuration)
-                    }()
-                    let line: String = {
-                        if musicManager.isFetchingLyrics { return "Loading lyrics…" }
-                        if !musicManager.syncedLyrics.isEmpty {
-                            return musicManager.lyricLine(at: currentElapsed)
-                        }
-                        let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-                        return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
-                    }()
-                    let isPersian = line.unicodeScalars.contains { scalar in
-                        let v = scalar.value
-                        return v >= 0x0600 && v <= 0x06FF
-                    }
-                    MarqueeText(
-                        .constant(line),
-                        font: .subheadline,
-                        nsFont: .subheadline,
-                        textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
-                        frameWidth: width
-                    )
-                    .font(isPersian ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize) : .subheadline)
-                    .lineLimit(1)
-                    .opacity(musicManager.isPlaying ? 1 : 0)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
+                LyricsLineView(width: width)
             }
         }
     }
 
     private var musicSlider: some View {
-        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
-            MusicSliderView(
-                sliderValue: $sliderValue,
-                duration: $musicManager.songDuration,
-                lastDragged: $lastDragged,
-                color: musicManager.avgColor,
-                dragging: $dragging,
-                currentDate: timeline.date,
-                timestampDate: musicManager.timestampDate,
-                elapsedTime: musicManager.elapsedTime,
-                playbackRate: musicManager.playbackRate,
-                isPlaying: musicManager.isPlaying
-            ) { newValue in
-                MusicManager.shared.seek(to: newValue)
-            }
+        MusicSliderView()
             .padding(.top, 5)
             .frame(height: 36)
-        }
     }
 
     private var slotToolbar: some View {
@@ -486,50 +438,314 @@ struct NotchHomeView: View {
     }
 }
 
-struct MusicSliderView: View {
-    @Binding var sliderValue: Double
-    @Binding var duration: Double
-    @Binding var lastDragged: Date
-    var color: NSColor
-    @Binding var dragging: Bool
-    let currentDate: Date
-    let timestampDate: Date
-    let elapsedTime: Double
-    let playbackRate: Double
-    let isPlaying: Bool
-    var onValueChange: (Double) -> Void
+struct LyricsLineView: View {
+    @ObservedObject var musicManager = MusicManager.shared
+    let width: CGFloat
+    @State private var line = ""
+    @State private var rearmTask: Task<Void, Never>?
 
+    private struct Key: Equatable {
+        var timestamp: Date
+        var elapsed: Double
+        var isPlaying: Bool
+        var rate: Double
+        var duration: Double
+        var lyricCount: Int
+        var fetching: Bool
+        var lyrics: String
+    }
+
+    private var key: Key {
+        Key(
+            timestamp: musicManager.timestampDate,
+            elapsed: musicManager.elapsedTime,
+            isPlaying: musicManager.isPlaying,
+            rate: musicManager.playbackRate,
+            duration: musicManager.songDuration,
+            lyricCount: musicManager.syncedLyrics.count,
+            fetching: musicManager.isFetchingLyrics,
+            lyrics: musicManager.currentLyrics
+        )
+    }
+
+    var body: some View {
+        MarqueeText(
+            .constant(line),
+            font: .subheadline,
+            nsFont: .subheadline,
+            textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
+            frameWidth: width
+        )
+        .id(line)
+        .transition(.opacity)
+        .opacity(musicManager.isPlaying ? 1 : 0)
+        .onChange(of: key, initial: true) { _, _ in rearm() }
+        .onDisappear {
+            rearmTask?.cancel()
+            rearmTask = nil
+        }
+    }
+
+    private func currentLine(at elapsed: Double) -> String {
+        if musicManager.isFetchingLyrics { return "Loading lyrics…" }
+        if !musicManager.syncedLyrics.isEmpty {
+            return musicManager.lyricLine(at: elapsed)
+        }
+        let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private func rearm() {
+        rearmTask?.cancel()
+        rearmTask = nil
+        let elapsed = musicManager.estimatedPlaybackPosition()
+        let newLine = currentLine(at: elapsed)
+        if newLine != line {
+            withAnimation(.easeInOut(duration: 0.2)) { line = newLine }
+        }
+        guard musicManager.isPlaying, musicManager.playbackRate > 0,
+              !musicManager.isFetchingLyrics,
+              let next = musicManager.syncedLyrics.first(where: { $0.time > elapsed }) else { return }
+        let delay = (next.time - elapsed) / musicManager.playbackRate + 0.02
+        rearmTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            rearm()
+        }
+    }
+}
+
+struct MusicProgressState: Equatable {
+    var duration: Double
+    var elapsed: Double
+    var timestamp: Date
+    var rate: Double
+    var isPlaying: Bool
+    var pinned: Double?
+}
+
+final class MusicProgressLayerView: NSView {
+    private let track = CALayer()
+    private let fill = CALayer()
+    private var applied: MusicProgressState?
+    private var thick = false
+
+    var tint: NSColor = .white {
+        didSet {
+            if tint != oldValue { updateColors() }
+        }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        track.masksToBounds = true
+        fill.anchorPoint = CGPoint(x: 0, y: 0.5)
+        track.addSublayer(fill)
+        layer?.addSublayer(track)
+        updateColors()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var isFlipped: Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        updateGeometry(animated: false)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateColors()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refresh()
+    }
+
+    func setThick(_ value: Bool) {
+        guard value != thick else { return }
+        thick = value
+        updateGeometry(animated: true)
+    }
+
+    func apply(_ state: MusicProgressState) {
+        guard state != applied else { return }
+        applied = state
+        refresh()
+    }
+
+    private func updateColors() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            track.backgroundColor = NSColor.systemGray.withAlphaComponent(0.3).cgColor
+            fill.backgroundColor = tint.cgColor
+            CATransaction.commit()
+        }
+    }
+
+    private func updateGeometry(animated: Bool) {
+        let height: CGFloat = thick ? 9 : 5
+        let width = bounds.width
+        CATransaction.begin()
+        if animated {
+            CATransaction.setAnimationDuration(0.2)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+        } else {
+            CATransaction.setDisableActions(true)
+        }
+        track.frame = CGRect(x: 0, y: (bounds.height - height) / 2, width: width, height: height)
+        track.cornerRadius = height / 2
+        fill.bounds = CGRect(x: 0, y: 0, width: width, height: height)
+        fill.position = CGPoint(x: 0, y: height / 2)
+        CATransaction.commit()
+    }
+
+    private func refresh() {
+        fill.removeAnimation(forKey: "progress")
+        guard let state = applied else { return }
+        let duration = state.duration
+        var fraction = 0.0
+        if duration > 0 {
+            var elapsed = state.elapsed
+            if let pinned = state.pinned {
+                elapsed = pinned
+            } else if state.isPlaying {
+                elapsed += Date().timeIntervalSince(state.timestamp) * state.rate
+            }
+            fraction = min(max(elapsed, 0), duration) / duration
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fill.transform = CATransform3DMakeScale(CGFloat(fraction), 1, 1)
+        CATransaction.commit()
+
+        guard window != nil, duration > 0, state.pinned == nil, state.isPlaying,
+              state.rate > 0, fraction < 1 else { return }
+        let progress = CABasicAnimation(keyPath: "transform.scale.x")
+        progress.fromValue = fraction
+        progress.toValue = 1.0
+        progress.duration = duration * (1 - fraction) / state.rate
+        progress.fillMode = .forwards
+        progress.isRemovedOnCompletion = false
+        progress.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 20, preferred: 15)
+        fill.add(progress, forKey: "progress")
+    }
+}
+
+struct MusicProgressTrack: NSViewRepresentable {
+    let state: MusicProgressState
+    let color: NSColor
+    let thick: Bool
+
+    func makeNSView(context: Context) -> MusicProgressLayerView {
+        MusicProgressLayerView()
+    }
+
+    func updateNSView(_ nsView: MusicProgressLayerView, context: Context) {
+        nsView.tint = color
+        nsView.setThick(thick)
+        nsView.apply(state)
+    }
+}
+
+struct MusicSliderView: View {
+    @ObservedObject var musicManager = MusicManager.shared
+    @State private var pinned: Double?
+    @State private var dragging = false
+    @State private var releaseTask: Task<Void, Never>?
+
+    private var tint: Color {
+        Defaults[.sliderColor] == SliderColorEnum.albumArt
+            ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.8)
+            : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white
+    }
+
+    private var state: MusicProgressState {
+        MusicProgressState(
+            duration: musicManager.songDuration,
+            elapsed: musicManager.elapsedTime,
+            timestamp: musicManager.timestampDate,
+            rate: musicManager.playbackRate,
+            isPlaying: musicManager.isPlaying,
+            pinned: pinned
+        )
+    }
 
     var body: some View {
         VStack {
-            CustomSlider(
-                value: $sliderValue,
-                range: 0...duration,
-                color: Defaults[.sliderColor] == SliderColorEnum.albumArt
-                    ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.8)
-                    : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white,
-                dragging: $dragging,
-                lastDragged: $lastDragged,
-                onValueChange: onValueChange
-            )
+            GeometryReader { geometry in
+                MusicProgressTrack(state: state, color: NSColor(tint), thick: dragging)
+                    .frame(width: geometry.size.width, height: 10)
+                    .overlay(
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(dragGesture(width: geometry.size.width))
+                    )
+            }
             .frame(height: 10, alignment: .center)
 
             HStack {
-                Text(timeString(from: sliderValue))
+                elapsedLabel
                 Spacer()
-                Text(timeString(from: duration))
+                Text(timeString(from: musicManager.songDuration))
             }
             .fontWeight(.medium)
             .foregroundColor(
                 Defaults[.playerColorTinting]
-                    ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6) : .gray
+                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
             )
             .font(.caption)
         }
-        .onChange(of: currentDate) {
-           guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
-            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
+        .onDisappear {
+            releaseTask?.cancel()
+            releaseTask = nil
+            pinned = nil
+            dragging = false
         }
+    }
+
+    @ViewBuilder
+    private var elapsedLabel: some View {
+        if let pinned {
+            Text(timeString(from: pinned))
+        } else if musicManager.isPlaying {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(timeString(from: musicManager.estimatedPlaybackPosition(at: context.date)))
+            }
+        } else {
+            Text(timeString(from: musicManager.estimatedPlaybackPosition()))
+        }
+    }
+
+    private func dragGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { gesture in
+                let duration = musicManager.songDuration
+                guard duration > 0, width > 0 else { return }
+                releaseTask?.cancel()
+                releaseTask = nil
+                dragging = true
+                let newValue = Double(gesture.location.x / width) * duration
+                pinned = min(max(newValue, 0), duration)
+            }
+            .onEnded { _ in
+                dragging = false
+                if let value = pinned {
+                    MusicManager.shared.seek(to: value)
+                }
+                releaseTask?.cancel()
+                releaseTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.2))
+                    guard !Task.isCancelled else { return }
+                    pinned = nil
+                }
+            }
     }
 
     func timeString(from seconds: Double) -> String {

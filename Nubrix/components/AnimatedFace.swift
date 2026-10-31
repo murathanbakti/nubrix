@@ -7,8 +7,6 @@
 import SwiftUI
 
 struct MinimalFaceFeatures: View {
-    @State private var isBlinking = false
-    @State private var blinkTimer: Timer?
     @State var height:CGFloat = 20;
     @State var width:CGFloat = 30;
     
@@ -16,8 +14,8 @@ struct MinimalFaceFeatures: View {
         VStack(spacing: 4) { // Adjusted spacing to fit within 30x30
             // Eyes
             HStack(spacing: 4) { // Adjusted spacing to fit within 30x30
-                Eye(isBlinking: $isBlinking)
-                Eye(isBlinking: $isBlinking)
+                Eye()
+                Eye()
             }
             
             // Nose and mouth combined
@@ -41,40 +39,60 @@ struct MinimalFaceFeatures: View {
             }
         }
         .frame(width: self.width, height: self.height) // Maximum size of face
-        .onAppear {
-            startBlinking()
-        }
-        .onDisappear {
-            blinkTimer?.invalidate()
-            blinkTimer = nil
-            isBlinking = false
-        }
-    }
-    
-    func startBlinking() {
-        blinkTimer?.invalidate()
-        blinkTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
-            withAnimation(.spring(duration: 0.2)) {
-                isBlinking = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(duration: 0.2)) {
-                    isBlinking = false
-                }
-            }
-        }
     }
 }
 
+final class BlinkingEyeView: NSView {
+    private let eye = CALayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        eye.backgroundColor = NSColor.white.cgColor
+        layer?.addSublayer(eye)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        eye.frame = bounds
+        eye.cornerRadius = min(bounds.width, bounds.height) / 2
+        CATransaction.commit()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        eye.removeAnimation(forKey: "blink")
+        guard window != nil else { return }
+        let blink = CAKeyframeAnimation(keyPath: "transform.scale.y")
+        blink.values = [1, 1, 0.25, 1]
+        blink.keyTimes = [0, 0.95, 0.967, 1]
+        blink.duration = 3
+        blink.repeatCount = .infinity
+        blink.isRemovedOnCompletion = false
+        blink.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 30, preferred: 30)
+        eye.add(blink, forKey: "blink")
+    }
+}
+
+struct BlinkingEye: NSViewRepresentable {
+    func makeNSView(context: Context) -> BlinkingEyeView {
+        BlinkingEyeView()
+    }
+
+    func updateNSView(_ nsView: BlinkingEyeView, context: Context) {}
+}
+
 struct Eye: View {
-    @Binding var isBlinking: Bool
-    
     var body: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .fill(Color.white)
-            .frame(width: 4, height: isBlinking ? 1 : 4)
-            .frame(maxWidth: 15, maxHeight: 15) // Adjusted max size
-            .animation(.easeInOut(duration: 0.1), value: isBlinking)
+        BlinkingEye()
+            .frame(width: 4, height: 4)
+            .frame(maxWidth: 15, maxHeight: 15)
     }
 }
 

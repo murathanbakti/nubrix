@@ -288,7 +288,9 @@ class MusicManager: ObservableObject {
             self.volume = state.volume
         }
         
-        self.timestampDate = state.lastUpdated
+        if self.timestampDate != state.lastUpdated {
+            self.timestampDate = state.lastUpdated
+        }
     }
 
     func toggleFavoriteTrack() {
@@ -414,16 +416,15 @@ class MusicManager: ObservableObject {
     private func fetchLyricsFromWeb(title: String, artist: String) async {
         let cleanTitle = normalizedQuery(title)
         let cleanArtist = normalizedQuery(artist)
-        guard let encodedTitle = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let encodedArtist = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            self.currentLyrics = ""
-            self.isFetchingLyrics = false
-            return
+        var components = URLComponents(string: "https://lrclib.net/api/search")
+        components?.queryItems = [
+            URLQueryItem(name: "track_name", value: cleanTitle),
+            URLQueryItem(name: "artist_name", value: cleanArtist)
+        ]
+        if let query = components?.percentEncodedQuery {
+            components?.percentEncodedQuery = query.replacingOccurrences(of: "+", with: "%2B")
         }
-
-        // LRCLIB simple search (no auth): https://lrclib.net/api/search?track_name=...&artist_name=...
-        let urlString = "https://lrclib.net/api/search?track_name=\(encodedTitle)&artist_name=\(encodedArtist)"
-        guard let url = URL(string: urlString) else {
+        guard let url = components?.url else {
             self.currentLyrics = ""
             self.isFetchingLyrics = false
             return

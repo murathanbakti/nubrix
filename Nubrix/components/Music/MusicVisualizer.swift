@@ -9,17 +9,17 @@ import Cocoa
 import SwiftUI
 
 class AudioSpectrum: NSView {
+    private static let restScale: CGFloat = 0.35
+    private static let keyframeCount = 8
     private var barLayers: [CAShapeLayer] = []
-    private var barScales: [CGFloat] = []
-    private var isPlaying: Bool = true
-    private var animationTimer: Timer?
-    
+    private var isPlaying: Bool = false
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         setupBars()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         wantsLayer = true
@@ -48,55 +48,46 @@ class AudioSpectrum: NSView {
                                     xRadius: barWidth / 2,
                                     yRadius: barWidth / 2)
             barLayer.path = path.cgPath
+            barLayer.transform = CATransform3DMakeScale(1, Self.restScale, 1)
             barLayers.append(barLayer)
-            barScales.append(0.35)
             layer?.addSublayer(barLayer)
         }
     }
-    
+
     private func startAnimating() {
-        guard animationTimer == nil else { return }
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
-            self?.updateBars()
-        }
-    }
-    
-    private func stopAnimating() {
-        animationTimer?.invalidate()
-        animationTimer = nil
-        resetBars()
-    }
-    
-    private func updateBars() {
-        for (i, barLayer) in barLayers.enumerated() {
-            let currentScale = barScales[i]
-            let targetScale = CGFloat.random(in: 0.35 ... 1.0)
-            barScales[i] = targetScale
-            let animation = CABasicAnimation(keyPath: "transform.scale.y")
-            animation.fromValue = currentScale
-            animation.toValue = targetScale
-            animation.duration = 0.3
-            animation.autoreverses = true
-            animation.fillMode = .forwards
+        guard window != nil else { return }
+        for barLayer in barLayers where barLayer.animation(forKey: "scaleY") == nil {
+            var values = (0 ..< Self.keyframeCount).map { _ in CGFloat.random(in: Self.restScale ... 1.0) }
+            values.append(values[0])
+            let animation = CAKeyframeAnimation(keyPath: "transform.scale.y")
+            animation.values = values
+            animation.calculationMode = .cubic
+            animation.duration = Double.random(in: 2.1 ... 2.7)
+            animation.repeatCount = .infinity
             animation.isRemovedOnCompletion = false
-            if #available(macOS 13.0, *) {
-                animation.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: 24, preferred: 24)
-            }
+            animation.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: 24, preferred: 24)
             barLayer.add(animation, forKey: "scaleY")
         }
     }
-    
-    private func resetBars() {
-        for (i, barLayer) in barLayers.enumerated() {
+
+    private func stopAnimating() {
+        for barLayer in barLayers {
             barLayer.removeAllAnimations()
-            barLayer.transform = CATransform3DMakeScale(1, 0.35, 1)
-            barScales[i] = 0.35
         }
     }
-    
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            stopAnimating()
+        } else if isPlaying {
+            startAnimating()
+        }
+    }
+
     func setPlaying(_ playing: Bool) {
         isPlaying = playing
-        if isPlaying {
+        if playing {
             startAnimating()
         } else {
             stopAnimating()
@@ -106,15 +97,19 @@ class AudioSpectrum: NSView {
 
 struct AudioSpectrumView: NSViewRepresentable {
     @Binding var isPlaying: Bool
-    
+
     func makeNSView(context: Context) -> AudioSpectrum {
         let spectrum = AudioSpectrum()
         spectrum.setPlaying(isPlaying)
         return spectrum
     }
-    
+
     func updateNSView(_ nsView: AudioSpectrum, context: Context) {
         nsView.setPlaying(isPlaying)
+    }
+
+    static func dismantleNSView(_ nsView: AudioSpectrum, coordinator: ()) {
+        nsView.setPlaying(false)
     }
 }
 
