@@ -19,6 +19,15 @@ files are kept small so upstream fixes can be merged.
 - Endpoint and token in `~/.config/nubrix/agent-endpoint` (0600).
 - `claude-plugin/`: async command hooks that forward hook JSON to Nubrix.
 - Verified: hooks fire from Claude Code desktop sessions and the CLI.
+- Source label (entrypoint, app bundle id, terminal) and git branch per session; click a
+  row to activate the source app.
+- Status line script forwards context %, cost, model and the 5-hour limit to
+  `POST /v1/claude/status`; context bar per row, 5h meter in the tab header, banner and
+  inbox entry above 85% context.
+- Permission approvals from the notch: synchronous `PermissionRequest` hook
+  (`nubrix-permission`) holds `POST /v1/claude/permission` open until Allow / Deny;
+  risky commands need a second click; any failure falls back to Claude Code's dialog.
+  Not yet tried with the live app and Claude Code.
 
 ## Phase 2: Vitrin (clipboard showcase) (done, UI not yet tried on device)
 

@@ -423,6 +423,7 @@ struct NotchHomeView: View {
     @ObservedObject var webcamManager = WebcamManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = BoringViewCoordinator.shared
+    @ObservedObject var meeting = MeetingWatcher.shared
     let albumArtNamespace: Namespace.ID
 
     var body: some View {
@@ -449,6 +450,11 @@ struct NotchHomeView: View {
     private var homeRow: some View {
         HStack(alignment: .top, spacing: 12) {
             MusicPlayerView(albumArtNamespace: albumArtNamespace)
+
+            if meeting.isCountdownActive && !shouldShowCamera {
+                MeetingCardView()
+                    .transition(.opacity)
+            }
 
             if shouldShowCamera {
                 CameraPreviewView(webcamManager: webcamManager)

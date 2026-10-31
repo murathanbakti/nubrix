@@ -1,94 +1,17 @@
 import Foundation
 import SwiftUI
 
-enum AgentSessionState: Int, Comparable {
-    case needsAttention
-    case working
-    case failed
-    case done
-    case idle
-
-    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
-
-    var title: String {
-        switch self {
-        case .needsAttention: return "Needs you"
-        case .working: return "Working"
-        case .failed: return "Failed"
-        case .done: return "Done"
-        case .idle: return "Idle"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .needsAttention: return .orange
-        case .working: return Color(red: 0.85, green: 0.47, blue: 0.34)
-        case .failed: return .red
-        case .done: return .green
-        case .idle: return .gray
-        }
-    }
-}
-
-struct AgentSession: Identifiable, Equatable {
-    let id: String
-    var cwd: String
-    var state: AgentSessionState
-    var detail: String?
-    var startedAt: Date
-    var updatedAt: Date
-
-    var project: String {
-        let name = URL(fileURLWithPath: cwd).lastPathComponent
-        return name.isEmpty || name == "/" ? "Claude" : name
-    }
-}
-
-struct AgentBanner: Equatable {
-    let sessionID: String
-    let project: String
-    let state: AgentSessionState
-}
-
-struct AgentHookEvent {
-    let name: String
-    let sessionID: String
-    let cwd: String?
-    let notificationType: String?
-    let detail: String?
-
-    init?(json: Data) {
-        guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
-              let name = object["hook_event_name"] as? String,
-              let sessionID = object["session_id"] as? String, !sessionID.isEmpty
-        else { return nil }
-        self.name = name
-        self.sessionID = sessionID
-        cwd = object["cwd"] as? String
-        notificationType = object["notification_type"] as? String
-        let raw = (object["last_assistant_message"] as? String)
-            ?? (object["message"] as? String)
-            ?? (object["prompt"] as? String)
-            ?? (object["tool_name"] as? String)
-        detail = raw.map(Self.summarize)
-    }
-
-    private static func summarize(_ text: String) -> String {
-        let line = text
-            .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty } ?? ""
-        return line.count > 160 ? String(line.prefix(159)) + "…" : line
-    }
-}
-
 @MainActor
 final class AgentSessionStore: ObservableObject {
     static let shared = AgentSessionStore()
 
     @Published private(set) var sessions: [AgentSession] = []
     @Published private(set) var banner: AgentBanner?
+    @Published private(set) var rateLimits: AgentRateLimits?
+
+    static let contextWarningThreshold = 85.0
+    static let contextRearmThreshold = 70.0
+    private var rateLimitsUpdatedAt = Date.distantPast
 
     private var bannerTask: Task<Void, Never>?
     private var sweepTask: Task<Void, Never>?
@@ -129,6 +52,8 @@ final class AgentSessionStore: ObservableObject {
         var session = index.map { sessions[$0] }
             ?? AgentSession(id: event.sessionID, cwd: event.cwd ?? "", state: next, startedAt: now, updatedAt: now)
         if let cwd = event.cwd, !cwd.isEmpty { session.cwd = cwd }
+        session.source.merge(event.source)
+        if let branch = event.branch, !branch.isEmpty { session.branch = branch }
         session.state = next
         session.updatedAt = now
         if let detail = event.detail, !detail.isEmpty { session.detail = detail }
@@ -136,12 +61,51 @@ final class AgentSessionStore: ObservableObject {
         if let index { sessions[index] = session } else { sessions.append(session) }
 
         if next == .working || next != current {
-            NubrixInbox.shared.sessionChanged(id: session.id, project: session.project, state: next, detail: session.detail)
+            NubrixInbox.shared.sessionChanged(id: session.id, project: session.projectWithBranch, state: next, detail: session.detail)
         }
 
         if next != current, [.done, .failed, .needsAttention].contains(next) {
-            show(AgentBanner(sessionID: session.id, project: session.project, state: next))
+            show(AgentBanner(sessionID: session.id, project: session.projectWithBranch, state: next))
         }
+    }
+
+    func apply(_ update: AgentStatusUpdate) {
+        let now = Date()
+        if let limits = update.rateLimits, now >= rateLimitsUpdatedAt {
+            rateLimits = limits
+            rateLimitsUpdatedAt = now
+        }
+        guard let index = sessions.firstIndex(where: { $0.id == update.sessionID }) else { return }
+        var session = sessions[index]
+        if let cwd = update.cwd, !cwd.isEmpty { session.cwd = cwd }
+        session.source.merge(update.source)
+        if let branch = update.branch, !branch.isEmpty { session.branch = branch }
+        if let name = update.modelName { session.modelName = name }
+        if let size = update.contextWindowSize { session.contextWindowSize = size }
+        if let cost = update.costUSD { session.costUSD = cost }
+        if let percent = update.contextUsedPercent {
+            session.contextUsedPercent = percent
+            if percent >= Self.contextWarningThreshold, !session.contextWarned {
+                session.contextWarned = true
+                NubrixInbox.shared.contextWarning(id: session.id, project: session.projectWithBranch, percent: percent)
+                show(AgentBanner(sessionID: session.id, project: session.projectWithBranch, state: .needsAttention,
+                                 note: "Context \(Int(percent.rounded()))%"))
+            } else if percent < Self.contextRearmThreshold {
+                session.contextWarned = false
+            }
+        }
+        if session != sessions[index] { sessions[index] = session }
+    }
+
+    func session(_ id: String) -> AgentSession? {
+        sessions.first { $0.id == id }
+    }
+
+    func markWorking(_ id: String) {
+        guard let index = sessions.firstIndex(where: { $0.id == id }), sessions[index].state == .needsAttention else { return }
+        sessions[index].state = .working
+        sessions[index].updatedAt = Date()
+        NubrixInbox.shared.sessionChanged(id: id, project: sessions[index].projectWithBranch, state: .working, detail: nil)
     }
 
     func clearFinished() {
@@ -158,11 +122,12 @@ final class AgentSessionStore: ObservableObject {
     }
 
     private func show(_ next: AgentBanner) {
+        guard AgentPermissionStore.shared.current == nil else { return }
         DevNotificationStore.shared.dismissBanner()
         ScreenshotBannerStore.shared.dismissBanner()
         bannerTask?.cancel()
         withAnimation(.smooth) { banner = next }
-        let duration: Double = next.state == .needsAttention ? 6 : 4
+        let duration: Double = next.state == .needsAttention && next.note == nil ? 6 : 4
         bannerTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }

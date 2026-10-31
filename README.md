@@ -16,7 +16,9 @@ Everything runs locally. There is no account, no cloud service and no telemetry.
 
 **Claude Code sessions** (notch tab "Claude")
 - Shows each Claude Code session as Working, Needs you, Failed, Done or Idle, fed by Claude Code hooks
-- Works with the Claude Code CLI and the desktop app
+- Works with the Claude Code CLI, the desktop app and the VS Code extension; each row shows where the session runs (Desktop, Terminal · iTerm, VS Code, Cursor, ...) and its git branch, and clicking a row brings that app to the front
+- Context window bar and session cost per row, and your 5-hour usage limit in the tab header (needs the status line script)
+- Approve or deny Claude Code permission requests from the notch (Allow / Deny, risky commands need a second click)
 
 **Vitrin, a clipboard showcase** (notch tab "Vitrin", global shortcut Control-Option-V)
 - Keeps copied images, text and links locally and shows them as cards
@@ -94,6 +96,47 @@ Add the same hook under each event you want. Example for a few events (repeat th
     ]
   }
 }
+```
+
+### Source label, branch and jump
+
+The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch. Nothing else is read from your project.
+
+### Context and usage meter (status line)
+
+Claude Code passes context usage, cost and rate limits only to the status line command. `claude-plugin/scripts/nubrix-statusline` forwards that JSON to Nubrix in the background (it never delays the status line) and prints a compact line: `project · branch · model · ctx 42% · $1.23`. It works without `jq`; if `jq` is installed it is used for parsing. The plugin does not configure it; add it to `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-statusline"
+  }
+}
+```
+
+The context bar is green below 60%, orange up to 85% and red above. When a session crosses 85% Nubrix shows a banner and an inbox entry ("Context 87% - consider /compact"). The 5-hour limit appears in the Claude tab header when Claude Code reports it (claude.ai Pro, Max and Ultra subscribers, after the first response). If you already use a status line, call `nubrix-statusline` from it, or pipe its input to both.
+
+### Approving permissions from the notch
+
+`claude-plugin/scripts/nubrix-permission` is a synchronous `PermissionRequest` hook (the async `nubrix-hook` stays for state). It sends the request to Nubrix and waits for your answer; Nubrix shows the tool and the full command, file or URL with Allow and Deny, and the script turns the answer into the documented `hookSpecificOutput` decision. Rules:
+
+- Nothing is ever approved automatically. If Nubrix is not running, the toggle is off, no answer arrives in time, or anything is malformed, the script prints nothing and Claude Code asks in its own dialog as before.
+- Risky input (`rm -rf`, `sudo`, `git push --force`, `git reset --hard`, `curl | sh`, writes outside the project or to sensitive files, ...) is shown in red and needs a second click ("Allow anyway").
+- "Open in <app>" brings the source app forward and withdraws the notch prompt so you answer natively. Answering in Claude Code first also withdraws the prompt.
+- Up to 5 requests queue ("1 of 3"); requests over 64 KB or beyond the queue are left to Claude Code.
+- Wait time: 110 s in the desktop app and VS Code (Claude Code shows its own dialog at the same time and whichever answers first wins), 25 s in a terminal (the hook may hold the terminal dialog back while it waits). Override with `NUBRIX_PERMISSION_WAIT` (seconds).
+- Turn it off in Settings, Notifications, "Claude Code approvals".
+
+Manual setup: in `~/.claude/settings.json`, add a second hook next to the existing async one under `PermissionRequest`:
+
+```json
+"PermissionRequest": [
+  { "hooks": [
+    { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-hook", "async": true, "timeout": 5 },
+    { "type": "command", "command": "/path/to/nubrix/claude-plugin/scripts/nubrix-permission", "timeout": 125 }
+  ] }
+]
 ```
 
 ## notchctl

@@ -69,6 +69,12 @@ final class NubrixInbox: ObservableObject {
 
     func sessionEnded(id: String) {
         ledger.clearNeedsYou(session: id)
+        ledger.clearSession(id)
+    }
+
+    func contextWarning(id: String, project: String, percent: Double) {
+        guard InboxSource.claude.isEnabled else { return }
+        ledger.recordContextWarning(id: id, title: project, message: "Context \(Int(percent.rounded()))% — consider /compact")
     }
 
     func notchctl(title: String?, message: String) {

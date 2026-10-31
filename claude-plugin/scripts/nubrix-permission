@@ -1,0 +1,55 @@
+#!/bin/bash
+endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+
+[ -r "$endpoint" ] || exit 0
+read -r port token < "$endpoint"
+case "$port" in
+  ''|*[!0-9]*) exit 0 ;;
+esac
+
+nubrix_clean() {
+  printf '%s' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+}
+
+nubrix_source_args() {
+  source_args=()
+  local entry app term
+  entry="$(nubrix_clean "${CLAUDE_CODE_ENTRYPOINT:-}" 48)"
+  app="$(nubrix_clean "${__CFBundleIdentifier:-}" 128)"
+  term="$(nubrix_clean "${TERM_PROGRAM:-}" 48)"
+  [ -n "$entry" ] && source_args+=(-H "X-Nubrix-Entrypoint: $entry")
+  [ -n "$app" ] && source_args+=(-H "X-Nubrix-App: $app")
+  [ -n "$term" ] && source_args+=(-H "X-Nubrix-Term: $term")
+  return 0
+}
+
+
+case "${CLAUDE_CODE_ENTRYPOINT:-}" in
+  claude-desktop|claude-vscode|sdk-*) wait=110 ;;
+  *) wait=25 ;;
+esac
+case "${NUBRIX_PERMISSION_WAIT:-}" in
+  ''|*[!0-9]*) ;;
+  *) wait="$NUBRIX_PERMISSION_WAIT" ;;
+esac
+
+nubrix_source_args
+
+answer="$(curl --silent --fail --max-time "$wait" --connect-timeout 1 \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -H "X-Nubrix-Wait: $wait" \
+  "${source_args[@]}" \
+  --data-binary @- \
+  "http://127.0.0.1:$port/v1/claude/permission" 2>/dev/null)" || exit 0
+
+case "$answer" in
+  '{"decision":"allow"}')
+    printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
+    ;;
+  '{"decision":"deny","message":"Denied from the Nubrix notch"}')
+    printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from the Nubrix notch"}}}'
+    ;;
+esac
+
+exit 0

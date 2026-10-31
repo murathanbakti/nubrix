@@ -22,6 +22,7 @@ struct InboxEntry: Identifiable, Equatable {
     let message: String
     let date: Date
     let sessionID: String?
+    var isContextWarning = false
 }
 
 struct InboxLedger {
@@ -42,8 +43,17 @@ struct InboxLedger {
     }
 
     mutating func recordSession(id: String, severity: InboxSeverity, title: String, message: String, date: Date = Date()) {
-        entries.removeAll { $0.source == .claude && $0.sessionID == id }
+        entries.removeAll { $0.source == .claude && $0.sessionID == id && !$0.isContextWarning }
         insert(InboxEntry(source: .claude, severity: severity, title: title, message: message, date: date, sessionID: id))
+    }
+
+    mutating func recordContextWarning(id: String, title: String, message: String, date: Date = Date()) {
+        entries.removeAll { $0.source == .claude && $0.sessionID == id && $0.isContextWarning }
+        insert(InboxEntry(source: .claude, severity: .notice, title: title, message: message, date: date, sessionID: id, isContextWarning: true))
+    }
+
+    mutating func clearSession(_ id: String) {
+        entries.removeAll { $0.source == .claude && $0.sessionID == id && $0.isContextWarning }
     }
 
     mutating func clearNeedsYou(session id: String) {

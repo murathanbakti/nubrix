@@ -81,11 +81,12 @@ final class AgentEventServer: @unchecked Sendable {
 
     private func accept(_ connection: NWConnection) {
         connection.start(queue: queue)
-        queue.asyncAfter(deadline: .now() + 5) { connection.cancel() }
-        receive(on: connection, buffer: Data())
+        let timeout = DispatchWorkItem { connection.cancel() }
+        queue.asyncAfter(deadline: .now() + 5, execute: timeout)
+        receive(on: connection, buffer: Data(), timeout: timeout)
     }
 
-    private func receive(on connection: NWConnection, buffer: Data) {
+    private func receive(on connection: NWConnection, buffer: Data, timeout: DispatchWorkItem) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] chunk, _, isComplete, error in
             guard let self else { return }
             var buffer = buffer
@@ -94,22 +95,34 @@ final class AgentEventServer: @unchecked Sendable {
 
             switch HTTPRequest.parse(buffer) {
             case .complete(let request):
+                timeout.cancel()
                 self.handle(request, on: connection)
             case .invalid:
                 self.respond(connection, status: "400 Bad Request")
             case .incomplete:
                 if isComplete || error != nil { return connection.cancel() }
-                self.receive(on: connection, buffer: buffer)
+                self.receive(on: connection, buffer: buffer, timeout: timeout)
             }
         }
     }
 
     private func handle(_ request: HTTPRequest, on connection: NWConnection) {
         let outcome = AgentRoute.resolve(request, token: token)
+        if case .permission(let payload) = outcome.action {
+            holdPermission(payload, on: connection)
+            return
+        }
         respond(connection, status: outcome.status)
         switch outcome.action {
         case .hook(let event):
-            Task { @MainActor in AgentSessionStore.shared.apply(event) }
+            Task { @MainActor in
+                AgentSessionStore.shared.apply(event)
+                AgentPermissionStore.shared.observe(event)
+            }
+        case .status(let update):
+            Task { @MainActor in AgentSessionStore.shared.apply(update) }
+        case .permission:
+            break
         case .notify(let notification):
             Task { @MainActor in DevNotificationStore.shared.post(notification) }
         case nil:
@@ -117,8 +130,25 @@ final class AgentEventServer: @unchecked Sendable {
         }
     }
 
-    private func respond(_ connection: NWConnection, status: String) {
-        let response = "HTTP/1.1 \(status)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-        connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
+    private func holdPermission(_ payload: AgentPermissionPayload, on connection: NWConnection) {
+        let id = payload.id
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 1) { _, _, isComplete, error in
+            if isComplete || error != nil {
+                Task { @MainActor in AgentPermissionStore.shared.withdraw(id) }
+            }
+        }
+        Task { @MainActor in
+            AgentPermissionStore.shared.submit(payload) { [weak self] answer in
+                self?.respond(connection, status: "200 OK", body: answer.body)
+            }
+        }
+    }
+
+    private func respond(_ connection: NWConnection, status: String, body: String? = nil) {
+        let payload = Data((body ?? "").utf8)
+        var head = "HTTP/1.1 \(status)\r\nContent-Length: \(payload.count)\r\nConnection: close\r\n"
+        if body != nil { head += "Content-Type: application/json\r\n" }
+        head += "\r\n"
+        connection.send(content: Data(head.utf8) + payload, completion: .contentProcessed { _ in connection.cancel() })
     }
 }

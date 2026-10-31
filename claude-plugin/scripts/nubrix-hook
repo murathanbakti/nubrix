@@ -11,9 +11,50 @@ case "$port" in
   ''|*[!0-9]*) cat >/dev/null; exit 0 ;;
 esac
 
-curl --silent --output /dev/null --max-time 1 \
+nubrix_clean() {
+  printf '%s' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+}
+
+nubrix_json_string() {
+  local rest="${2#*\"$1\"}"
+  [ "$rest" = "$2" ] && return 0
+  printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | head -n 1
+}
+
+nubrix_branch() {
+  local dir="$1"
+  [ -n "$dir" ] && [ -d "$dir" ] || return 0
+  GIT_OPTIONAL_LOCKS=0 git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null | head -n 1
+}
+
+nubrix_source_args() {
+  source_args=()
+  local entry app term
+  entry="$(nubrix_clean "${CLAUDE_CODE_ENTRYPOINT:-}" 48)"
+  app="$(nubrix_clean "${__CFBundleIdentifier:-}" 128)"
+  term="$(nubrix_clean "${TERM_PROGRAM:-}" 48)"
+  [ -n "$entry" ] && source_args+=(-H "X-Nubrix-Entrypoint: $entry")
+  [ -n "$app" ] && source_args+=(-H "X-Nubrix-App: $app")
+  [ -n "$term" ] && source_args+=(-H "X-Nubrix-Term: $term")
+  return 0
+}
+
+
+body="$(cat)"
+nubrix_source_args
+
+event="$(nubrix_json_string hook_event_name "$body")"
+case "$event" in
+  SessionStart|UserPromptSubmit|Stop)
+    branch="$(nubrix_clean "$(nubrix_branch "$(nubrix_json_string cwd "$body")")" 100)"
+    [ -n "$branch" ] && source_args+=(-H "X-Nubrix-Branch: $branch")
+    ;;
+esac
+
+printf '%s' "$body" | curl --silent --output /dev/null --max-time 1 \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
+  "${source_args[@]}" \
   --data-binary @- \
   "http://127.0.0.1:$port/v1/claude/hook" || true
 

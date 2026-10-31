@@ -24,9 +24,11 @@ struct ContentView: View {
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
     @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
     @ObservedObject var inbox = NubrixInbox.shared
+    @ObservedObject var meetings = MeetingWatcher.shared
     @Default(.inboxKeepIconInNotch) var inboxKeepIcon
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -86,7 +88,15 @@ struct ContentView: View {
     }
 
     private var bannerShowing: Bool {
-        screenshotBanner.banner != nil || agents.banner != nil || devNotifications.banner != nil
+        permissionShowing || screenshotBanner.banner != nil || agents.banner != nil || devNotifications.banner != nil || meetings.banner != nil
+    }
+
+    private var meetingCountdownShowing: Bool {
+        vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show && meetings.isCountdownActive
+    }
+
+    private var permissionShowing: Bool {
+        permissions.current != nil && vm.notchState == .closed && !vm.hideOnClosed
     }
 
     private var musicActivityShowing: Bool {
@@ -97,7 +107,7 @@ struct ContentView: View {
     private var inboxWingShowing: Bool {
         vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
             && inboxKeepIcon && inbox.unreadCount > 0 && !bannerShowing && !agents.needsAttention
-            && !musicActivityShowing
+            && !musicActivityShowing && !meetingCountdownShowing
     }
 
     private var inboxDotSeverity: InboxSeverity? {
@@ -168,7 +178,10 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
-                        if vm.notchState == .closed && screenshotBanner.banner != nil {
+                        if permissionShowing {
+                            coordinator.currentView = .agents
+                            inbox.markRead(.claude)
+                        } else if vm.notchState == .closed && screenshotBanner.banner != nil {
                             VitrinNavigation.shared.requestedFilter = .screenshots
                             coordinator.currentView = .vitrin
                             screenshotBanner.dismissBanner()
@@ -180,6 +193,9 @@ struct ContentView: View {
                             coordinator.currentView = .agents
                             agents.dismissBanner()
                             inbox.markRead(.claude)
+                        } else if vm.notchState == .closed && (meetings.banner != nil || meetingCountdownShowing) {
+                            coordinator.currentView = .home
+                            meetings.dismissBanner()
                         } else if inboxWingShowing, let target = inbox.newest?.source.targetTab {
                             coordinator.currentView = target
                         }
@@ -311,7 +327,10 @@ struct ContentView: View {
                     .padding(.top, 40)
                     Spacer()
                 } else {
-                    if coordinator.expandingView.type == .battery && coordinator.expandingView.show
+                    if let prompt = permissions.current, permissionShowing {
+                        AgentPermissionHeader(prompt: prompt, total: permissions.queue.count)
+                            .transition(.opacity)
+                    } else if coordinator.expandingView.type == .battery && coordinator.expandingView.show
                         && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
                     {
                         HStack(spacing: 0) {
@@ -347,11 +366,16 @@ struct ContentView: View {
                       } else if let banner = devNotifications.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           DevBannerView(banner: banner)
                               .transition(.opacity)
+                      } else if let banner = meetings.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                          MeetingBannerView(banner: banner)
+                              .transition(.opacity)
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && agents.needsAttention && !vm.hideOnClosed {
                           AgentLiveActivity()
+                      } else if meetingCountdownShowing {
+                          MeetingLiveActivity()
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
@@ -369,7 +393,12 @@ struct ContentView: View {
                            Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
                        }
 
-                      if coordinator.sneakPeek.show {
+                      if let prompt = permissions.current, permissionShowing {
+                          AgentPermissionPromptView(prompt: prompt, showsTitle: false)
+                              .padding(.horizontal, 12)
+                              .padding(.bottom, 12)
+                              .transition(.opacity)
+                      } else if coordinator.sneakPeek.show {
                           if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                               SystemEventIndicatorModifier(
                                   eventType: $coordinator.sneakPeek.type,
@@ -600,6 +629,7 @@ struct ContentView: View {
             
             guard vm.notchState == .closed,
                   !coordinator.sneakPeek.show,
+                  !permissionShowing,
                   Defaults[.openNotchOnHover] else { return }
             
             hoverTask = Task {

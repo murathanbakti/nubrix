@@ -124,6 +124,18 @@ struct InboxSettings: View {
             }
 
             Section {
+                Defaults.Toggle(key: .claudeNotchApprovals) {
+                    Text("Approve Claude Code permissions from the notch")
+                }
+            } header: {
+                Text("Claude Code approvals")
+            } footer: {
+                Text("When Claude Code asks for permission, the notch shows the command with Allow and Deny. Nothing is ever approved automatically; if Nubrix is not running or you do not answer in time, Claude Code asks in its own window as usual. Requires the nubrix-permission hook.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Section {
                 HStack {
                     Text(inbox.unreadCount == 0 ? "Nothing unread" : "\(inbox.unreadCount) unread")
                         .foregroundStyle(.secondary)
@@ -136,6 +148,8 @@ struct InboxSettings: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+
+            MeetingSettingsSection()
         }
         .formStyle(.grouped)
         .navigationTitle("Notifications")

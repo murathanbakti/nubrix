@@ -1,0 +1,93 @@
+#!/bin/bash
+json="$(cat)"
+
+nubrix_clean() {
+  printf '%s' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+}
+
+nubrix_json_string() {
+  local rest="${2#*\"$1\"}"
+  [ "$rest" = "$2" ] && return 0
+  printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | head -n 1
+}
+
+nubrix_branch() {
+  local dir="$1"
+  [ -n "$dir" ] && [ -d "$dir" ] || return 0
+  GIT_OPTIONAL_LOCKS=0 git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null | head -n 1
+}
+
+nubrix_source_args() {
+  source_args=()
+  local entry app term
+  entry="$(nubrix_clean "${CLAUDE_CODE_ENTRYPOINT:-}" 48)"
+  app="$(nubrix_clean "${__CFBundleIdentifier:-}" 128)"
+  term="$(nubrix_clean "${TERM_PROGRAM:-}" 48)"
+  [ -n "$entry" ] && source_args+=(-H "X-Nubrix-Entrypoint: $entry")
+  [ -n "$app" ] && source_args+=(-H "X-Nubrix-App: $app")
+  [ -n "$term" ] && source_args+=(-H "X-Nubrix-Term: $term")
+  return 0
+}
+
+endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+
+num() {
+  local rest="${json#*\"$1\"}"
+  [ "$rest" = "$json" ] && return 0
+  printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*\(-\{0,1\}[0-9][0-9]*\(\.[0-9]*\)\{0,1\}\).*/\1/p' | head -n 1
+}
+
+str() {
+  local rest="${json#*\"$1\"}"
+  [ "$rest" = "$json" ] && return 0
+  printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | head -n 1
+}
+
+if command -v jq >/dev/null 2>&1; then
+  fields="$(printf '%s' "$json" | jq -r '[(.workspace.current_dir // .cwd // ""), (.model.display_name // ""), (.context_window.used_percentage // "" | tostring), (.cost.total_cost_usd // "" | tostring)] | join("\u001f")' 2>/dev/null)"
+  IFS=$'\037' read -r cwd model pct cost <<<"$fields"
+else
+  cwd="$(str current_dir)"
+  [ -z "$cwd" ] && cwd="$(str cwd)"
+  model="$(str display_name)"
+  ctx="${json#*\"context_window\"}"
+  pct="$(json="$ctx"; num used_percentage)"
+  cost="$(num total_cost_usd)"
+fi
+
+branch=""
+if [ -n "$cwd" ] && [ -d "$cwd" ]; then
+  branch="$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" symbolic-ref --short -q HEAD 2>/dev/null | head -n 1)"
+fi
+
+if [ -r "$endpoint" ]; then
+  read -r port token < "$endpoint"
+  case "$port" in
+    ''|*[!0-9]*) ;;
+    *)
+      nubrix_source_args
+      clean_branch="$(nubrix_clean "$branch" 100)"
+      [ -n "$clean_branch" ] && source_args+=(-H "X-Nubrix-Branch: $clean_branch")
+      (
+        curl --silent --output /dev/null --max-time 1 \
+          -H "Authorization: Bearer $token" \
+          -H "Content-Type: application/json" \
+          "${source_args[@]}" \
+          --data-binary @- \
+          "http://127.0.0.1:$port/v1/claude/status" <<<"$json" >/dev/null 2>&1 &
+      ) >/dev/null 2>&1
+      ;;
+  esac
+fi
+
+line="${cwd##*/}"
+[ -n "$branch" ] && line="$line · $branch"
+[ -n "$model" ] && line="$line · $model"
+if [ -n "$pct" ]; then
+  line="$line · ctx ${pct%%.*}%"
+fi
+if [ -n "$cost" ]; then
+  line="$line · \$$(LC_ALL=C printf '%.2f' "$cost" 2>/dev/null)"
+fi
+printf '%s\n' "$line"
+exit 0
