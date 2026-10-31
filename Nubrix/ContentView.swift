@@ -96,7 +96,13 @@ struct ContentView: View {
     }
 
     private var permissionShowing: Bool {
-        permissions.current != nil && vm.notchState == .closed && !vm.hideOnClosed
+        permissions.current != nil && !permissions.isSuppressed && vm.notchState == .closed && !vm.hideOnClosed
+    }
+
+    private var permissionSurfaceID: String { vm.screenUUID ?? "main" }
+
+    private func reportPermissionSurface() {
+        permissions.setPresentable(!vm.hideOnClosed, surface: permissionSurfaceID)
     }
 
     private var musicActivityShowing: Bool {
@@ -284,6 +290,9 @@ struct ContentView: View {
         .background(dragDetector)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
+        .onAppear { reportPermissionSurface() }
+        .onChange(of: vm.hideOnClosed) { _, _ in reportPermissionSurface() }
+        .onDisappear { permissions.removeSurface(permissionSurfaceID) }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
             anyDropDebounceTask?.cancel()
 

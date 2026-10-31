@@ -40,6 +40,11 @@ final class NubrixInbox: ObservableObject {
 
     private init() {}
 
+    private func update(_ change: (inout InboxLedger) -> Bool) {
+        var copy = ledger
+        if change(&copy) { ledger = copy }
+    }
+
     var entries: [InboxEntry] { ledger.entries }
     var unreadCount: Int { ledger.unreadCount }
     var topSeverity: InboxSeverity? { ledger.topSeverity }
@@ -55,45 +60,45 @@ final class NubrixInbox: ObservableObject {
         guard InboxSource.claude.isEnabled else { return }
         switch state {
         case .working:
-            ledger.clearNeedsYou(session: id)
+            update { $0.clearNeedsYou(session: id) }
         case .needsAttention:
-            ledger.recordSession(id: id, severity: .needsYou, title: project, message: detail ?? state.title)
+            update { $0.recordSession(id: id, severity: .needsYou, title: project, message: detail ?? state.title) }
         case .failed:
-            ledger.recordSession(id: id, severity: .failed, title: project, message: detail ?? state.title)
+            update { $0.recordSession(id: id, severity: .failed, title: project, message: detail ?? state.title) }
         case .done:
-            ledger.recordSession(id: id, severity: .done, title: project, message: detail ?? state.title)
+            update { $0.recordSession(id: id, severity: .done, title: project, message: detail ?? state.title) }
         case .idle:
             break
         }
     }
 
     func sessionEnded(id: String) {
-        ledger.clearNeedsYou(session: id)
-        ledger.clearSession(id)
+        update { $0.clearNeedsYou(session: id) }
+        update { $0.clearSession(id) }
     }
 
     func contextWarning(id: String, project: String, percent: Double) {
         guard InboxSource.claude.isEnabled else { return }
-        ledger.recordContextWarning(id: id, title: project, message: "Context \(Int(percent.rounded()))% — consider /compact")
+        update { $0.recordContextWarning(id: id, title: project, message: "Context \(Int(percent.rounded()))% — consider /compact") }
     }
 
     func notchctl(title: String?, message: String) {
         guard InboxSource.notchctl.isEnabled else { return }
-        ledger.recordNotice(title: title ?? "notchctl", message: message)
+        update { $0.recordNotice(title: title ?? "notchctl", message: message) }
     }
 
     func markViewed(_ tab: NotchViews) {
         guard let source = InboxSource(tab: tab), ledger.unreadCount(for: source) > 0 else { return }
-        ledger.markRead(source: source)
+        update { $0.markRead(source: source) }
     }
 
     func markRead(_ source: InboxSource) {
         guard ledger.unreadCount(for: source) > 0 else { return }
-        ledger.markRead(source: source)
+        update { $0.markRead(source: source) }
     }
 
     func markAllRead() {
         guard ledger.unreadCount > 0 else { return }
-        ledger.markAllRead()
+        update { $0.markAllRead() }
     }
 }

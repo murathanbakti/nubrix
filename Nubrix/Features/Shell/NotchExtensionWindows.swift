@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import SwiftUI
 
@@ -21,12 +22,24 @@ extension EnvironmentValues {
     }
 }
 
+extension NSWindow {
+    func bindSharingTypeToScreenRecordingPreference() -> AnyCancellable {
+        sharingType = Defaults[.hideFromScreenRecording] ? .none : .readWrite
+        return Defaults.publisher(.hideFromScreenRecording)
+            .sink { [weak self] change in
+                self?.sharingType = change.newValue ? .none : .readWrite
+            }
+    }
+}
+
 enum NotchExtensionWindowLevel {
     static let level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 4)
     static let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 }
 
 final class NotchTransitionWindow: NSPanel {
+    private var sharingObserver: AnyCancellable?
+
     init(frame: NSRect) {
         super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
@@ -38,7 +51,7 @@ final class NotchTransitionWindow: NSPanel {
         isFloatingPanel = true
         level = NotchExtensionWindowLevel.level
         collectionBehavior = NotchExtensionWindowLevel.behavior
-        sharingType = Defaults[.hideFromScreenRecording] ? .none : .readWrite
+        sharingObserver = bindSharingTypeToScreenRecordingPreference()
         appearance = NSAppearance(named: .darkAqua)
     }
 
@@ -47,6 +60,7 @@ final class NotchTransitionWindow: NSPanel {
 }
 
 final class NotchExtensionPanel: NSPanel {
+    private var sharingObserver: AnyCancellable?
     var draggable = false
     private var dragStartMouse: NSPoint = .zero
     private var dragStartOrigin: NSPoint = .zero
@@ -63,7 +77,7 @@ final class NotchExtensionPanel: NSPanel {
         isMovable = false
         level = NotchExtensionWindowLevel.level
         collectionBehavior = NotchExtensionWindowLevel.behavior
-        sharingType = Defaults[.hideFromScreenRecording] ? .none : .readWrite
+        sharingObserver = bindSharingTypeToScreenRecordingPreference()
         appearance = NSAppearance(named: .darkAqua)
     }
 

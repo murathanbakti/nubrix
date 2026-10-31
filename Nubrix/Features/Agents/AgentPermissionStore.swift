@@ -8,16 +8,71 @@ final class AgentPermissionStore: ObservableObject {
     static let capacity = 5
 
     @Published private(set) var queue: [AgentPermissionPrompt] = []
+    @Published private(set) var isSuppressed = false
 
     private var replies: [UUID: (AgentPermissionAnswer) -> Void] = [:]
     private var expiries: [UUID: Task<Void, Never>] = [:]
 
-    private init() {}
+    private var suppressionReasons: Set<String> = []
+    private var surfaces: [String: Bool] = [:]
+    private var observers: [NSObjectProtocol] = []
 
-    var current: AgentPermissionPrompt? { queue.first }
+    private init() {
+        installObservers()
+    }
+
+    var current: AgentPermissionPrompt? { isSuppressed ? nil : queue.first }
+
+    var canPresent: Bool {
+        Defaults[.claudeNotchApprovals] && !isSuppressed && surfaces.values.contains(true)
+    }
+
+    func setPresentable(_ presentable: Bool, surface: String) {
+        guard surfaces[surface] != presentable else { return }
+        surfaces[surface] = presentable
+    }
+
+    func removeSurface(_ surface: String) {
+        surfaces.removeValue(forKey: surface)
+    }
+
+    private func suppress(_ reason: String) {
+        suppressionReasons.insert(reason)
+        isSuppressed = true
+        withdrawAll()
+    }
+
+    private func resume(_ reason: String) {
+        suppressionReasons.remove(reason)
+        isSuppressed = !suppressionReasons.isEmpty
+    }
+
+    private func installObservers() {
+        let workspace = NSWorkspace.shared.notificationCenter
+        let pairs: [(Notification.Name, Notification.Name, String)] = [
+            (NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification, "sleep"),
+            (NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification, "screens"),
+            (NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.sessionDidBecomeActiveNotification, "session"),
+        ]
+        for (begin, end, reason) in pairs {
+            observers.append(workspace.addObserver(forName: begin, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { AgentPermissionStore.shared.suppress(reason) }
+            })
+            observers.append(workspace.addObserver(forName: end, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { AgentPermissionStore.shared.resume(reason) }
+            })
+        }
+        let distributed = DistributedNotificationCenter.default()
+        observers.append(distributed.addObserver(forName: Notification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { AgentPermissionStore.shared.suppress("lock") }
+        })
+        observers.append(distributed.addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { AgentPermissionStore.shared.resume("lock") }
+        })
+    }
 
     func submit(_ payload: AgentPermissionPayload, reply: @escaping (AgentPermissionAnswer) -> Void) {
-        guard Defaults[.claudeNotchApprovals], queue.count < Self.capacity else {
+        guard canPresent, queue.count < Self.capacity else {
             reply(.none)
             return
         }
@@ -36,7 +91,7 @@ final class AgentPermissionStore: ObservableObject {
     }
 
     func allow(_ id: UUID) {
-        guard let prompt = queue.first(where: { $0.id == id }) else { return }
+        guard !isSuppressed, let prompt = queue.first(where: { $0.id == id }) else { return }
         finish(id, answer: .allow)
         AgentSessionStore.shared.markWorking(prompt.payload.sessionID)
     }
@@ -63,7 +118,7 @@ final class AgentPermissionStore: ObservableObject {
             let matching = queue.filter {
                 $0.payload.sessionID == event.sessionID
                     && $0.payload.toolName == event.toolName
-                    && $0.payload.summary == event.toolSummary
+                    && (event.toolKey == nil || $0.payload.matchKey == event.toolKey)
             }
             matching.forEach { finish($0.id, answer: .none) }
         case "PermissionDenied", "UserPromptSubmit", "Stop", "StopFailure", "SessionEnd":

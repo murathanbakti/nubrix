@@ -1,15 +1,10 @@
 import Foundation
 
-enum ClipKind: Int, CaseIterable {
-    case image = 0
-    case text = 1
-    case link = 2
-}
-
-struct ClipItem: Identifiable, Equatable {
+struct ClipItem: Identifiable, Equatable, Sendable {
     let id: Int64
     var kind: ClipKind
-    var text: String?
+    var preview: String?
+    var textLength: Int
     var imageFile: String?
     var imageWidth: Int
     var imageHeight: Int
@@ -27,8 +22,11 @@ struct ClipItem: Identifiable, Equatable {
         kind == .image && sourceApp == ScreenshotDetection.sourceID
     }
 
-    var linkURL: URL? {
-        guard kind == .link, let text else { return nil }
-        return URL(string: text)
+    var isTextComplete: Bool {
+        textLength <= ClipDatabase.previewLength
+    }
+
+    var previewOrEmpty: String {
+        preview ?? ""
     }
 }

@@ -8,6 +8,8 @@ final class ScreenshotAccess: ObservableObject {
 
     @Published private(set) var folder: URL?
 
+    static let bookmarkCreationOptions: URL.BookmarkCreationOptions = [.withSecurityScope, .securityScopeAllowOnlyReadAccess]
+
     private var scopedURL: URL?
 
     private init() {}
@@ -36,8 +38,10 @@ final class ScreenshotAccess: ObservableObject {
             }
             scopedURL = url
         }
-        if stale, let fresh = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+        if stale || !Defaults[.vitrinScreenshotBookmarkReadOnly],
+           let fresh = try? url.bookmarkData(options: Self.bookmarkCreationOptions, includingResourceValuesForKeys: nil, relativeTo: nil) {
             Defaults[.vitrinScreenshotFolderBookmark] = fresh
+            Defaults[.vitrinScreenshotBookmarkReadOnly] = true
         }
         if folder?.path != url.path { folder = url }
     }
@@ -55,8 +59,9 @@ final class ScreenshotAccess: ObservableObject {
         panel.message = "Choose the folder where macOS saves your screenshots so Vitrin can show them. Nubrix only reads new screenshots there."
         NSApp.activate()
         guard panel.runModal() == .OK, let url = panel.url else { return false }
-        guard let data = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) else { return false }
+        guard let data = try? url.bookmarkData(options: Self.bookmarkCreationOptions, includingResourceValuesForKeys: nil, relativeTo: nil) else { return false }
         Defaults[.vitrinScreenshotFolderBookmark] = data
+        Defaults[.vitrinScreenshotBookmarkReadOnly] = true
         Defaults[.vitrinScreenshotPromptDismissed] = false
         restore()
         return folder != nil

@@ -8,7 +8,10 @@ enum ClipDatabaseError: Error {
     case statement(String)
 }
 
-final class ClipDatabase {
+final class ClipDatabase: @unchecked Sendable {
+    static let previewLength = 300
+    static let schemaVersion: Int32 = 1
+
     let directory: URL
     private var db: OpaquePointer?
 
@@ -30,6 +33,7 @@ final class ClipDatabase {
             throw ClipDatabaseError.open(message)
         }
         try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+        Self.excludeFromBackup(directory)
         try exec("PRAGMA journal_mode=WAL")
         try exec("PRAGMA secure_delete=ON")
         try exec("PRAGMA synchronous=NORMAL")
@@ -43,12 +47,25 @@ final class ClipDatabase {
         sqlite3_close(db)
     }
 
+    static func excludeFromBackup(_ url: URL) {
+        var target = url
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? target.setResourceValues(values)
+    }
+
+    var isExcludedFromBackup: Bool {
+        (try? directory.resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup ?? false
+    }
+
     private func migrate() throws {
         try exec("""
         CREATE TABLE IF NOT EXISTS clips(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kind INTEGER NOT NULL,
             content TEXT,
+            preview TEXT,
+            text_len INTEGER NOT NULL DEFAULT 0,
             image_file TEXT,
             image_w INTEGER NOT NULL DEFAULT 0,
             image_h INTEGER NOT NULL DEFAULT 0,
@@ -59,6 +76,13 @@ final class ClipDatabase {
             pinned INTEGER NOT NULL DEFAULT 0
         )
         """)
+        let existing = try columnNames(of: "clips")
+        if !existing.contains("preview") {
+            try exec("ALTER TABLE clips ADD COLUMN preview TEXT")
+        }
+        if !existing.contains("text_len") {
+            try exec("ALTER TABLE clips ADD COLUMN text_len INTEGER NOT NULL DEFAULT 0")
+        }
         try exec("CREATE UNIQUE INDEX IF NOT EXISTS clips_hash ON clips(hash)")
         try exec("CREATE INDEX IF NOT EXISTS clips_used ON clips(used)")
         try exec("""
@@ -76,6 +100,35 @@ final class ClipDatabase {
             INSERT INTO clips_fts(clips_fts, rowid, content) VALUES ('delete', old.id, COALESCE(old.content, ''));
         END
         """)
+    }
+
+    private func columnNames(of table: String) throws -> Set<String> {
+        let stmt = try prepare("PRAGMA table_info(\(table))")
+        defer { sqlite3_finalize(stmt) }
+        var names = Set<String>()
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            if let name = Self.text(stmt, 1) { names.insert(name) }
+        }
+        return names
+    }
+
+    var userVersion: Int32 {
+        Int32((try? scalarInt("PRAGMA user_version")) ?? 0)
+    }
+
+    @discardableResult
+    func runDeferredMigration() -> Bool {
+        guard userVersion < Self.schemaVersion else { return false }
+        _ = try? run("UPDATE clips SET preview = substr(content, 1, ?), text_len = length(content) WHERE content IS NOT NULL AND preview IS NULL", [Self.previewLength])
+        _ = try? exec("INSERT INTO clips_fts(clips_fts, rank) VALUES('secure-delete', 1)")
+        _ = try? exec("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')")
+        checkpoint()
+        _ = try? exec("PRAGMA user_version = \(Self.schemaVersion)")
+        return true
+    }
+
+    func checkpoint() {
+        _ = try? exec("PRAGMA wal_checkpoint(TRUNCATE)")
     }
 
     private func exec(_ sql: String) throws {
@@ -138,7 +191,7 @@ final class ClipDatabase {
         return out
     }
 
-    private static let columns = "clips.id, clips.kind, clips.content, clips.image_file, clips.image_w, clips.image_h, clips.source, clips.created, clips.used, clips.pinned"
+    private static let columns = "clips.id, clips.kind, clips.preview, clips.text_len, clips.image_file, clips.image_w, clips.image_h, clips.source, clips.created, clips.used, clips.pinned"
 
     private static func text(_ stmt: OpaquePointer, _ col: Int32) -> String? {
         guard let c = sqlite3_column_text(stmt, col) else { return nil }
@@ -149,14 +202,15 @@ final class ClipDatabase {
         ClipItem(
             id: sqlite3_column_int64(stmt, 0),
             kind: ClipKind(rawValue: Int(sqlite3_column_int(stmt, 1))) ?? .text,
-            text: text(stmt, 2),
-            imageFile: text(stmt, 3),
-            imageWidth: Int(sqlite3_column_int(stmt, 4)),
-            imageHeight: Int(sqlite3_column_int(stmt, 5)),
-            sourceApp: text(stmt, 6),
-            createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 7)),
-            lastUsedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8)),
-            pinned: sqlite3_column_int(stmt, 9) != 0
+            preview: text(stmt, 2),
+            textLength: Int(sqlite3_column_int64(stmt, 3)),
+            imageFile: text(stmt, 4),
+            imageWidth: Int(sqlite3_column_int(stmt, 5)),
+            imageHeight: Int(sqlite3_column_int(stmt, 6)),
+            sourceApp: text(stmt, 7),
+            createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8)),
+            lastUsedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9)),
+            pinned: sqlite3_column_int(stmt, 10) != 0
         )
     }
 
@@ -166,6 +220,25 @@ final class ClipDatabase {
         bind(stmt, values)
         if sqlite3_step(stmt) == SQLITE_ROW { return sqlite3_column_int64(stmt, 0) }
         return nil
+    }
+
+    private func scalarText(_ sql: String, _ values: [Any?] = []) -> String? {
+        guard let stmt = try? prepare(sql) else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        bind(stmt, values)
+        if sqlite3_step(stmt) == SQLITE_ROW { return Self.text(stmt, 0) }
+        return nil
+    }
+
+    private func textColumn(_ sql: String, _ values: [Any?] = []) -> [String] {
+        guard let stmt = try? prepare(sql) else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        bind(stmt, values)
+        var out: [String] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            if let value = Self.text(stmt, 0) { out.append(value) }
+        }
+        return out
     }
 
     var lastInsertedID: Int64 { sqlite3_last_insert_rowid(db) }
@@ -201,18 +274,36 @@ final class ClipDatabase {
     }
 
     func insert(kind: ClipKind, content: String?, imageFile: String?, width: Int, height: Int, hash: String, source: String?, now: Date = Date()) throws -> Int64 {
+        var preview: String?
+        var length = 0
+        if let content {
+            let scalars = content.unicodeScalars
+            preview = String(String.UnicodeScalarView(scalars.prefix(Self.previewLength)))
+            length = scalars.count
+        }
         try run(
-            "INSERT INTO clips(kind, content, image_file, image_w, image_h, hash, source, created, used, pinned) VALUES (?,?,?,?,?,?,?,?,?,0)",
-            [kind.rawValue, content, imageFile, width, height, hash, source, now.timeIntervalSince1970, now.timeIntervalSince1970]
+            "INSERT INTO clips(kind, content, preview, text_len, image_file, image_w, image_h, hash, source, created, used, pinned) VALUES (?,?,?,?,?,?,?,?,?,?,?,0)",
+            [kind.rawValue, content, preview, length, imageFile, width, height, hash, source, now.timeIntervalSince1970, now.timeIntervalSince1970]
         )
         return lastInsertedID
     }
 
-    func item(id: Int64) -> ClipItem? {
+    func fullText(id: Int64, maxChars: Int? = nil) -> String? {
+        if let maxChars {
+            return scalarText("SELECT substr(content, 1, ?) FROM clips WHERE id = ?", [maxChars, id])
+        }
+        return scalarText("SELECT content FROM clips WHERE id = ?", [id])
+    }
+
+    func imageFile(id: Int64) -> String? {
+        scalarText("SELECT image_file FROM clips WHERE id = ?", [id])
+    }
+
+    func summary(id: Int64) -> ClipItem? {
         (try? query("SELECT \(Self.columns) FROM clips WHERE id = ?", [id]))?.first
     }
 
-    func all(limit: Int = 1000) -> [ClipItem] {
+    func summaries(limit: Int = 1000) -> [ClipItem] {
         (try? query("SELECT \(Self.columns) FROM clips ORDER BY used DESC, id DESC LIMIT ?", [limit])) ?? []
     }
 
@@ -224,8 +315,8 @@ final class ClipDatabase {
         return tokens.isEmpty ? nil : tokens.joined(separator: " ")
     }
 
-    func search(_ raw: String, limit: Int = 500) -> [ClipItem] {
-        guard let match = Self.ftsQuery(raw) else { return all(limit: limit) }
+    func search(_ raw: String, limit: Int = 300) -> [ClipItem] {
+        guard let match = Self.ftsQuery(raw) else { return summaries(limit: limit) }
         let sql = "SELECT \(Self.columns) FROM clips JOIN clips_fts ON clips_fts.rowid = clips.id WHERE clips_fts MATCH ? ORDER BY clips.used DESC, clips.id DESC LIMIT ?"
         return (try? query(sql, [match, limit])) ?? []
     }
@@ -235,14 +326,14 @@ final class ClipDatabase {
     }
 
     func delete(id: Int64) {
-        let file = item(id: id)?.imageFile
+        let file = imageFile(id: id)
         try? run("DELETE FROM clips WHERE id = ?", [id])
         if let file { removeFiles([file]) }
+        checkpoint()
     }
 
     private func imageFiles(where clause: String, _ values: [Any?]) -> [String] {
-        let rows = (try? query("SELECT \(Self.columns) FROM clips WHERE image_file IS NOT NULL AND \(clause)", values)) ?? []
-        return rows.compactMap(\.imageFile)
+        textColumn("SELECT image_file FROM clips WHERE image_file IS NOT NULL AND \(clause)", values)
     }
 
     @discardableResult
@@ -251,7 +342,9 @@ final class ClipDatabase {
         let before = (try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0
         try? run("DELETE FROM clips WHERE pinned = 0 AND used < ?", [cutoff.timeIntervalSince1970])
         removeFiles(files)
-        return Int(before - ((try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0))
+        let removed = Int(before - ((try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0))
+        if removed > 0 { checkpoint() }
+        return removed
     }
 
     @discardableResult
@@ -260,13 +353,16 @@ final class ClipDatabase {
         let before = (try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0
         try? run("DELETE FROM clips WHERE pinned = 0 AND id NOT IN (SELECT id FROM clips WHERE pinned = 0 ORDER BY used DESC, id DESC LIMIT ?)", [maxUnpinned])
         removeFiles(files)
-        return Int(before - ((try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0))
+        let removed = Int(before - ((try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0))
+        if removed > 0 { checkpoint() }
+        return removed
     }
 
     func clear(keepPinned: Bool) {
         let files = imageFiles(where: keepPinned ? "pinned = 0" : "1 = 1", [])
         try? run(keepPinned ? "DELETE FROM clips WHERE pinned = 0" : "DELETE FROM clips")
         removeFiles(files)
+        checkpoint()
     }
 
     func count() -> Int {

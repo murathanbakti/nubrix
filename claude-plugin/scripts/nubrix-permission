@@ -1,14 +1,36 @@
 #!/bin/bash
-endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+export LC_ALL=C
+dev="${NUBRIX_DEV:-}"
+if [ "$dev" = 1 ]; then
+  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+else
+  endpoint="$HOME/.config/nubrix/agent-endpoint"
+fi
 
-[ -r "$endpoint" ] || exit 0
-read -r port token < "$endpoint"
-case "$port" in
-  ''|*[!0-9]*) exit 0 ;;
-esac
+nubrix_load_endpoint() {
+  [ -r "$endpoint" ] || return 1
+  if [ "$dev" != 1 ]; then
+    [ "$(/usr/bin/stat -f '%u %Lp' "$endpoint" 2>/dev/null)" = "$UID 600" ] || return 1
+  fi
+  read -r port token pid < "$endpoint" || [ -n "$port" ]
+  case "$port" in ''|*[!0-9]*) return 1 ;; esac
+  case "$token" in ''|*[!0-9a-f]*) return 1 ;; esac
+  [ "${#token}" -eq 64 ] || return 1
+  if [ -n "$pid" ] || [ "$dev" != 1 ]; then
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "$pid" 2>/dev/null || return 1
+  fi
+  return 0
+}
 
 nubrix_clean() {
-  printf '%s' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+  printf '%s' "$1" | tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+}
+
+nubrix_json_string() {
+  local rest="${2#*\"$1\"}"
+  [ "$rest" = "$2" ] && return 0
+  printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | head -n 1
 }
 
 nubrix_source_args() {
@@ -23,31 +45,81 @@ nubrix_source_args() {
   return 0
 }
 
+nubrix_hmac() {
+  local key="$1" msg="$2" i b t ipad="" opad=""
+  case "$key" in ''|*[!0-9a-f]*) return 1 ;; esac
+  [ "${#key}" -le 128 ] || return 1
+  while [ "${#key}" -lt 128 ]; do key="${key}00"; done
+  for ((i = 0; i < 128; i += 2)); do
+    b=$((16#${key:i:2}))
+    printf -v t '\\x%02x' $((b ^ 0x36)); ipad+=$t
+    printf -v t '\\x%02x' $((b ^ 0x5c)); opad+=$t
+  done
+  {
+    printf "$opad"
+    { printf "$ipad"; printf '%s' "$msg"; } | /usr/bin/openssl dgst -sha256 -binary
+  } | /usr/bin/openssl dgst -sha256 | sed 's/^.*= *//'
+}
+
+nubrix_load_endpoint || exit 0
+
+body="$(head -c 65537)"
+cat >/dev/null
+[ "${#body}" -le 65536 ] || exit 0
+session="$(nubrix_json_string session_id "$body")"
+[ -n "$session" ] || exit 0
 
 case "${CLAUDE_CODE_ENTRYPOINT:-}" in
   claude-desktop|claude-vscode|sdk-*) wait=110 ;;
-  *) wait=25 ;;
+  *) wait=12 ;;
 esac
-case "${NUBRIX_PERMISSION_WAIT:-}" in
-  ''|*[!0-9]*) ;;
-  *) wait="$NUBRIX_PERMISSION_WAIT" ;;
-esac
+if [ "$dev" = 1 ]; then
+  case "${NUBRIX_PERMISSION_WAIT:-}" in
+    ''|*[!0-9]*) ;;
+    *) wait="$NUBRIX_PERMISSION_WAIT" ;;
+  esac
+fi
+
+base="http://127.0.0.1:$port"
+
+probe="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 1 --connect-timeout 1 \
+  -H @<(printf 'Authorization: Bearer %s\n' "$token") \
+  "$base/v1/ping" 2>/dev/null)"
+[ "$probe" = "204" ] || exit 0
+
+nonce="$(/usr/bin/openssl rand -hex 16 2>/dev/null)"
+case "$nonce" in ''|*[!0-9a-f]*) exit 0 ;; esac
+[ "${#nonce}" -eq 32 ] || exit 0
 
 nubrix_source_args
 
-answer="$(curl --silent --fail --max-time "$wait" --connect-timeout 1 \
-  -H "Authorization: Bearer $token" \
+answer="$(printf '%s' "$body" | curl --silent --fail --max-time "$wait" --connect-timeout 1 \
+  -H @<(printf 'Authorization: Bearer %s\n' "$token") \
   -H "Content-Type: application/json" \
   -H "X-Nubrix-Wait: $wait" \
+  -H "X-Nubrix-Nonce: $nonce" \
   "${source_args[@]}" \
   --data-binary @- \
-  "http://127.0.0.1:$port/v1/claude/permission" 2>/dev/null)" || exit 0
+  "$base/v1/claude/permission" 2>/dev/null)" || exit 0
 
-case "$answer" in
-  '{"decision":"allow"}')
+decision=""
+proof="$(printf '%s' "$answer" | sed -n 's/^{"decision":"allow","proof":"\([0-9a-f]\{64\}\)"}$/\1/p')"
+if [ -n "$proof" ]; then
+  decision="allow"
+else
+  proof="$(printf '%s' "$answer" | sed -n 's/^{"decision":"deny","message":"Denied from the Nubrix notch","proof":"\([0-9a-f]\{64\}\)"}$/\1/p')"
+  [ -n "$proof" ] && decision="deny"
+fi
+[ -n "$decision" ] || exit 0
+
+expected="$(nubrix_hmac "$token" "$nonce|$decision|$session")"
+[ -n "$expected" ] && [ "$expected" = "$proof" ] || exit 0
+
+case "$decision" in
+  allow)
     printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
     ;;
-  '{"decision":"deny","message":"Denied from the Nubrix notch"}')
+  deny)
     printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from the Nubrix notch"}}}'
     ;;
 esac

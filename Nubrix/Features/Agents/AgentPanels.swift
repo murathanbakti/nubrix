@@ -198,33 +198,122 @@ struct AgentUsageHeader: View {
     }
 }
 
+struct AgentPointerTracker: NSViewRepresentable {
+    let onMove: (CGPoint) -> Void
+
+    func makeNSView(context: Context) -> TrackerView {
+        let view = TrackerView()
+        view.onMove = onMove
+        return view
+    }
+
+    func updateNSView(_ view: TrackerView, context: Context) {
+        view.onMove = onMove
+    }
+
+    final class TrackerView: NSView {
+        var onMove: ((CGPoint) -> Void)?
+        private var area: NSTrackingArea?
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let area { removeTrackingArea(area) }
+            let next = NSTrackingArea(
+                rect: .zero,
+                options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            )
+            addTrackingArea(next)
+            area = next
+        }
+
+        override func mouseMoved(with event: NSEvent) {
+            onMove?(convert(event.locationInWindow, from: nil))
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            onMove?(convert(event.locationInWindow, from: nil))
+        }
+    }
+}
+
+private struct AgentScrollHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+struct AgentBoundedScroll<Content: View>: View {
+    let maxHeight: CGFloat
+    @ViewBuilder var content: Content
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        ScrollView(.vertical) {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(GeometryReader { proxy in
+                    Color.clear.preference(key: AgentScrollHeightKey.self, value: proxy.size.height)
+                })
+        }
+        .scrollIndicators(.visible)
+        .frame(height: contentHeight > 0 ? min(contentHeight, maxHeight) : maxHeight)
+        .onPreferenceChange(AgentScrollHeightKey.self) { contentHeight = $0 }
+    }
+}
+
 struct AgentPermissionCard: View {
+    static let armDelay: Double = 0.7
+    static let moveThreshold: CGFloat = 3
+
     let prompt: AgentPermissionPrompt
     let title: String
     let position: Int
     let total: Int
     let sourceName: String?
     var showsTitle = true
+    var startsReady = false
     var onAllow: () -> Void = {}
     var onDeny: () -> Void = {}
     var onOpen: () -> Void = {}
 
-    @State private var armed = false
+    @State private var confirming = false
     @State private var expanded = false
+    @State private var dwellElapsed = false
+    @State private var pointerMoved = false
+    @State private var firstPoint: CGPoint?
 
     private var payload: AgentPermissionPayload { prompt.payload }
     private var risky: Bool { !payload.risks.isEmpty }
+    private var ready: Bool { startsReady || (dwellElapsed && pointerMoved) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             headerRow
             toolRow
             commandBox
+            if let preview = payload.preview { previewBox(preview) }
             if risky { riskRow }
             buttonRow
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
+        .background(AgentPointerTracker { point in track(point) })
+        .task(id: prompt.id) {
+            try? await Task.sleep(for: .seconds(Self.armDelay))
+            guard !Task.isCancelled else { return }
+            dwellElapsed = true
+        }
+    }
+
+    private func track(_ point: CGPoint) {
+        guard let first = firstPoint else {
+            firstPoint = point
+            return
+        }
+        if hypot(point.x - first.x, point.y - first.y) >= Self.moveThreshold { pointerMoved = true }
     }
 
     private var headerRow: some View {
@@ -247,20 +336,32 @@ struct AgentPermissionCard: View {
     }
 
     private var toolRow: some View {
-        HStack(spacing: 6) {
-            Text(payload.toolName)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.orange)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
-                .background(Capsule().fill(Color.orange.opacity(0.18)))
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(payload.toolName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.orange.opacity(0.18)))
+                if payload.summaryLines > 1 || payload.summary.count > 160 {
+                    Text(sizeLabel(lines: payload.summaryLines, characters: payload.summary.count))
+                        .font(.system(size: 10.5).monospacedDigit())
+                        .foregroundStyle(Color(white: 0.6))
+                }
+            }
             if let note = payload.note {
-                Text(note)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.gray)
-                    .lineLimit(1)
+                Text("Claude's description: \(note)")
+                    .font(.system(size: 10.5))
+                    .italic()
+                    .foregroundStyle(Color(white: 0.55))
+                    .lineLimit(2)
             }
         }
+    }
+
+    private func sizeLabel(lines: Int, characters: Int) -> String {
+        "\(lines) \(lines == 1 ? "line" : "lines") · \(characters) chars"
     }
 
     private var commandColor: Color {
@@ -269,19 +370,74 @@ struct AgentPermissionCard: View {
 
     private var commandBox: some View {
         let shape = RoundedRectangle(cornerRadius: 8)
-        return Text(payload.summary)
-            .font(.system(size: 11.5, design: .monospaced))
-            .foregroundStyle(commandColor)
-            .lineLimit(expanded ? 14 : 3)
-            .truncationMode(.tail)
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(shape.fill(risky ? Color.red.opacity(0.14) : Color.white.opacity(0.07)))
-            .overlay(shape.stroke(risky ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1))
-            .contentShape(Rectangle())
-            .onTapGesture { expanded.toggle() }
-            .help(payload.summary)
+        return AgentBoundedScroll(maxHeight: expanded ? 260 : 96) {
+            Text(payload.summary)
+                .font(.system(size: 11.5, design: .monospaced))
+                .foregroundStyle(commandColor)
+                .multilineTextAlignment(.leading)
+                .padding(8)
+        }
+        .background(shape.fill(risky ? Color.red.opacity(0.14) : Color.white.opacity(0.07)))
+        .overlay(shape.stroke(risky ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1))
+        .clipShape(shape)
+        .overlay(alignment: .topTrailing) { expandToggle }
+    }
+
+    private var expandToggle: some View {
+        Button { expanded.toggle() } label: {
+            Image(systemName: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Color(white: 0.7))
+                .padding(4)
+                .background(Circle().fill(Color.black.opacity(0.5)))
+        }
+        .buttonStyle(.plain)
+        .padding(4)
+    }
+
+    private func previewBox(_ preview: AgentPermissionPreview) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8)
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(preview.label)
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.75))
+                Text(sizeLabel(lines: preview.lines, characters: preview.characters))
+                    .font(.system(size: 10.5).monospacedDigit())
+                    .foregroundStyle(Color(white: 0.55))
+                if preview.truncated {
+                    Text("truncated")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Color(red: 1, green: 0.42, blue: 0.4))
+                }
+            }
+            AgentBoundedScroll(maxHeight: expanded ? 260 : 110) {
+                Text(Self.previewText(preview))
+                    .font(.system(size: 11, design: .monospaced))
+                    .multilineTextAlignment(.leading)
+                    .padding(8)
+            }
+            .background(shape.fill(Color.white.opacity(0.05)))
+            .clipShape(shape)
+        }
+    }
+
+    static func previewText(_ preview: AgentPermissionPreview) -> AttributedString {
+        let isDiff = preview.label.hasPrefix("Change")
+        var result = AttributedString()
+        let lines = preview.text.split(separator: "\n", omittingEmptySubsequences: false)
+        for (index, line) in lines.enumerated() {
+            var piece = AttributedString(index == lines.count - 1 ? String(line) : String(line) + "\n")
+            if isDiff, line.hasPrefix("+ ") || line.hasPrefix("- ") {
+                piece.foregroundColor = line.hasPrefix("+") ? Color(red: 0.55, green: 0.85, blue: 0.6) : Color(red: 1, green: 0.58, blue: 0.56)
+            } else if isDiff, line == "@@" {
+                piece.foregroundColor = Color(white: 0.5)
+            } else {
+                piece.foregroundColor = Color(white: 0.88)
+            }
+            result.append(piece)
+        }
+        return result
     }
 
     private var riskRow: some View {
@@ -308,6 +464,11 @@ struct AgentPermissionCard: View {
             }
             .buttonStyle(.plain)
             Spacer()
+            if !ready, dwellElapsed {
+                Text("Move the pointer here to enable Allow")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Color(white: 0.55))
+            }
             actionButton("Deny", fill: Color.white.opacity(0.14), text: .white, action: onDeny)
             allowButton
         }
@@ -315,16 +476,16 @@ struct AgentPermissionCard: View {
 
     @ViewBuilder
     private var allowButton: some View {
-        if risky && !armed {
-            actionButton("Allow", fill: Color.red.opacity(0.28), text: Color(red: 1, green: 0.55, blue: 0.52)) { armed = true }
+        if risky && !confirming {
+            actionButton("Allow", fill: Color.red.opacity(0.28), text: Color(red: 1, green: 0.55, blue: 0.52), enabled: ready) { confirming = true }
         } else if risky {
-            actionButton("Allow anyway", fill: Color(red: 0.85, green: 0.2, blue: 0.2), text: .white, action: onAllow)
+            actionButton("Allow anyway", fill: Color(red: 0.85, green: 0.2, blue: 0.2), text: .white, enabled: ready, action: onAllow)
         } else {
-            actionButton("Allow", fill: Color(red: 0.2, green: 0.68, blue: 0.38), text: .white, action: onAllow)
+            actionButton("Allow", fill: Color(red: 0.2, green: 0.68, blue: 0.38), text: .white, enabled: ready, action: onAllow)
         }
     }
 
-    private func actionButton(_ label: String, fill: Color, text: Color, action: @escaping () -> Void) -> some View {
+    private func actionButton(_ label: String, fill: Color, text: Color, enabled: Bool = true, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 12, weight: .semibold))
@@ -334,5 +495,7 @@ struct AgentPermissionCard: View {
                 .background(Capsule().fill(fill))
         }
         .buttonStyle(.plain)
+        .opacity(enabled ? 1 : 0.4)
+        .allowsHitTesting(enabled)
     }
 }

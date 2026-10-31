@@ -46,7 +46,7 @@ struct InsightColor: Equatable {
     }
 }
 
-struct ClipInsightAction: Identifiable {
+struct ClipInsightAction: Identifiable, @unchecked Sendable {
     let title: String
     private let make: () -> String
 
@@ -59,7 +59,7 @@ struct ClipInsightAction: Identifiable {
     }
 }
 
-struct ClipInsight {
+struct ClipInsight: @unchecked Sendable {
     let kind: ClipInsightKind
     let label: String
     let color: InsightColor?
@@ -84,6 +84,7 @@ struct ClipInsight {
 
 enum ClipInsightAnalyzer {
     static let maxCodeSample = 4000
+    static let maxAnalyzedLength = 64_000
 
     static func analyze(_ text: String) -> ClipInsight? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

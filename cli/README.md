@@ -38,6 +38,8 @@ long-running-command; notchctl notify "Finished with exit code $?" --title "$(ba
 
 ## How it works
 
-Nubrix writes its loopback port and a random token to `~/.config/nubrix/agent-endpoint`
-(override with `NUBRIX_ENDPOINT_FILE`). `notchctl` posts JSON to `/v1/notify` with that bearer token.
-If Nubrix is not running, `notchctl` prints an error to stderr and exits 1.
+Nubrix writes its loopback port, a random token and its process id to `~/.config/nubrix/agent-endpoint`
+(override with `NUBRIX_ENDPOINT_FILE`). `notchctl` posts JSON to `/v1/notify` with that bearer token; the token
+and the message are passed to `curl` through file descriptors, never on its command line.
+If Nubrix is not running (or the endpoint file is stale), `notchctl` prints an error to stderr and exits 1.
+`scripts/install-hooks.sh` also copies `notchctl` to `~/.config/nubrix/bin/`.

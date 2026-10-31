@@ -78,11 +78,20 @@ struct ScreenshotBannerView: View {
     }
 
     private func thumbnail(height: CGFloat) -> some View {
-        let side = max(16, height - 8)
-        return Color.clear
+        BannerThumbnail(item: banner.item, side: max(16, height - 8))
+    }
+}
+
+private struct BannerThumbnail: View {
+    let item: ClipItem
+    let side: CGFloat
+    @State private var image: NSImage?
+
+    var body: some View {
+        Color.clear
             .overlay {
-                if let image = ClipStore.shared.thumbnail(for: banner.item) {
-                    Image(nsImage: image)
+                if let shown = image ?? ClipStore.shared.cachedThumbnail(for: item) {
+                    Image(nsImage: shown)
                         .resizable()
                         .scaledToFill()
                 } else {
@@ -94,8 +103,11 @@ struct ScreenshotBannerView: View {
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
-        .padding(.leading, 6)
-        .onDrag { ClipStore.shared.itemProvider(for: banner.item) }
+            .padding(.leading, 6)
+            .onDrag { ClipStore.shared.itemProvider(for: item) }
+            .task(id: item.id) {
+                image = await ClipStore.shared.thumbnail(for: item)
+            }
     }
 }
 

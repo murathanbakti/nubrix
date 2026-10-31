@@ -134,10 +134,9 @@ final class ScreenshotWatcher {
                   size > 0, size <= ClipImageProcessor.maximumBytes,
                   let data = try? Data(contentsOf: url),
                   let prepared = ClipImageProcessor.prepare(data) else { return }
+            guard let item = await ClipStore.shared.addImage(prepared, source: ScreenshotDetection.sourceID) else { return }
             await MainActor.run {
-                guard let id = ClipStore.shared.addImage(prepared, source: ScreenshotDetection.sourceID) else { return }
-                guard Defaults[.vitrinScreenshotPreview],
-                      let item = ClipStore.shared.items.first(where: { $0.id == id }) else { return }
+                guard Defaults[.vitrinScreenshotPreview] else { return }
                 ScreenshotBannerStore.shared.show(item)
             }
         }

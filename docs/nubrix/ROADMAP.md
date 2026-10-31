@@ -28,6 +28,14 @@ files are kept small so upstream fixes can be merged.
   (`nubrix-permission`) holds `POST /v1/claude/permission` open until Allow / Deny;
   risky commands need a second click; any failure falls back to Claude Code's dialog.
   Not yet tried with the live app and Claude Code.
+- Hardening (audit 2026-10-31, S-01/02/04/05/06/07/11/12/13/14): hook scripts verify the
+  server with an HMAC challenge-response, endpoint file carries the Nubrix pid, scripts are
+  installed to `~/.config/nubrix/bin` (`scripts/install-hooks.sh`), the token never appears
+  in argv, the approval card shows the full command and a content/diff preview, Allow is
+  armed after 0.7 s plus pointer movement, prompts are withdrawn on lock/sleep/session
+  switch, the HTTP server authenticates on headers and caps connections. Not yet tried on
+  device: lock-screen behaviour, hover arming in the non-activating panel, Claude Code's
+  dialog while the hook waits.
 
 ## Phase 2: Vitrin (clipboard showcase) (done, UI not yet tried on device)
 

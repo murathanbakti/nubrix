@@ -5,6 +5,7 @@
 //  Created by Harsh Vardhan  Goswami  on 08/09/24.
 //
 
+import Combine
 import Defaults
 import EventKit
 import SwiftUI
@@ -24,9 +25,8 @@ class CalendarManager: ObservableObject {
     @Published var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @Published var reminderAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     private var selectedCalendars: [CalendarModel] = []
-    private let calendarService = CalendarService()
-
-    private var eventStoreChangedObserver: NSObjectProtocol?
+    private let calendarService = CalendarService.shared
+    private var storeChanges: AnyCancellable?
 
     private init() {
         self.currentWeekStartDate = CalendarManager.startOfDay(Date())
@@ -36,19 +36,9 @@ class CalendarManager: ObservableObject {
         }
     }
 
-    deinit {
-        if let observer = eventStoreChangedObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-
     private func setupEventStoreChangedObserver() {
-        eventStoreChangedObserver = NotificationCenter.default.addObserver(
-            forName: .EKEventStoreChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task {
+        storeChanges = SharedEventStore.shared.changes.sink { [weak self] in
+            Task { @MainActor in
                 await self?.reloadCalendarAndReminderLists()
             }
         }
@@ -57,9 +47,11 @@ class CalendarManager: ObservableObject {
     @MainActor
     func reloadCalendarAndReminderLists() async {
         let all = await calendarService.calendars()
-        self.eventCalendars = all.filter { !$0.isReminder }
-        self.reminderLists = all.filter { $0.isReminder }
-        self.allCalendars = all // for legacy compatibility, can be removed if not needed
+        let eventLists = all.filter { !$0.isReminder }
+        let reminders = all.filter { $0.isReminder }
+        if eventCalendars != eventLists { eventCalendars = eventLists }
+        if reminderLists != reminders { reminderLists = reminders }
+        if allCalendars != all { allCalendars = all }
         updateSelectedCalendars()
     }
 
@@ -132,14 +124,14 @@ class CalendarManager: ObservableObject {
 
     func updateSelectedCalendars() {
         // Populate selectedCalendarIDs based on Defaults calendar selection state
+        let ids: Set<String>
         switch Defaults[.calendarSelectionState] {
         case .all:
-            selectedCalendarIDs = Set(allCalendars.map { $0.id })
+            ids = Set(allCalendars.map { $0.id })
         case .selected(let identifiers):
-            selectedCalendarIDs = identifiers
+            ids = identifiers
         }
-
-        // Update the local calendar objects that correspond to the selected ids
+        if selectedCalendarIDs != ids { selectedCalendarIDs = ids }
         selectedCalendars = allCalendars.filter { selectedCalendarIDs.contains($0.id) }
     }
 

@@ -32,10 +32,42 @@ enum AgentSessionState: Int, Comparable {
 }
 
 enum AgentText {
+    static func isInvisible(_ value: UInt32) -> Bool {
+        switch value {
+        case 0x00AD, 0x200B...0x200F, 0x2028...0x202E, 0x2060...0x2064, 0x2066...0x2069, 0xFEFF, 0xE0000...0xE007F:
+            return true
+        default:
+            return false
+        }
+    }
+
     static func sanitized(_ raw: String?, limit: Int = 128) -> String {
         guard let raw else { return "" }
-        let scalars = raw.unicodeScalars.filter { $0.value >= 0x20 && $0.value != 0x7F }
+        let scalars = raw.unicodeScalars.filter { $0.value >= 0x20 && $0.value != 0x7F && !isInvisible($0.value) }
         return String(String.UnicodeScalarView(scalars)).trimmingCharacters(in: .whitespaces).prefix(limit).description
+    }
+
+    static func display(_ raw: String) -> (text: String, hidden: Bool) {
+        var out = String.UnicodeScalarView()
+        var hidden = false
+        for scalar in raw.unicodeScalars {
+            let value = scalar.value
+            if value == 0x0A || value == 0x09 {
+                out.append(scalar)
+            } else if value < 0x20 {
+                hidden = true
+                out.append(Unicode.Scalar(0x2400 + value)!)
+            } else if value == 0x7F {
+                hidden = true
+                out.append(Unicode.Scalar(0x2421)!)
+            } else if isInvisible(value) {
+                hidden = true
+                out.append(contentsOf: String(format: "\u{27E6}U+%04X\u{27E7}", value).unicodeScalars)
+            } else {
+                out.append(scalar)
+            }
+        }
+        return (String(out), hidden)
     }
 }
 
@@ -201,7 +233,15 @@ struct AgentBanner: Equatable {
 enum AgentToolSummary {
     static let limit = 4000
 
-    static func summary(toolName: String, input: [String: Any]?) -> String {
+    static let permissionLimit = 65_536
+    static let keyLength = 512
+
+    static func matchKey(toolName: String, input: [String: Any]?) -> String? {
+        guard input != nil else { return nil }
+        return String(summary(toolName: toolName, input: input, limit: Int.max).prefix(keyLength))
+    }
+
+    static func summary(toolName: String, input: [String: Any]?, limit: Int = AgentToolSummary.limit) -> String {
         guard let input else { return "" }
         func string(_ key: String) -> String? { (input[key] as? String).flatMap { $0.isEmpty ? nil : $0 } }
         let text: String
@@ -238,7 +278,7 @@ struct AgentHookEvent {
     let notificationType: String?
     let detail: String?
     let toolName: String?
-    let toolSummary: String?
+    let toolKey: String?
     var source = AgentSourceInfo()
     var branch: String?
 
@@ -253,7 +293,7 @@ struct AgentHookEvent {
         notificationType = object["notification_type"] as? String
         let tool = object["tool_name"] as? String
         toolName = tool
-        toolSummary = tool.map { AgentToolSummary.summary(toolName: $0, input: object["tool_input"] as? [String: Any]) }
+        toolKey = tool.flatMap { AgentToolSummary.matchKey(toolName: $0, input: object["tool_input"] as? [String: Any]) }
         let raw = (object["last_assistant_message"] as? String)
             ?? (object["message"] as? String)
             ?? (object["prompt"] as? String)
@@ -299,9 +339,18 @@ struct AgentStatusUpdate: Equatable {
     }
 }
 
+struct AgentPermissionPreview: Equatable {
+    let label: String
+    let text: String
+    let characters: Int
+    let lines: Int
+    let truncated: Bool
+}
+
 struct AgentPermissionPayload: Equatable {
-    static let maxSummary = AgentToolSummary.limit
-    static let defaultWait = 25
+    static let maxSummary = AgentToolSummary.permissionLimit
+    static let maxPreview = 60_000
+    static let defaultWait = 12
     static let maxWait = 120
 
     let id: UUID
@@ -309,10 +358,33 @@ struct AgentPermissionPayload: Equatable {
     let cwd: String?
     let toolName: String
     let summary: String
+    let summaryLines: Int
+    let summaryTruncated: Bool
+    let preview: AgentPermissionPreview?
     let note: String?
     let risks: [String]
+    let matchKey: String?
     let waitSeconds: Int
     var source = AgentSourceInfo()
+
+    init(id: UUID = UUID(), sessionID: String, cwd: String? = nil, toolName: String, summary: String,
+         summaryTruncated: Bool = false, preview: AgentPermissionPreview? = nil, note: String? = nil,
+         risks: [String] = [], matchKey: String? = nil, waitSeconds: Int = AgentPermissionPayload.defaultWait,
+         source: AgentSourceInfo = AgentSourceInfo()) {
+        self.id = id
+        self.sessionID = sessionID
+        self.cwd = cwd
+        self.toolName = toolName
+        self.summary = summary
+        summaryLines = summary.isEmpty ? 0 : summary.split(separator: "\n", omittingEmptySubsequences: false).count
+        self.summaryTruncated = summaryTruncated
+        self.preview = preview
+        self.note = note
+        self.risks = risks
+        self.matchKey = matchKey
+        self.waitSeconds = waitSeconds
+        self.source = source
+    }
 
     init?(json: Data, waitHeader: String?, source: AgentSourceInfo, id: UUID = UUID()) {
         guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
@@ -321,17 +393,87 @@ struct AgentPermissionPayload: Equatable {
         else { return nil }
         let input = object["tool_input"] as? [String: Any]
         let cwd = object["cwd"] as? String
-        self.id = id
-        self.sessionID = sessionID
-        self.cwd = cwd
-        self.toolName = AgentText.sanitized(toolName, limit: 80)
-        summary = AgentToolSummary.summary(toolName: toolName, input: input)
-        let description = AgentText.sanitized(input?["description"] as? String, limit: 200)
-        note = description.isEmpty ? nil : description
-        risks = AgentPermissionRisk.assess(toolName: toolName, input: input, cwd: cwd)
-        let requested = waitHeader.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) } ?? Self.defaultWait
-        waitSeconds = min(Self.maxWait, max(3, requested))
-        self.source = source
+
+        let fullSummary = AgentToolSummary.summary(toolName: toolName, input: input, limit: Int.max)
+        let truncated = fullSummary.count > Self.maxSummary
+        let rawSummary = truncated ? String(fullSummary.prefix(Self.maxSummary)) : fullSummary
+        let shown = AgentText.display(rawSummary)
+        let preview = AgentPermissionPreviewBuilder.build(toolName: toolName, input: input, limit: Self.maxPreview)
+        let description = AgentText.display(AgentText.sanitized(input?["description"] as? String, limit: 200))
+
+        var risks = AgentPermissionRisk.assess(toolName: toolName, input: input, cwd: cwd, summary: fullSummary)
+        func add(_ reason: String) { if !risks.contains(reason) { risks.append(reason) } }
+        if truncated { add("Input truncated, not fully shown") }
+        if preview?.truncated == true { add("Content preview truncated") }
+        if shown.hidden || preview?.hidden == true || description.hidden { add("Hidden or control characters") }
+
+        self.init(
+            id: id,
+            sessionID: sessionID,
+            cwd: cwd,
+            toolName: AgentText.sanitized(toolName, limit: 80),
+            summary: shown.text,
+            summaryTruncated: truncated,
+            preview: preview?.preview,
+            note: description.text.isEmpty ? nil : description.text,
+            risks: risks,
+            matchKey: AgentToolSummary.matchKey(toolName: toolName, input: input),
+            waitSeconds: min(Self.maxWait, max(3, waitHeader.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) } ?? Self.defaultWait)),
+            source: source
+        )
+    }
+}
+
+enum AgentPermissionPreviewBuilder {
+    struct Built {
+        let preview: AgentPermissionPreview
+        let hidden: Bool
+        var truncated: Bool { preview.truncated }
+    }
+
+    static func build(toolName: String, input: [String: Any]?, limit: Int) -> Built? {
+        guard let input else { return nil }
+        let label: String
+        let raw: String
+        switch toolName {
+        case "Write":
+            guard let content = input["content"] as? String else { return nil }
+            label = "Content to write"
+            raw = content
+        case "Edit":
+            guard let change = diff(old: input["old_string"] as? String, new: input["new_string"] as? String) else { return nil }
+            label = "Change"
+            raw = change
+        case "MultiEdit":
+            guard let edits = input["edits"] as? [[String: Any]], !edits.isEmpty else { return nil }
+            label = "Changes"
+            raw = edits.compactMap { diff(old: $0["old_string"] as? String, new: $0["new_string"] as? String) }
+                .joined(separator: "\n@@\n")
+        case "NotebookEdit":
+            guard let source = input["new_source"] as? String else { return nil }
+            label = "New cell source"
+            raw = source
+        default:
+            return nil
+        }
+        let characters = raw.count
+        let truncated = characters > limit
+        let clipped = truncated ? String(raw.prefix(limit)) : raw
+        let shown = AgentText.display(clipped)
+        let lines = raw.isEmpty ? 0 : raw.split(separator: "\n", omittingEmptySubsequences: false).count
+        return Built(
+            preview: AgentPermissionPreview(label: label, text: shown.text, characters: characters, lines: lines, truncated: truncated),
+            hidden: shown.hidden
+        )
+    }
+
+    private static func diff(old: String?, new: String?) -> String? {
+        guard old != nil || new != nil else { return nil }
+        func prefixed(_ text: String?, _ mark: String) -> [String] {
+            guard let text, !text.isEmpty else { return [] }
+            return text.split(separator: "\n", omittingEmptySubsequences: false).map { "\(mark) \($0)" }
+        }
+        return (prefixed(old, "-") + prefixed(new, "+")).joined(separator: "\n")
     }
 }
 
@@ -348,11 +490,19 @@ enum AgentPermissionAnswer: Equatable {
     case deny
     case none
 
-    var body: String {
+    var decision: String {
         switch self {
-        case .allow: return "{\"decision\":\"allow\"}"
-        case .deny: return "{\"decision\":\"deny\",\"message\":\"Denied from the Nubrix notch\"}"
-        case .none: return "{\"decision\":\"none\"}"
+        case .allow: return "allow"
+        case .deny: return "deny"
+        case .none: return "none"
+        }
+    }
+
+    func body(proof: String) -> String {
+        switch self {
+        case .allow: return "{\"decision\":\"allow\",\"proof\":\"\(proof)\"}"
+        case .deny: return "{\"decision\":\"deny\",\"message\":\"Denied from the Nubrix notch\",\"proof\":\"\(proof)\"}"
+        case .none: return "{\"decision\":\"none\",\"proof\":\"\(proof)\"}"
         }
     }
 }

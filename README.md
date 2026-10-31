@@ -62,6 +62,14 @@ The app is not signed with a Developer ID and not notarized. A local build is si
 
 Nubrix listens on a loopback HTTP server; the hook script forwards Claude Code hook events to it. Hooks are asynchronous, have a short timeout and always exit 0, so they never block or slow down Claude Code. If Nubrix is not running, the script does nothing.
 
+**Install the scripts outside the git checkout (recommended).** Hooks run with your full privileges in every Claude Code session, so they should not live in a folder that Claude, a `git checkout` or a pull request can rewrite:
+
+```sh
+scripts/install-hooks.sh
+```
+
+It copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` (directory mode 0700, files 0500), can be run again at any time, and prints the exact `settings.json` snippet to paste. It never edits `~/.claude/settings.json`. Re-run it after updating Nubrix. Hooks read `~/.config/nubrix/agent-endpoint` (port, token and Nubrix's process id; mode 0600, owned by you) and ignore it when Nubrix is no longer running. `NUBRIX_ENDPOINT_FILE` and `NUBRIX_PERMISSION_WAIT` are only honoured when `NUBRIX_DEV=1` is set (tests); a project's `.claude/settings.json` cannot redirect the hooks. Large `tool_response` and file contents are stripped by `nubrix-hook` before forwarding (with the system `jq`; without it, events over 256 KB are reduced to session, tool and event name).
+
 **Option 1: the plugin**
 
 ```sh
@@ -72,7 +80,7 @@ The plugin in `claude-plugin/` registers the hook for SessionStart, UserPromptSu
 
 **Option 2: manual hooks in `~/.claude/settings.json`**
 
-Add the same hook under each event you want. Example for a few events (repeat the block for the others listed above):
+Run `scripts/install-hooks.sh` and paste the snippet it prints, or add the hook by hand under each event you want. Example for a few events (repeat the block for the others listed above; `/path/to/nubrix/claude-plugin/scripts` is `~/.config/nubrix/bin` after `install-hooks.sh`):
 
 ```json
 {
@@ -119,11 +127,16 @@ The context bar is green below 60%, orange up to 85% and red above. When a sessi
 
 `claude-plugin/scripts/nubrix-permission` is a synchronous `PermissionRequest` hook (the async `nubrix-hook` stays for state). It sends the request to Nubrix and waits for your answer; Nubrix shows the tool and the full command, file or URL with Allow and Deny, and the script turns the answer into the documented `hookSpecificOutput` decision. Rules:
 
+- The script only trusts a real Nubrix. It sends a random nonce; Nubrix answers with `HMAC-SHA256(token, nonce|decision|session_id)` (key: the token from the endpoint file) and the script checks it with the system `openssl` before printing allow or deny. Any mismatch, a stale endpoint file or a process that merely listens on the port produces no output, so Claude Code asks in its own dialog. The token is passed to `curl` through a file descriptor, never on the command line.
+- The card shows the whole command in a scrollable monospaced box; Write, Edit and MultiEdit also show a scrollable preview of the content or a `-`/`+` diff. Multi-line, long (over 500 characters) or truncated commands, invisible or direction-control characters, and writes to sensitive files (shell profiles, `.envrc`, `.vscode/tasks.json`, CI workflows, `.claude/`, ...) count as risky and need the second click. The tool's own `description` is labelled "Claude's description".
+- Allow only becomes clickable after the card has been on screen for 0.7 s and the pointer has moved over it; Deny is always available. A click that was aimed at something else, or a blind click, does nothing.
+- Pending prompts are withdrawn when the screen locks, the Mac or its displays sleep, or the user session switches, and the card is never shown on the lock screen. If no notch can show the card (fullscreen app with "hide in fullscreen", approvals off), Nubrix answers immediately and Claude Code asks natively.
+
 - Nothing is ever approved automatically. If Nubrix is not running, the toggle is off, no answer arrives in time, or anything is malformed, the script prints nothing and Claude Code asks in its own dialog as before.
 - Risky input (`rm -rf`, `sudo`, `git push --force`, `git reset --hard`, `curl | sh`, writes outside the project or to sensitive files, ...) is shown in red and needs a second click ("Allow anyway").
 - "Open in <app>" brings the source app forward and withdraws the notch prompt so you answer natively. Answering in Claude Code first also withdraws the prompt.
 - Up to 5 requests queue ("1 of 3"); requests over 64 KB or beyond the queue are left to Claude Code.
-- Wait time: 110 s in the desktop app and VS Code (Claude Code shows its own dialog at the same time and whichever answers first wins), 25 s in a terminal (the hook may hold the terminal dialog back while it waits). Override with `NUBRIX_PERMISSION_WAIT` (seconds).
+- Wait time: 110 s in the desktop app and VS Code (Claude Code shows its own dialog at the same time and whichever answers first wins), 12 s in a terminal (the hook may hold the terminal dialog back while it waits). A 1 s liveness probe runs first, so a hung Nubrix costs about one second. `NUBRIX_PERMISSION_WAIT` (seconds) only applies with `NUBRIX_DEV=1`.
 - Turn it off in Settings, Notifications, "Claude Code approvals".
 
 Manual setup: in `~/.claude/settings.json`, add a second hook next to the existing async one under `PermissionRequest`:

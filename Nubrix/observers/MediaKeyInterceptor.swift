@@ -70,9 +70,13 @@ final class MediaKeyInterceptor {
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: mask,
-            callback: { _, _, cgEvent, userInfo in
-                guard let userInfo else { return Unmanaged.passRetained(cgEvent) }
+            callback: { _, type, cgEvent, userInfo in
+                guard let userInfo else { return Unmanaged.passUnretained(cgEvent) }
                 let interceptor = Unmanaged<MediaKeyInterceptor>.fromOpaque(userInfo).takeUnretainedValue()
+                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                    interceptor.reenableTap()
+                    return Unmanaged.passUnretained(cgEvent)
+                }
                 return interceptor.handleEvent(cgEvent)
             },
             userInfo: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
@@ -83,6 +87,12 @@ final class MediaKeyInterceptor {
             if let runLoopSource {
                 CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             }
+            CGEvent.tapEnable(tap: eventTap, enable: true)
+        }
+    }
+    
+    private func reenableTap() {
+        if let eventTap {
             CGEvent.tapEnable(tap: eventTap, enable: true)
         }
     }
@@ -103,12 +113,12 @@ final class MediaKeyInterceptor {
     private func handleEvent(_ cgEvent: CGEvent) -> Unmanaged<CGEvent>? {
         // Ensure the CGEvent has a valid type before converting to NSEvent
         guard cgEvent.type != .null else {
-            return Unmanaged.passRetained(cgEvent)
+            return Unmanaged.passUnretained(cgEvent)
         }
         guard let nsEvent = NSEvent(cgEvent: cgEvent),
               nsEvent.type == .systemDefined,
               nsEvent.subtype.rawValue == 8 else {
-            return Unmanaged.passRetained(cgEvent)
+            return Unmanaged.passUnretained(cgEvent)
         }
         
         let data1 = nsEvent.data1
@@ -118,7 +128,7 @@ final class MediaKeyInterceptor {
         // 0xA = key down, 0xB = key up. Only handle key down.
         guard stateByte == 0xA,
               let keyType = NXKeyType(rawValue: keyCode) else {
-            return Unmanaged.passRetained(cgEvent)
+            return Unmanaged.passUnretained(cgEvent)
         }
         
         let flags = nsEvent.modifierFlags

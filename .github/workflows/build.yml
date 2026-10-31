@@ -65,8 +65,11 @@ jobs:
 
       - name: Shell syntax
         run: |
-          bash -n claude-plugin/scripts/nubrix-hook
-          bash -n cli/notchctl
+          shopt -s nullglob
+          for f in claude-plugin/scripts/* cli/notchctl scripts/*.sh; do
+            echo "bash -n $f"
+            bash -n "$f"
+          done
 
       - name: JSON manifests
         run: |

@@ -34,6 +34,7 @@ struct VitrinCard: View {
     var onAction: (ClipInsightAction) -> Void = { _ in }
 
     @State private var hoverState = false
+    @State private var entry: ClipInsightEntry?
 
     private var hovering: Bool { hoverState || forceHover }
     private var shape: RoundedRectangle {
@@ -58,10 +59,14 @@ struct VitrinCard: View {
             .onHover { hoverState = $0 }
             .onTapGesture(perform: onCopy)
             .onDrag { ClipStore.shared.itemProvider(for: item) }
+            .task(id: item.id) {
+                guard item.kind != .image else { return }
+                entry = await ClipInsightCache.shared.entry(for: item)
+            }
             .contextMenu {
                 Button("Copy", action: onCopy)
                 Button(item.pinned ? "Unpin" : "Pin", action: onPin)
-                if let insight = ClipInsightCache.shared.insight(for: item), !insight.actions.isEmpty {
+                if let insight = (entry ?? ClipInsightCache.shared.cachedEntry(id: item.id))?.insight, !insight.actions.isEmpty {
                     Divider()
                     ForEach(insight.actions) { action in
                         Button(action.title) { onAction(action) }
@@ -96,7 +101,7 @@ struct VitrinCard: View {
         case .image:
             ImageCardContent(item: item, scale: scale, now: now, hovering: hovering)
         case .text:
-            TextCardContent(item: item, scale: scale, now: now)
+            TextCardContent(item: item, entry: entry, scale: scale, now: now)
         case .link:
             LinkCardContent(item: item, scale: scale, now: now)
         }
@@ -150,8 +155,8 @@ private struct ImageCardContent: View {
     var body: some View {
         Color.black.opacity(0.25)
             .overlay {
-                if let image {
-                    Image(nsImage: image)
+                if let shown = image ?? ClipStore.shared.cachedThumbnail(for: item) {
+                    Image(nsImage: shown)
                         .resizable()
                         .scaledToFill()
                 } else {
@@ -184,20 +189,21 @@ private struct ImageCardContent: View {
             }
             .clipped()
             .task(id: item.id) {
-                image = ClipStore.shared.thumbnail(for: item)
+                image = await ClipStore.shared.thumbnail(for: item)
             }
     }
 }
 
 private struct TextCardContent: View {
     let item: ClipItem
+    let entry: ClipInsightEntry?
     let scale: CGFloat
     let now: Date
 
     var body: some View {
-        let text = item.text ?? ""
-        let insight = ClipInsightCache.shared.insight(for: item)
-        let code = insight?.isCode ?? ClipClassifier.looksLikeCode(text)
+        let text = item.previewOrEmpty
+        let current = entry ?? ClipInsightCache.shared.cachedEntry(id: item.id)
+        let insight = current?.insight
         VStack(alignment: .leading, spacing: 4 * scale) {
             if insight != nil || item.pinned {
                 HStack(spacing: 4 * scale) {
@@ -214,8 +220,8 @@ private struct TextCardContent: View {
                     .font(.system(size: 10.5 * scale, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
-            } else if code {
-                Text(ClipInsightCache.shared.cardText(for: item, language: insight?.language))
+            } else if let code = current?.cardText {
+                Text(code)
                     .font(.system(size: 10.5 * scale, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.9))
                     .multilineTextAlignment(.leading)
@@ -266,7 +272,7 @@ private struct LinkCardContent: View {
     let now: Date
 
     var body: some View {
-        let parts = Self.parts(item.text ?? "")
+        let parts = LinkParts(item.previewOrEmpty)
         VStack(alignment: .leading, spacing: 3 * scale) {
             HStack(spacing: 5 * scale) {
                 if item.pinned { PinDot(scale: scale) }
@@ -295,14 +301,6 @@ private struct LinkCardContent: View {
         }
         .padding(8 * scale)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    static func parts(_ text: String) -> (host: String, rest: String) {
-        guard let url = URL(string: text), var host = url.host else { return (text, "") }
-        if host.hasPrefix("www.") { host.removeFirst(4) }
-        var rest = url.path == "/" ? "" : url.path
-        if let q = url.query { rest += "?" + q }
-        return (host, rest)
     }
 }
 

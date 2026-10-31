@@ -1,18 +1,35 @@
 #!/bin/bash
-endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+export LC_ALL=C
+dev="${NUBRIX_DEV:-}"
+if [ "$dev" = 1 ]; then
+  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+else
+  endpoint="$HOME/.config/nubrix/agent-endpoint"
+fi
 
-if [ ! -r "$endpoint" ]; then
+nubrix_load_endpoint() {
+  [ -r "$endpoint" ] || return 1
+  if [ "$dev" != 1 ]; then
+    [ "$(/usr/bin/stat -f '%u %Lp' "$endpoint" 2>/dev/null)" = "$UID 600" ] || return 1
+  fi
+  read -r port token pid < "$endpoint" || [ -n "$port" ]
+  case "$port" in ''|*[!0-9]*) return 1 ;; esac
+  case "$token" in ''|*[!0-9a-f]*) return 1 ;; esac
+  [ "${#token}" -eq 64 ] || return 1
+  if [ -n "$pid" ] || [ "$dev" != 1 ]; then
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "$pid" 2>/dev/null || return 1
+  fi
+  return 0
+}
+
+if ! nubrix_load_endpoint; then
   cat >/dev/null
   exit 0
 fi
 
-read -r port token < "$endpoint"
-case "$port" in
-  ''|*[!0-9]*) cat >/dev/null; exit 0 ;;
-esac
-
 nubrix_clean() {
-  printf '%s' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+  printf '%s' "$1" | tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
 }
 
 nubrix_json_string() {
@@ -39,8 +56,37 @@ nubrix_source_args() {
   return 0
 }
 
+jq_bin=""
+for candidate in /usr/bin/jq /opt/homebrew/bin/jq /usr/local/bin/jq; do
+  if [ -x "$candidate" ]; then jq_bin="$candidate"; break; fi
+done
 
-body="$(cat)"
+filter='def cap($n): if type == "string" and length > $n then .[0:$n] else . end;
+{
+  hook_event_name, session_id, cwd, tool_name, notification_type,
+  message: (.message | cap(2000)),
+  prompt: (.prompt | cap(2000)),
+  last_assistant_message: (.last_assistant_message | cap(2000)),
+  tool_input: (if (.tool_input | type) == "object" then (.tool_input | walk(cap(8192))) else null end)
+} | with_entries(select(.value != null))'
+
+if [ -n "$jq_bin" ]; then
+  body="$("$jq_bin" -c "$filter" 2>/dev/null)" || body=""
+else
+  body="$(head -c 262145)"
+  cat >/dev/null
+  if [ "${#body}" -gt 262144 ]; then
+    big_event="$(nubrix_json_string hook_event_name "$body")"
+    big_session="$(nubrix_json_string session_id "$body")"
+    big_cwd="$(nubrix_json_string cwd "$body")"
+    big_tool="$(nubrix_json_string tool_name "$body")"
+    body="{\"hook_event_name\":\"$big_event\",\"session_id\":\"$big_session\",\"cwd\":\"$big_cwd\""
+    [ -n "$big_tool" ] && body="$body,\"tool_name\":\"$big_tool\""
+    body="$body}"
+  fi
+fi
+[ -n "$body" ] || exit 0
+
 nubrix_source_args
 
 event="$(nubrix_json_string hook_event_name "$body")"
@@ -52,7 +98,7 @@ case "$event" in
 esac
 
 printf '%s' "$body" | curl --silent --output /dev/null --max-time 1 \
-  -H "Authorization: Bearer $token" \
+  -H @<(printf 'Authorization: Bearer %s\n' "$token") \
   -H "Content-Type: application/json" \
   "${source_args[@]}" \
   --data-binary @- \

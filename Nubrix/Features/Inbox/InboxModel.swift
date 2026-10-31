@@ -42,34 +42,50 @@ struct InboxLedger {
         entries.filter { $0.source == source }.map(\.severity).max()
     }
 
-    mutating func recordSession(id: String, severity: InboxSeverity, title: String, message: String, date: Date = Date()) {
+    @discardableResult
+    mutating func recordSession(id: String, severity: InboxSeverity, title: String, message: String, date: Date = Date()) -> Bool {
         entries.removeAll { $0.source == .claude && $0.sessionID == id && !$0.isContextWarning }
         insert(InboxEntry(source: .claude, severity: severity, title: title, message: message, date: date, sessionID: id))
+        return true
     }
 
-    mutating func recordContextWarning(id: String, title: String, message: String, date: Date = Date()) {
+    @discardableResult
+    mutating func recordContextWarning(id: String, title: String, message: String, date: Date = Date()) -> Bool {
         entries.removeAll { $0.source == .claude && $0.sessionID == id && $0.isContextWarning }
         insert(InboxEntry(source: .claude, severity: .notice, title: title, message: message, date: date, sessionID: id, isContextWarning: true))
+        return true
     }
 
-    mutating func clearSession(_ id: String) {
-        entries.removeAll { $0.source == .claude && $0.sessionID == id && $0.isContextWarning }
+    @discardableResult
+    mutating func clearSession(_ id: String) -> Bool {
+        remove { $0.source == .claude && $0.sessionID == id && $0.isContextWarning }
     }
 
-    mutating func clearNeedsYou(session id: String) {
-        entries.removeAll { $0.source == .claude && $0.sessionID == id && $0.severity == .needsYou }
+    @discardableResult
+    mutating func clearNeedsYou(session id: String) -> Bool {
+        remove { $0.source == .claude && $0.sessionID == id && $0.severity == .needsYou }
     }
 
-    mutating func recordNotice(title: String, message: String, date: Date = Date()) {
+    @discardableResult
+    mutating func recordNotice(title: String, message: String, date: Date = Date()) -> Bool {
         insert(InboxEntry(source: .notchctl, severity: .notice, title: title, message: message, date: date, sessionID: nil))
+        return true
     }
 
-    mutating func markRead(source: InboxSource) {
-        entries.removeAll { $0.source == source }
+    @discardableResult
+    mutating func markRead(source: InboxSource) -> Bool {
+        remove { $0.source == source }
     }
 
-    mutating func markAllRead() {
-        entries.removeAll()
+    @discardableResult
+    mutating func markAllRead() -> Bool {
+        remove { _ in true }
+    }
+
+    private mutating func remove(where predicate: (InboxEntry) -> Bool) -> Bool {
+        let before = entries.count
+        entries.removeAll(where: predicate)
+        return entries.count != before
     }
 
     private mutating func insert(_ entry: InboxEntry) {

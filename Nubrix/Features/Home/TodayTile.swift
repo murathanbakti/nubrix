@@ -47,39 +47,56 @@ final class TodayTileModel: ObservableObject {
     @Published private(set) var access: TodayTileAccess = .needsAccess
     @Published private(set) var events: [EventModel] = []
 
-    private let service = CalendarService()
-    private var storeObserver: NSObjectProtocol?
+    private let service = CalendarService.shared
+    private var cancellables = Set<AnyCancellable>()
     private var loadTask: Task<Void, Never>?
+    private var dirty = true
+    private var loadedDay: Date?
 
     private init() {
-        storeObserver = NotificationCenter.default.addObserver(
-            forName: .EKEventStoreChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
-        }
-    }
-
-    deinit {
-        if let storeObserver { NotificationCenter.default.removeObserver(storeObserver) }
+        SharedEventStore.shared.changes
+            .sink { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.dirty = true
+                    self?.refresh()
+                }
+            }
+            .store(in: &cancellables)
+        CalendarManager.shared.$selectedCalendarIDs
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.dirty = true
+                self?.refresh()
+            }
+            .store(in: &cancellables)
     }
 
     func refresh() {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        let granted = status == .fullAccess
-        access = granted ? .granted : .needsAccess
+        let granted = EKEventStore.authorizationStatus(for: .event) == .fullAccess
+        let current: TodayTileAccess = granted ? .granted : .needsAccess
+        if access != current {
+            access = current
+            dirty = true
+        }
         guard granted else {
-            events = []
+            loadTask?.cancel()
+            if !events.isEmpty { events = [] }
             return
         }
-        loadTask?.cancel()
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
+        guard dirty || loadedDay != start else { return }
+        dirty = false
+        loadedDay = start
+        loadTask?.cancel()
         let end = calendar.date(byAdding: .day, value: 2, to: start) ?? start
         let ids = Array(CalendarManager.shared.selectedCalendarIDs)
         loadTask = Task { [service] in
             let result = await service.events(from: start, to: end, calendars: ids)
             guard !Task.isCancelled else { return }
-            self.events = result
+            if self.events != result { self.events = result }
         }
     }
 

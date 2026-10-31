@@ -5,16 +5,24 @@ final class AgentEventServer: @unchecked Sendable {
     static let shared = AgentEventServer()
 
     static let path = "/v1/claude/hook"
-    private static let maxRequestBytes = 512 * 1024
+    static let maxConnections = 16
 
     private let queue = DispatchQueue(label: "dev.nubrix.agent-events")
     private var listener: NWListener?
+    private var boundPort: UInt16?
+    private var activeConnections = 0
+    private let tokenBytes: [UInt8]?
     private let token: String
 
     private init() {
         var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        token = bytes.map { String(format: "%02x", $0) }.joined()
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess {
+            tokenBytes = bytes
+            token = AgentProof.hex(bytes)
+        } else {
+            tokenBytes = nil
+            token = ""
+        }
     }
 
     static var configDirectory: URL {
@@ -27,6 +35,11 @@ final class AgentEventServer: @unchecked Sendable {
     func start() {
         queue.async { [self] in
             guard listener == nil else { return }
+            guard tokenBytes != nil else {
+                NSLog("Nubrix agent server not started: no random token")
+                return
+            }
+            Self.removeEndpoint()
             do {
                 let parameters = NWParameters.tcp
                 parameters.acceptLocalOnly = true
@@ -36,7 +49,10 @@ final class AgentEventServer: @unchecked Sendable {
                 listener.stateUpdateHandler = { [weak self, weak listener] state in
                     switch state {
                     case .ready:
-                        if let port = listener?.port?.rawValue { self?.publishEndpoint(port: port) }
+                        if let port = listener?.port?.rawValue {
+                            self?.boundPort = port
+                            self?.publishEndpoint(port: port)
+                        }
                     case .failed(let error):
                         NSLog("Nubrix agent server failed: \(error)")
                         self?.restart()
@@ -54,62 +70,126 @@ final class AgentEventServer: @unchecked Sendable {
 
     func stop() {
         queue.sync {
+            Self.removeEndpoint()
             listener?.cancel()
             listener = nil
-            try? FileManager.default.removeItem(at: Self.endpointFile)
+            boundPort = nil
         }
     }
 
     private func restart() {
+        Self.removeEndpoint()
         listener?.cancel()
         listener = nil
+        boundPort = nil
         queue.asyncAfter(deadline: .now() + 2) { [weak self] in self?.start() }
     }
 
-    private func publishEndpoint(port: UInt16) {
+    private static func removeEndpoint() {
+        unlink(endpointFile.path)
+    }
+
+    private static func prepareDirectory() throws {
         let fm = FileManager.default
-        do {
-            try fm.createDirectory(at: Self.configDirectory, withIntermediateDirectories: true,
+        let directory = configDirectory
+        var info = stat()
+        if lstat(directory.path, &info) == 0 {
+            guard (info.st_mode & S_IFMT) == S_IFDIR else {
+                throw CocoaError(.fileWriteInvalidFileName)
+            }
+            guard info.st_uid == getuid() else { throw CocoaError(.fileWriteNoPermission) }
+        } else {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true,
                                    attributes: [.posixPermissions: 0o700])
-            let data = Data("\(port) \(token)\n".utf8)
-            try data.write(to: Self.endpointFile, options: [.atomic])
-            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.endpointFile.path)
+        }
+        guard chmod(directory.path, 0o700) == 0 else { throw CocoaError(.fileWriteNoPermission) }
+    }
+
+    private func publishEndpoint(port: UInt16) {
+        do {
+            try Self.prepareDirectory()
+            let final = Self.endpointFile.path
+            let temp = Self.configDirectory.appendingPathComponent(".agent-endpoint.\(getpid()).tmp").path
+            unlink(temp)
+            let fd = open(temp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
+            guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            let bytes = Array("\(port) \(token) \(getpid())\n".utf8)
+            let written = bytes.withUnsafeBufferPointer { write(fd, $0.baseAddress, $0.count) }
+            let modeSet = fchmod(fd, 0o600) == 0
+            close(fd)
+            guard written == bytes.count, modeSet, rename(temp, final) == 0 else {
+                unlink(temp)
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
         } catch {
             NSLog("Nubrix agent server could not write endpoint: \(error)")
         }
     }
 
     private func accept(_ connection: NWConnection) {
+        guard activeConnections < Self.maxConnections else {
+            connection.cancel()
+            return
+        }
+        activeConnections += 1
+        connection.stateUpdateHandler = { [weak self] state in
+            if case .cancelled = state { self?.activeConnections -= 1 }
+        }
         connection.start(queue: queue)
         let timeout = DispatchWorkItem { connection.cancel() }
         queue.asyncAfter(deadline: .now() + 5, execute: timeout)
-        receive(on: connection, buffer: Data(), timeout: timeout)
+        receive(on: connection, buffer: Data(), head: nil, timeout: timeout)
     }
 
-    private func receive(on connection: NWConnection, buffer: Data, timeout: DispatchWorkItem) {
+    private func receive(on connection: NWConnection, buffer: Data, head: HTTPHead?, timeout: DispatchWorkItem) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] chunk, _, isComplete, error in
             guard let self else { return }
             var buffer = buffer
+            var head = head
             if let chunk { buffer.append(chunk) }
-            if buffer.count > Self.maxRequestBytes { return self.respond(connection, status: "413 Payload Too Large") }
+            let closed = isComplete || error != nil
 
-            switch HTTPRequest.parse(buffer) {
-            case .complete(let request):
+            if head == nil {
+                switch HTTPRequest.parseHead(buffer) {
+                case .invalid:
+                    return connection.cancel()
+                case .incomplete:
+                    if closed { return connection.cancel() }
+                    return self.receive(on: connection, buffer: buffer, head: nil, timeout: timeout)
+                case .head(let parsed):
+                    guard let port = self.boundPort else { return connection.cancel() }
+                    switch AgentRoute.admit(parsed, token: self.token, port: port) {
+                    case .reject:
+                        return self.respond(connection, status: "404 Not Found")
+                    case .accept(let maxBody):
+                        guard parsed.contentLength <= maxBody else {
+                            return self.respond(connection, status: "413 Payload Too Large")
+                        }
+                        head = parsed
+                    }
+                }
+            }
+
+            guard let head else { return connection.cancel() }
+            let end = head.bodyOffset + head.contentLength
+            if buffer.count >= end {
                 timeout.cancel()
+                let start = buffer.startIndex + head.bodyOffset
+                let body = buffer.subdata(in: start..<(buffer.startIndex + end))
+                let request = HTTPRequest(method: head.method, path: head.path, headers: head.headers, body: body)
                 self.handle(request, on: connection)
-            case .invalid:
-                self.respond(connection, status: "400 Bad Request")
-            case .incomplete:
-                if isComplete || error != nil { return connection.cancel() }
-                self.receive(on: connection, buffer: buffer, timeout: timeout)
+            } else if closed {
+                connection.cancel()
+            } else {
+                self.receive(on: connection, buffer: buffer, head: head, timeout: timeout)
             }
         }
     }
 
     private func handle(_ request: HTTPRequest, on connection: NWConnection) {
         let outcome = AgentRoute.resolve(request, token: token)
-        if case .permission(let payload) = outcome.action {
-            holdPermission(payload, on: connection)
+        if case .permission(let payload, let nonce) = outcome.action {
+            holdPermission(payload, nonce: nonce, on: connection)
             return
         }
         respond(connection, status: outcome.status)
@@ -130,8 +210,10 @@ final class AgentEventServer: @unchecked Sendable {
         }
     }
 
-    private func holdPermission(_ payload: AgentPermissionPayload, on connection: NWConnection) {
+    private func holdPermission(_ payload: AgentPermissionPayload, nonce: String, on connection: NWConnection) {
         let id = payload.id
+        let sessionID = payload.sessionID
+        let key = tokenBytes ?? []
         connection.receive(minimumIncompleteLength: 1, maximumLength: 1) { _, _, isComplete, error in
             if isComplete || error != nil {
                 Task { @MainActor in AgentPermissionStore.shared.withdraw(id) }
@@ -139,7 +221,8 @@ final class AgentEventServer: @unchecked Sendable {
         }
         Task { @MainActor in
             AgentPermissionStore.shared.submit(payload) { [weak self] answer in
-                self?.respond(connection, status: "200 OK", body: answer.body)
+                let proof = AgentProof.proof(key: key, nonce: nonce, decision: answer.decision, sessionID: sessionID)
+                self?.respond(connection, status: "200 OK", body: answer.body(proof: proof))
             }
         }
     }

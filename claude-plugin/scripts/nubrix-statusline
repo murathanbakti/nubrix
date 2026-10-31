@@ -29,7 +29,28 @@ nubrix_source_args() {
   return 0
 }
 
-endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+dev="${NUBRIX_DEV:-}"
+if [ "$dev" = 1 ]; then
+  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+else
+  endpoint="$HOME/.config/nubrix/agent-endpoint"
+fi
+
+nubrix_load_endpoint() {
+  [ -r "$endpoint" ] || return 1
+  if [ "$dev" != 1 ]; then
+    [ "$(/usr/bin/stat -f '%u %Lp' "$endpoint" 2>/dev/null)" = "$UID 600" ] || return 1
+  fi
+  read -r port token pid < "$endpoint" || [ -n "$port" ]
+  case "$port" in ''|*[!0-9]*) return 1 ;; esac
+  case "$token" in ''|*[!0-9a-f]*) return 1 ;; esac
+  [ "${#token}" -eq 64 ] || return 1
+  if [ -n "$pid" ] || [ "$dev" != 1 ]; then
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    kill -0 "$pid" 2>/dev/null || return 1
+  fi
+  return 0
+}
 
 num() {
   local rest="${json#*\"$1\"}"
@@ -43,8 +64,13 @@ str() {
   printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | head -n 1
 }
 
-if command -v jq >/dev/null 2>&1; then
-  fields="$(printf '%s' "$json" | jq -r '[(.workspace.current_dir // .cwd // ""), (.model.display_name // ""), (.context_window.used_percentage // "" | tostring), (.cost.total_cost_usd // "" | tostring)] | join("\u001f")' 2>/dev/null)"
+jq_bin=""
+for candidate in /usr/bin/jq /opt/homebrew/bin/jq /usr/local/bin/jq; do
+  if [ -x "$candidate" ]; then jq_bin="$candidate"; break; fi
+done
+
+if [ -n "$jq_bin" ]; then
+  fields="$(printf '%s' "$json" | "$jq_bin" -r '[(.workspace.current_dir // .cwd // ""), (.model.display_name // ""), (.context_window.used_percentage // "" | tostring), (.cost.total_cost_usd // "" | tostring)] | join("\u001f")' 2>/dev/null)"
   IFS=$'\037' read -r cwd model pct cost <<<"$fields"
 else
   cwd="$(str current_dir)"
@@ -60,24 +86,18 @@ if [ -n "$cwd" ] && [ -d "$cwd" ]; then
   branch="$(GIT_OPTIONAL_LOCKS=0 git -C "$cwd" symbolic-ref --short -q HEAD 2>/dev/null | head -n 1)"
 fi
 
-if [ -r "$endpoint" ]; then
-  read -r port token < "$endpoint"
-  case "$port" in
-    ''|*[!0-9]*) ;;
-    *)
-      nubrix_source_args
-      clean_branch="$(nubrix_clean "$branch" 100)"
-      [ -n "$clean_branch" ] && source_args+=(-H "X-Nubrix-Branch: $clean_branch")
-      (
-        curl --silent --output /dev/null --max-time 1 \
-          -H "Authorization: Bearer $token" \
-          -H "Content-Type: application/json" \
-          "${source_args[@]}" \
-          --data-binary @- \
-          "http://127.0.0.1:$port/v1/claude/status" <<<"$json" >/dev/null 2>&1 &
-      ) >/dev/null 2>&1
-      ;;
-  esac
+if nubrix_load_endpoint; then
+  nubrix_source_args
+  clean_branch="$(nubrix_clean "$branch" 100)"
+  [ -n "$clean_branch" ] && source_args+=(-H "X-Nubrix-Branch: $clean_branch")
+  (
+    curl --silent --output /dev/null --max-time 1 \
+      -H @<(printf 'Authorization: Bearer %s\n' "$token") \
+      -H "Content-Type: application/json" \
+      "${source_args[@]}" \
+      --data-binary @- \
+      "http://127.0.0.1:$port/v1/claude/status" <<<"$json" >/dev/null 2>&1 &
+  ) >/dev/null 2>&1
 fi
 
 line="${cwd##*/}"

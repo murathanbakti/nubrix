@@ -25,18 +25,26 @@ final class NubrixCalendarStore: ObservableObject {
     @Published private(set) var defaultCalendarID: String?
 
     let calendar: Calendar
-    private let eventStore: EKEventStore?
+    private let eventStore: SharedEventStore?
     private var loadedRange: (start: Date, end: Date)?
+    private var fetched: [NubrixCalendarEvent] = []
+    private var dirty = true
+    private var reloadTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private var stubEvents: [NubrixCalendarEvent] = []
 
+    private struct Snapshot {
+        let calendars: [NubrixCalendarInfo]
+        let defaultCalendarID: String?
+        let events: [NubrixCalendarEvent]?
+    }
+
     init(calendar: Calendar = .autoupdatingCurrent) {
         self.calendar = calendar
-        let store = EKEventStore()
-        self.eventStore = store
+        self.eventStore = SharedEventStore.shared
         self.access = Self.currentAccess()
-        observe(store)
-        refreshCalendars()
+        observe()
+        reload()
     }
 
     init(preview access: NubrixCalendarAccess, calendars: [NubrixCalendarInfo], events: [NubrixCalendarEvent], calendar: Calendar) {
@@ -56,10 +64,13 @@ final class NubrixCalendarStore: ObservableObject {
         }
     }
 
-    private func observe(_ store: EKEventStore) {
-        NotificationCenter.default.publisher(for: .EKEventStoreChanged, object: store)
+    private func observe() {
+        SharedEventStore.shared.changes
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.reload() }
+            .sink { [weak self] in
+                self?.dirty = true
+                self?.reload()
+            }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .receive(on: RunLoop.main)
@@ -72,14 +83,16 @@ final class NubrixCalendarStore: ObservableObject {
         let current = Self.currentAccess()
         if current != access {
             access = current
+            dirty = true
             reload()
         }
     }
 
     func requestAccess() async {
         guard let eventStore else { return }
-        _ = try? await eventStore.requestFullAccessToEvents()
+        _ = try? await eventStore.store.requestFullAccessToEvents()
         access = Self.currentAccess()
+        dirty = true
         reload()
     }
 
@@ -92,37 +105,54 @@ final class NubrixCalendarStore: ObservableObject {
         let offset = (calendar.component(.weekday, from: monthStart) - calendar.firstWeekday + 7) % 7
         let start = calendar.date(byAdding: .day, value: -offset, to: monthStart) ?? monthStart
         let end = calendar.date(byAdding: .day, value: 42, to: start) ?? start
+        if let range = loadedRange, range.start == start, range.end == end, !dirty { return }
         loadedRange = (start, end)
+        dirty = true
         reload()
     }
 
     private func reload() {
-        refreshCalendars()
-        guard let range = loadedRange else { return }
-        let fetched: [NubrixCalendarEvent]
-        if let eventStore {
-            guard access == .granted else {
-                eventsByDay = [:]
-                return
-            }
-            let predicate = eventStore.predicateForEvents(withStart: range.start, end: range.end, calendars: nil)
-            fetched = eventStore.events(matching: predicate).map(Self.convert)
-        } else {
-            fetched = stubEvents
+        reloadTask?.cancel()
+        guard let eventStore else {
+            if let range = loadedRange { publish(events: stubEvents, in: range) }
+            return
         }
-        eventsByDay = bucket(fetched, in: range)
+        guard access == .granted else {
+            reloadTask = nil
+            fetched = []
+            if !eventsByDay.isEmpty { eventsByDay = [:] }
+            return
+        }
+        let range = loadedRange
+        dirty = false
+        reloadTask = Task {
+            let snapshot = await eventStore.perform { store -> Snapshot in
+                let calendars = store.calendars(for: .event)
+                    .filter(\.allowsContentModifications)
+                    .map { NubrixCalendarInfo(id: $0.calendarIdentifier, title: $0.title, account: $0.source?.title ?? "", color: $0.color ?? .systemBlue) }
+                let preferred = store.defaultCalendarForNewEvents?.calendarIdentifier
+                let defaultID = calendars.contains { $0.id == preferred } ? preferred : calendars.first?.id
+                var events: [NubrixCalendarEvent]?
+                if let range {
+                    let predicate = store.predicateForEvents(withStart: range.start, end: range.end, calendars: nil)
+                    events = store.events(matching: predicate).map(Self.convert)
+                }
+                return Snapshot(calendars: calendars, defaultCalendarID: defaultID, events: events)
+            }
+            guard !Task.isCancelled else { return }
+            if writableCalendars != snapshot.calendars { writableCalendars = snapshot.calendars }
+            if defaultCalendarID != snapshot.defaultCalendarID { defaultCalendarID = snapshot.defaultCalendarID }
+            if let events = snapshot.events, let range { publish(events: events, in: range) }
+        }
     }
 
-    private func refreshCalendars() {
-        guard let eventStore, access == .granted else { return }
-        writableCalendars = eventStore.calendars(for: .event)
-            .filter(\.allowsContentModifications)
-            .map { NubrixCalendarInfo(id: $0.calendarIdentifier, title: $0.title, account: $0.source?.title ?? "", color: $0.color ?? .systemBlue) }
-        let preferred = eventStore.defaultCalendarForNewEvents?.calendarIdentifier
-        defaultCalendarID = writableCalendars.contains { $0.id == preferred } ? preferred : writableCalendars.first?.id
+    private func publish(events: [NubrixCalendarEvent], in range: (start: Date, end: Date)) {
+        fetched = events
+        let bucketed = bucket(events, in: range)
+        if bucketed != eventsByDay { eventsByDay = bucketed }
     }
 
-    private static func convert(_ event: EKEvent) -> NubrixCalendarEvent {
+    nonisolated private static func convert(_ event: EKEvent) -> NubrixCalendarEvent {
         let eventID = event.eventIdentifier ?? ""
         return NubrixCalendarEvent(
             id: "\(eventID)@\(event.startDate.timeIntervalSince1970)",
@@ -183,17 +213,20 @@ final class NubrixCalendarStore: ObservableObject {
             return
         }
         guard access == .granted else { throw NubrixCalendarStoreError.noAccess }
-        guard let ekCalendar = eventStore.calendar(withIdentifier: draft.calendarID) ?? eventStore.defaultCalendarForNewEvents else {
-            throw NubrixCalendarStoreError.noCalendar
+        let saved: NubrixCalendarEvent = try eventStore.performSync { store in
+            guard let ekCalendar = store.calendar(withIdentifier: draft.calendarID) ?? store.defaultCalendarForNewEvents else {
+                throw NubrixCalendarStoreError.noCalendar
+            }
+            let event = EKEvent(eventStore: store)
+            event.title = title
+            event.isAllDay = draft.isAllDay
+            event.startDate = start
+            event.endDate = end
+            event.calendar = ekCalendar
+            if !location.isEmpty { event.location = location }
+            try store.save(event, span: .thisEvent, commit: true)
+            return Self.convert(event)
         }
-        let event = EKEvent(eventStore: eventStore)
-        event.title = title
-        event.isAllDay = draft.isAllDay
-        event.startDate = start
-        event.endDate = end
-        event.calendar = ekCalendar
-        if !location.isEmpty { event.location = location }
-        try eventStore.save(event, span: .thisEvent, commit: true)
-        reload()
+        if let range = loadedRange { publish(events: fetched + [saved], in: range) }
     }
 }

@@ -5,13 +5,17 @@ enum AgentRoute {
     static let statusPath = "/v1/claude/status"
     static let permissionPath = "/v1/claude/permission"
     static let maxPermissionBytes = 64 * 1024
+    static let maxHookBytes = 512 * 1024
+    static let maxStatusBytes = 128 * 1024
+    static let maxNotifyBytes = 16 * 1024
+    static let singletonHeaders = ["authorization", "content-length", "host", "x-nubrix-nonce", "x-nubrix-wait"]
     static let notifyPath = "/v1/notify"
     static let pingPath = "/v1/ping"
 
     enum Action {
         case hook(AgentHookEvent)
         case status(AgentStatusUpdate)
-        case permission(AgentPermissionPayload)
+        case permission(AgentPermissionPayload, nonce: String)
         case notify(DevNotifyRequest)
     }
 
@@ -20,14 +24,41 @@ enum AgentRoute {
         let action: Action?
     }
 
-    static func resolve(_ request: HTTPRequest, token: String) -> Outcome {
-        let path = request.path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? request.path
-        let known = (request.method == "POST" && (path == hookPath || path == notifyPath || path == statusPath || path == permissionPath))
-            || (request.method == "GET" && path == pingPath)
-        guard known else { return Outcome(status: "404 Not Found", action: nil) }
-        guard constantTimeEquals(request.headers["authorization"] ?? "", "Bearer \(token)") else {
-            return Outcome(status: "401 Unauthorized", action: nil)
+    enum Admission: Equatable {
+        case reject
+        case accept(maxBody: Int)
+    }
+
+    private static func normalizedPath(_ raw: String) -> String {
+        raw.split(separator: "?", maxSplits: 1).first.map(String.init) ?? raw
+    }
+
+    private static func maxBody(method: String, path: String) -> Int? {
+        switch (method, path) {
+        case ("POST", hookPath): return maxHookBytes
+        case ("POST", statusPath): return maxStatusBytes
+        case ("POST", permissionPath): return maxPermissionBytes
+        case ("POST", notifyPath): return maxNotifyBytes
+        case ("GET", pingPath): return 0
+        default: return nil
         }
+    }
+
+    static func admit(_ head: HTTPHead, token: String, port: UInt16) -> Admission {
+        guard let limit = maxBody(method: head.method, path: normalizedPath(head.path)) else { return .reject }
+        guard head.headers["origin"] == nil else { return .reject }
+        guard head.duplicates.isDisjoint(with: singletonHeaders) else { return .reject }
+        let host = (head.headers["host"] ?? "").lowercased()
+        guard host == "127.0.0.1:\(port)" || host == "localhost:\(port)" else { return .reject }
+        guard constantTimeEquals(head.headers["authorization"] ?? "", "Bearer \(token)") else { return .reject }
+        return .accept(maxBody: limit)
+    }
+
+    static func resolve(_ request: HTTPRequest, token: String) -> Outcome {
+        let path = normalizedPath(request.path)
+        guard maxBody(method: request.method, path: path) != nil,
+              constantTimeEquals(request.headers["authorization"] ?? "", "Bearer \(token)")
+        else { return Outcome(status: "404 Not Found", action: nil) }
         switch path {
         case hookPath:
             guard var event = AgentHookEvent(json: request.body) else {
@@ -47,6 +78,10 @@ enum AgentRoute {
             guard request.body.count <= maxPermissionBytes else {
                 return Outcome(status: "413 Payload Too Large", action: nil)
             }
+            let nonce = request.headers["x-nubrix-nonce"] ?? ""
+            guard AgentProof.isValidNonce(nonce) else {
+                return Outcome(status: "400 Bad Request", action: nil)
+            }
             guard let payload = AgentPermissionPayload(
                 json: request.body,
                 waitHeader: request.headers["x-nubrix-wait"],
@@ -54,7 +89,7 @@ enum AgentRoute {
             ) else {
                 return Outcome(status: "422 Unprocessable Entity", action: nil)
             }
-            return Outcome(status: "200 OK", action: .permission(payload))
+            return Outcome(status: "200 OK", action: .permission(payload, nonce: nonce))
         case notifyPath:
             switch DevNotifyRequest.parse(request.body) {
             case .success(let notification):

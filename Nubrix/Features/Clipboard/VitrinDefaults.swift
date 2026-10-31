@@ -10,6 +10,7 @@ extension Defaults.Keys {
     static let vitrinCaptureScreenshots = Key<Bool>("vitrinCaptureScreenshots", default: true)
     static let vitrinScreenshotPreview = Key<Bool>("vitrinScreenshotPreview", default: true)
     static let vitrinScreenshotFolderBookmark = Key<Data?>("vitrinScreenshotFolderBookmark", default: nil)
+    static let vitrinScreenshotBookmarkReadOnly = Key<Bool>("vitrinScreenshotBookmarkReadOnly", default: false)
     static let vitrinScreenshotPromptDismissed = Key<Bool>("vitrinScreenshotPromptDismissed", default: false)
     static let vitrinRetentionDays = Key<Int>("vitrinRetentionDays", default: 30)
     static let vitrinExcludedApps = Key<[String]>("vitrinExcludedApps", default: VitrinDefaultsValues.excludedApps)

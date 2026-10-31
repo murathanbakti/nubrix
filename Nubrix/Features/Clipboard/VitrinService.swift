@@ -9,7 +9,7 @@ enum VitrinService {
 
     static func start() {
         ClipStore.shared.start()
-        ClipboardMonitor.shared.start()
+        syncMonitor()
         ScreenshotAccess.shared.restore()
         ScreenshotWatcher.shared.refresh()
         observers.removeAll()
@@ -21,11 +21,23 @@ enum VitrinService {
         ])
         .receive(on: RunLoop.main)
         .sink { _ in
-            MainActor.assumeIsolated { ScreenshotWatcher.shared.refresh() }
+            MainActor.assumeIsolated {
+                syncMonitor()
+                ScreenshotWatcher.shared.refresh()
+            }
         }
         .store(in: &observers)
         KeyboardShortcuts.onKeyDown(for: .toggleVitrin) {
             Task { @MainActor in VitrinPanelController.shared.toggle() }
+        }
+    }
+
+    private static func syncMonitor() {
+        if Defaults[.vitrinEnabled] {
+            ClipboardMonitor.shared.start()
+        } else {
+            ClipboardMonitor.shared.stop()
+            VitrinPanelController.shared.close()
         }
     }
 

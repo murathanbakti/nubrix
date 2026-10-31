@@ -1,5 +1,6 @@
 #!/bin/bash
 endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+dev="${NUBRIX_DEV:-}"
 
 usage() {
   cat <<'USAGE'
@@ -19,6 +20,7 @@ Options for notify:
 
 Environment:
   NUBRIX_ENDPOINT_FILE   Endpoint file (default ~/.config/nubrix/agent-endpoint).
+  NUBRIX_DEV=1           Accept an endpoint file without a process id (tests only).
 USAGE
 }
 
@@ -54,21 +56,31 @@ json_escape() {
 
 load_endpoint() {
   [ -r "$endpoint" ] || fail "Nubrix is not running (no endpoint file at $endpoint)"
-  read -r port token < "$endpoint"
+  read -r port token pid < "$endpoint" || [ -n "$port" ]
   case "$port" in
     ''|*[!0-9]*) fail "endpoint file $endpoint is malformed" ;;
   esac
   [ -n "$token" ] || fail "endpoint file $endpoint is malformed"
+  case "$pid" in
+    '') [ "$dev" = 1 ] || fail "endpoint file $endpoint is outdated (restart Nubrix)" ;;
+    *[!0-9]*) fail "endpoint file $endpoint is malformed" ;;
+    *) kill -0 "$pid" 2>/dev/null || fail "Nubrix is not running (stale endpoint file)" ;;
+  esac
 }
 
 request() {
   local method=$1 path=$2 body=${3-}
-  local args=(--silent --output /dev/null --write-out '%{http_code}' --max-time 2
-    -X "$method" -H "Authorization: Bearer $token")
+  local args=(--silent --output /dev/null --write-out '%{http_code}' --max-time 2 -X "$method")
   if [ -n "$body" ]; then
-    args+=(-H "Content-Type: application/json" --data-binary "$body")
+    status=$(printf '%s' "$body" | curl "${args[@]}" \
+      -H @<(printf 'Authorization: Bearer %s\n' "$token") \
+      -H "Content-Type: application/json" --data-binary @- \
+      "http://127.0.0.1:$port$path") || status=000
+  else
+    status=$(curl "${args[@]}" \
+      -H @<(printf 'Authorization: Bearer %s\n' "$token") \
+      "http://127.0.0.1:$port$path") || status=000
   fi
-  status=$(curl "${args[@]}" "http://127.0.0.1:$port$path") || status=000
 }
 
 cmd_notify() {
@@ -110,7 +122,7 @@ cmd_notify() {
   case "$status" in
     204) exit 0 ;;
     000) fail "could not reach Nubrix (is it running?)" ;;
-    401) fail "Nubrix rejected the token (restart Nubrix or retry)" ;;
+    401|404) fail "Nubrix rejected the request (stale token or endpoint; restart Nubrix or retry)" ;;
     400|422) fail "Nubrix rejected the notification (message max 500 characters, title max 80)" ;;
     *) fail "unexpected response from Nubrix (HTTP $status)" ;;
   esac

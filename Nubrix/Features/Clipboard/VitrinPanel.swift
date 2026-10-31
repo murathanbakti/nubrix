@@ -27,39 +27,62 @@ final class VitrinPanelModel: ObservableObject {
     @Published var searchActive = false
     @Published var selectedID: Int64?
     @Published var previewing = false
-    @Published private(set) var results: [ClipItem] = []
+    @Published private(set) var results: [ClipItem] = [] {
+        didSet { rows = Self.split(results) }
+    }
+    private(set) var rows: [[ClipItem]] = [[], [], []]
 
     var requestClose: () -> Void = {}
     var blurSearch: () -> Void = {}
     var isSearchFocused: () -> Bool = { false }
 
+    static let searchDebounce: RunLoop.SchedulerTimeType.Stride = .milliseconds(120)
+
     private let store = ClipStore.shared
     private var cancellables = Set<AnyCancellable>()
+    private var searchTask: Task<Void, Never>?
 
     init() {
-        Publishers.CombineLatest(store.$items, $query)
-            .map { [store] items, query in
-                query.trimmingCharacters(in: .whitespaces).isEmpty ? items : store.search(query)
-            }
-            .receive(on: RunLoop.main)
-            .sink { [weak self] results in
-                self?.results = results
-                self?.validateSelection()
-            }
+        store.$items
+            .sink { [weak self] _ in self?.applyQuery() }
+            .store(in: &cancellables)
+        $query
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .removeDuplicates()
+            .debounce(for: Self.searchDebounce, scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.applyQuery() }
             .store(in: &cancellables)
     }
 
+    private static func split(_ items: [ClipItem]) -> [[ClipItem]] {
+        [ClipKind.image, .text, .link].map { kind in items.filter { $0.kind == kind } }
+    }
+
+    private func applyQuery() {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        searchTask?.cancel()
+        if trimmed.isEmpty {
+            results = store.items
+            validateSelection()
+            return
+        }
+        searchTask = Task { [weak self] in
+            guard let self else { return }
+            let found = await store.search(trimmed)
+            guard !Task.isCancelled, query.trimmingCharacters(in: .whitespaces) == trimmed else { return }
+            results = found
+            validateSelection()
+        }
+    }
+
     func reset() {
+        searchTask?.cancel()
         query = ""
         searchActive = false
         selectedID = nil
         previewing = false
         results = store.items
         validateSelection()
-    }
-
-    var rows: [[ClipItem]] {
-        [ClipKind.image, .text, .link].map { kind in results.filter { $0.kind == kind } }
     }
 
     var selectedItem: ClipItem? {
@@ -73,7 +96,7 @@ final class VitrinPanelModel: ObservableObject {
     }
 
     var selectedInsight: ClipInsight? {
-        selectedItem.flatMap { ClipInsightCache.shared.insight(for: $0) }
+        selectedID.flatMap { ClipInsightCache.shared.cachedEntry(id: $0)?.insight }
     }
 
     func perform(_ action: ClipInsightAction) {
@@ -240,6 +263,7 @@ struct VitrinPanelView: View {
         .overlay {
             if model.previewing, let item = model.selectedItem {
                 VitrinPreview(item: item, model: model)
+                    .id(item.id)
                     .transition(.opacity)
             }
         }
@@ -308,9 +332,13 @@ private struct VitrinPreview: View {
     let item: ClipItem
     @ObservedObject var model: VitrinPanelModel
     @State private var image: NSImage?
+    @State private var entry: ClipInsightEntry?
+    @State private var plainText: String?
+    @State private var codeText: AttributedString?
 
     var body: some View {
-        let insight = ClipInsightCache.shared.insight(for: item)
+        let current = entry ?? ClipInsightCache.shared.cachedEntry(id: item.id)
+        let insight = current?.insight
         VStack(alignment: .leading, spacing: 12) {
             header(insight)
             content(insight)
@@ -320,6 +348,25 @@ private struct VitrinPreview: View {
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.97)))
+        .task(id: item.id) { await load() }
+    }
+
+    private func load() async {
+        switch item.kind {
+        case .image:
+            image = await ClipStore.shared.previewImage(for: item)
+        case .link:
+            entry = await ClipInsightCache.shared.entry(for: item)
+            plainText = await ClipStore.shared.fullText(for: item, maxChars: 8192)
+        case .text:
+            let loaded = await ClipInsightCache.shared.entry(for: item)
+            entry = loaded
+            if loaded?.insight?.isCode == true {
+                codeText = await ClipInsightCache.shared.previewText(for: item, language: loaded?.insight?.language)
+            } else {
+                plainText = await ClipStore.shared.fullText(for: item, maxChars: 20_000)
+            }
+        }
     }
 
     private func header(_ insight: ClipInsight?) -> some View {
@@ -346,8 +393,8 @@ private struct VitrinPreview: View {
         switch item.kind {
         case .image:
             ZStack {
-                if let image {
-                    Image(nsImage: image)
+                if let shown = image ?? ClipStore.shared.cachedPreview(for: item) {
+                    Image(nsImage: shown)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -365,19 +412,16 @@ private struct VitrinPreview: View {
                         .background(Capsule().fill(Color.black.opacity(0.65)))
                 }
             }
-            .task(id: item.id) {
-                image = ClipStore.shared.fullImage(for: item)
-            }
         case .link:
-            let text = item.text ?? ""
-            let url = URL(string: text)
+            let text = plainText ?? item.previewOrEmpty
+            let parts = LinkParts(text)
             VStack(alignment: .leading, spacing: 10) {
-                Text(url?.host ?? text)
+                Text(parts.host.isEmpty ? text : parts.host)
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
-                if let scheme = url?.scheme {
-                    Text(scheme.uppercased())
+                if !parts.scheme.isEmpty {
+                    Text(parts.scheme.uppercased())
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                 }
@@ -389,16 +433,15 @@ private struct VitrinPreview: View {
                 }
             }
         case .text:
-            let text = item.text ?? ""
             ScrollView([.vertical, .horizontal]) {
-                if insight?.isCode == true {
-                    Text(ClipInsightCache.shared.previewText(for: item, language: insight?.language))
+                if let codeText {
+                    Text(codeText)
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.92))
                         .fixedSize(horizontal: true, vertical: false)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 } else {
-                    Text(String(text.prefix(20_000)))
+                    Text(String((plainText ?? item.previewOrEmpty).prefix(20_000)))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.92))
                         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -439,6 +482,33 @@ private struct VitrinPreview: View {
     }
 }
 
+struct LinkParts {
+    let scheme: String
+    let host: String
+    let rest: String
+
+    init(_ text: String) {
+        var remainder = Substring(text)
+        if let range = remainder.range(of: "://") {
+            scheme = String(remainder[remainder.startIndex..<range.lowerBound])
+            remainder = remainder[range.upperBound...]
+        } else {
+            scheme = ""
+        }
+        let end = remainder.firstIndex(where: { $0 == "/" || $0 == "?" || $0 == "#" }) ?? remainder.endIndex
+        var hostPart = String(remainder[remainder.startIndex..<end])
+        if let at = hostPart.lastIndex(of: "@") { hostPart = String(hostPart[hostPart.index(after: at)...]) }
+        if let colon = hostPart.lastIndex(of: ":"), hostPart[hostPart.index(after: colon)...].allSatisfy(\.isNumber) {
+            hostPart = String(hostPart[..<colon])
+        }
+        if hostPart.hasPrefix("www.") { hostPart.removeFirst(4) }
+        host = hostPart
+        var tail = String(remainder[end...])
+        if tail == "/" { tail = "" }
+        rest = tail
+    }
+}
+
 @MainActor
 final class VitrinPanelController {
     static let shared = VitrinPanelController()
@@ -457,6 +527,7 @@ final class VitrinPanelController {
         guard Defaults[.vitrinEnabled], ClipStore.shared.isReady else { return }
         let panel = self.panel ?? makePanel()
         self.panel = panel
+        panel.sharingType = Defaults[.hideFromScreenRecording] ? .none : .readWrite
         model.reset()
         let screen = NSScreen.screen(withUUID: NubrixCoordinator.shared.selectedScreenUUID) ?? NSScreen.main ?? NSScreen.screens.first
         if let screen {

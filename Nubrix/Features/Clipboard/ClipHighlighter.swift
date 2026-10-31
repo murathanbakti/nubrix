@@ -4,6 +4,7 @@ import SwiftUI
 enum ClipHighlighter {
     static let maxChars = 4096
     static let maxLines = 200
+    static let previewSourceLimit = 40_000
 
     private struct Grammar {
         let comment: String
@@ -105,15 +106,16 @@ enum ClipHighlighter {
         return result
     }
 
-    static func previewText(_ text: String, language: CodeLanguage?, tailLimit: Int = 20_000) -> AttributedString {
+    static func previewText(_ text: String, language: CodeLanguage?, totalLength: Int? = nil, tailLimit: Int = 20_000) -> AttributedString {
         let (head, truncated) = limited(text, maxChars: maxChars, maxLines: maxLines)
         var result = highlightPrefix(head, language: language)
         guard truncated else { return result }
         let rest = text.dropFirst(head.count)
         let tail = rest.prefix(tailLimit)
         result += AttributedString(String(tail))
-        if rest.count > tailLimit {
-            result += AttributedString("\n\u{2026} \(rest.count - tailLimit) more characters")
+        let remaining = (totalLength ?? text.count) - head.count - tailLimit
+        if remaining > 0 {
+            result += AttributedString("\n\u{2026} \(remaining) more characters")
         }
         return result
     }

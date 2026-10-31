@@ -14,22 +14,36 @@ final class MeetingWatcher: ObservableObject {
 
     var isCountdownActive: Bool { next != nil }
 
-    private let service = CalendarService()
+    private static let prefetchExtra: TimeInterval = 30 * 60
+
+    private let service = CalendarService.shared
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
     private var fetchTask: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
     private var dismissed = Set<String>()
     private var fired: [String: Set<MeetingBannerKind>] = [:]
+    private var cachedEvents: [EventModel] = []
+    private var cacheWindow: (start: Date, end: Date)?
+    private var cacheCalendarIDs: [String] = []
+    private var cacheDirty = true
+    private var publishedMinute: Int?
 
     private init() {
-        NotificationCenter.default.publisher(for: .EKEventStoreChanged)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refresh() }
+        SharedEventStore.shared.changes
+            .sink { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.cacheDirty = true
+                    self?.refresh()
+                }
+            }
             .store(in: &cancellables)
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refresh() }
+            .sink { [weak self] _ in
+                self?.cacheDirty = true
+                self?.refresh()
+            }
             .store(in: &cancellables)
         Publishers.Merge3(
             Defaults.publisher(.meetingCountdownEnabled, options: []).map { _ in () }.eraseToAnyPublisher(),
@@ -37,31 +51,45 @@ final class MeetingWatcher: ObservableObject {
             Defaults.publisher(.meetingBannerAtOneMinute, options: []).map { _ in () }.eraseToAnyPublisher()
         )
         .receive(on: RunLoop.main)
-        .sink { [weak self] in self?.refresh() }
+        .sink { [weak self] in
+            self?.cacheDirty = true
+            self?.refresh()
+        }
         .store(in: &cancellables)
         refresh()
     }
 
     func refresh() {
-        fetchTask?.cancel()
         let current = Date()
         guard Defaults[.meetingCountdownEnabled] else {
+            fetchTask?.cancel()
             clear()
             stopTimer()
             return
         }
         scheduleTimer(after: current)
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            fetchTask?.cancel()
             clear()
             return
         }
         let lead = MeetingLeadOption.normalized(Defaults[.meetingLeadMinutes])
         let start = current.addingTimeInterval(-MeetingSelector.ongoingGrace)
         let end = current.addingTimeInterval(TimeInterval(lead * 60 + 120))
-        let ids = Array(CalendarManager.shared.selectedCalendarIDs)
+        let ids = CalendarManager.shared.selectedCalendarIDs.sorted()
+        if !cacheDirty, ids == cacheCalendarIDs, let window = cacheWindow, window.start <= start, window.end >= end {
+            apply(cachedEvents, at: current, lead: lead)
+            return
+        }
+        fetchTask?.cancel()
+        let windowEnd = end.addingTimeInterval(Self.prefetchExtra)
         fetchTask = Task { [service] in
-            let events = await service.events(from: start, to: end, calendars: ids)
+            let events = await service.events(from: start, to: windowEnd, calendars: ids)
             guard !Task.isCancelled else { return }
+            self.cachedEvents = events
+            self.cacheWindow = (start, windowEnd)
+            self.cacheCalendarIDs = ids
+            self.cacheDirty = false
             self.apply(events, at: Date(), lead: lead)
         }
     }
@@ -92,15 +120,20 @@ final class MeetingWatcher: ObservableObject {
     }
 
     private func apply(_ events: [EventModel], at date: Date, lead: Int) {
-        now = date
         let candidates = events.compactMap(Self.candidate)
         let picked = MeetingSelector.pick(from: candidates, now: date, leadMinutes: lead, dismissed: dismissed)
         guard let picked, let model = events.first(where: { Self.key($0) == picked.id }) else {
             clear()
-            fired.removeAll()
+            publishedMinute = nil
+            if !fired.isEmpty { fired.removeAll() }
             return
         }
         let info = Self.info(model, id: picked.id)
+        let minute = Int(date.timeIntervalSinceReferenceDate / 60)
+        if publishedMinute != minute {
+            publishedMinute = minute
+            now = date
+        }
         if next != info { withAnimation(.smooth) { next = info } }
         fired = fired.filter { $0.key == picked.id }
 

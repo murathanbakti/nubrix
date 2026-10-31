@@ -58,7 +58,15 @@ final class AgentSessionStore: ObservableObject {
         session.updatedAt = now
         if let detail = event.detail, !detail.isEmpty { session.detail = detail }
 
-        if let index { sessions[index] = session } else { sessions.append(session) }
+        if let index {
+            var unchanged = session
+            unchanged.updatedAt = sessions[index].updatedAt
+            if unchanged != sessions[index] || now.timeIntervalSince(sessions[index].updatedAt) >= 1 {
+                sessions[index] = session
+            }
+        } else {
+            sessions.append(session)
+        }
 
         if next == .working || next != current {
             NubrixInbox.shared.sessionChanged(id: session.id, project: session.projectWithBranch, state: next, detail: session.detail)
@@ -72,7 +80,7 @@ final class AgentSessionStore: ObservableObject {
     func apply(_ update: AgentStatusUpdate) {
         let now = Date()
         if let limits = update.rateLimits, now >= rateLimitsUpdatedAt {
-            rateLimits = limits
+            if rateLimits != limits { rateLimits = limits }
             rateLimitsUpdatedAt = now
         }
         guard let index = sessions.firstIndex(where: { $0.id == update.sessionID }) else { return }

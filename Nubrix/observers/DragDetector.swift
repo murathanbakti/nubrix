@@ -27,6 +27,8 @@ final class DragDetector {
     private var pasteboardChangeCount: Int = -1
     private var isDragging: Bool = false
     private var isContentDragging: Bool = false
+    private var pasteboardChecks: Int = 0
+    private let maxPasteboardChecks = 4
     private var hasEnteredNotchRegion: Bool = false
 
     private let notchRegion: CGRect
@@ -58,6 +60,7 @@ final class DragDetector {
             self.isDragging = true
             self.isContentDragging = false
             self.hasEnteredNotchRegion = false
+            self.pasteboardChecks = 0
         }
 
         // Track drag movement and notch region intersection
@@ -65,11 +68,11 @@ final class DragDetector {
             guard let self = self else { return }
             guard self.isDragging else { return }
 
-            let newContent = self.dragPasteboard.changeCount != self.pasteboardChangeCount
-            
-            // Detect if actual content is being dragged AND it's valid content
-            if newContent && !self.isContentDragging && self.hasValidDragContent() {
-                self.isContentDragging = true
+            if !self.isContentDragging && self.pasteboardChecks < self.maxPasteboardChecks {
+                self.pasteboardChecks += 1
+                if self.dragPasteboard.changeCount != self.pasteboardChangeCount && self.hasValidDragContent() {
+                    self.isContentDragging = true
+                }
             }
 
             // Only process position when content is being dragged
@@ -97,6 +100,7 @@ final class DragDetector {
             self.isContentDragging = false
             self.hasEnteredNotchRegion = false
             self.pasteboardChangeCount = -1
+            self.pasteboardChecks = 0
         }
     }
 

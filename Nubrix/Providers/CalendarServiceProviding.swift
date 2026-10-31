@@ -16,104 +16,90 @@ protocol CalendarServiceProviding {
     func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel]
 }
 
-class CalendarService: CalendarServiceProviding {
-    private let store = EKEventStore()
-    
+final class CalendarService: CalendarServiceProviding, @unchecked Sendable {
+    static let shared = CalendarService()
+
+    private let eventStore: SharedEventStore
+
+    init(eventStore: SharedEventStore = .shared) {
+        self.eventStore = eventStore
+    }
+
     @MainActor
     func requestAccess(to type: EKEntityType) async throws -> Bool {
-        if #available(macOS 14.0, *) {
-            switch type {
-            case .event:
-                return try await store.requestFullAccessToEvents()
-            case .reminder:
-                return try await store.requestFullAccessToReminders()
-            @unknown default:
-                return false
-            }
-        } else {
-            return try await store.requestAccess(to: type)
+        switch type {
+        case .event:
+            return try await eventStore.store.requestFullAccessToEvents()
+        case .reminder:
+            return try await eventStore.store.requestFullAccessToReminders()
+        @unknown default:
+            return false
         }
     }
-    
+
     private func hasAccess(to entityType: EKEntityType) -> Bool {
-        let status = EKEventStore.authorizationStatus(for: entityType)
-        if #available(macOS 14.0, *) {
-            return status == .fullAccess
-        } else {
-            return status == .authorized
-        }
+        EKEventStore.authorizationStatus(for: entityType) == .fullAccess
     }
-    
+
     func calendars() async -> [CalendarModel] {
-        var calendars: [EKCalendar] = []
-        
-        for type in [EKEntityType.event, .reminder] where hasAccess(to: type) {
-            calendars.append(contentsOf: store.calendars(for: type))
+        let types = [EKEntityType.event, .reminder].filter { hasAccess(to: $0) }
+        guard !types.isEmpty else { return [] }
+        return await eventStore.perform { store in
+            types.flatMap { store.calendars(for: $0) }.map { CalendarModel(from: $0) }
         }
-        
-        return calendars.map { CalendarModel(from: $0) }
     }
-    
+
     func events(from start: Date, to end: Date, calendars ids: [String]) async -> [EventModel] {
-        let allCalendars = await self.calendars()
-        let filteredCalendars = allCalendars.filter { ids.isEmpty || ids.contains($0.id) }
-        let ekCalendars = filteredCalendars.compactMap { calendarModel in
-            store.calendars(for: .event).first { $0.calendarIdentifier == calendarModel.id } ??
-            store.calendars(for: .reminder).first { $0.calendarIdentifier == calendarModel.id }
+        let wantsEvents = hasAccess(to: .event)
+        let wantsReminders = hasAccess(to: .reminder)
+        guard wantsEvents || wantsReminders else { return [] }
+
+        let fetched: (events: [EventModel], reminderCalendars: [EKCalendar]) = await eventStore.perform { store in
+            var models: [EventModel] = []
+            if wantsEvents {
+                let calendars = store.calendars(for: .event).filter { ids.isEmpty || ids.contains($0.calendarIdentifier) }
+                let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
+                models = store.events(matching: predicate).compactMap { EventModel(from: $0) }
+            }
+            let reminderCalendars = wantsReminders
+                ? store.calendars(for: .reminder).filter { ids.isEmpty || ids.contains($0.calendarIdentifier) }
+                : []
+            return (models, reminderCalendars)
         }
-        
-        var events: [EventModel] = []
-        
-        // Fetch regular events
-        if hasAccess(to: .event) {
-            let eventCalendars = ekCalendars.filter { store.calendars(for: .event).contains($0) }
-            let predicate = store.predicateForEvents(withStart: start, end: end, calendars: eventCalendars)
-            let ekEvents = store.events(matching: predicate)
-            events.append(contentsOf: ekEvents.compactMap { EventModel(from: $0) })
+
+        var events = fetched.events
+        if wantsReminders {
+            events.append(contentsOf: await fetchReminders(from: start, to: end, calendars: fetched.reminderCalendars))
         }
-        
-        // Fetch reminders
-        if hasAccess(to: .reminder) {
-            let reminderCalendars = ekCalendars.filter { store.calendars(for: .reminder).contains($0) }
-            events.append(contentsOf: await fetchReminders(from: start, to: end, calendars: reminderCalendars))
-        }
-        
         return events.sorted { $0.start < $1.start }
     }
-    
+
     private func fetchReminders(from start: Date, to end: Date, calendars: [EKCalendar]) async -> [EventModel] {
+        let boxed = EventKitBox(value: calendars)
         return await withCheckedContinuation { continuation in
-            // Create predicate for reminders with due dates in the specified range
-            let predicate = store.predicateForReminders(in: calendars)
-            
-            store.fetchReminders(matching: predicate) { reminders in
-                
-                let filteredReminders = (reminders ?? []).filter { reminder in
-                    // Check if reminder has a due date within our range
-                    guard let dueDate = reminder.dueDateComponents?.date else {
-                        return false
+            eventStore.queue.async {
+                let store = self.eventStore.store
+                let predicate = store.predicateForReminders(in: boxed.value)
+                store.fetchReminders(matching: predicate) { reminders in
+                    let models = (reminders ?? []).compactMap { reminder -> EventModel? in
+                        guard let dueDate = reminder.dueDateComponents?.date, dueDate >= start, dueDate <= end else { return nil }
+                        return EventModel(from: reminder)
                     }
-                    
-                    return dueDate >= start && dueDate <= end
+                    continuation.resume(returning: models)
                 }
-                
-                // Convert to EventModel
-                let eventModels = filteredReminders.compactMap { reminder in
-                    EventModel(from: reminder)
-                }
-                
-                continuation.resume(returning: eventModels)
             }
         }
     }
-    
+
     func setReminderCompleted(reminderID: String, completed: Bool) async {
-        guard let reminder = store.calendarItem(withIdentifier: reminderID) as? EKReminder else { return }
-        reminder.isCompleted = completed
-        do {
-            try store.save(reminder, commit: true)
-        } catch {
-            print("Failed to update reminder completion: \(error)")
+        await eventStore.perform { store in
+            guard let reminder = store.calendarItem(withIdentifier: reminderID) as? EKReminder else { return }
+            reminder.isCompleted = completed
+            do {
+                try store.save(reminder, commit: true)
+            } catch {
+                print("Failed to update reminder completion: \(error)")
+            }
         }
     }
 }

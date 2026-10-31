@@ -2,9 +2,22 @@ import AppKit
 import Defaults
 import UniformTypeIdentifiers
 
+private struct ClipCaptureRequest: Sendable {
+    let source: String?
+    let captureText: Bool
+    let captureLinks: Bool
+    let captureImages: Bool
+    let text: String?
+    let imageData: Data?
+    let fileURLs: [URL]
+}
+
 @MainActor
 final class ClipboardMonitor {
     static let shared = ClipboardMonitor()
+
+    static let pollInterval: TimeInterval = 0.5
+    static let pollTolerance: TimeInterval = 0.1
 
     static let skippedTypes: Set<NSPasteboard.PasteboardType> = [
         "org.nspasteboard.ConcealedType",
@@ -13,17 +26,22 @@ final class ClipboardMonitor {
         "com.agilebits.onepassword"
     ].reduce(into: []) { $0.insert(NSPasteboard.PasteboardType($1)) }
 
+    private nonisolated static let captureQueue = DispatchQueue(label: "dev.nubrix.vitrin.capture", qos: .utility)
+
     private var timer: Timer?
     private var lastChangeCount: Int?
 
     private init() {}
 
+    var isRunning: Bool { timer != nil }
+
     func start() {
         guard timer == nil else { return }
         lastChangeCount = NSPasteboard.general.changeCount
-        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
+        timer.tolerance = Self.pollTolerance
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -50,55 +68,72 @@ final class ClipboardMonitor {
         let types = Set(pb.types ?? [])
         guard !types.contains(ClipStore.ownPasteboardType),
               types.isDisjoint(with: Self.skippedTypes) else { return }
-        let frontmost = NSWorkspace.shared.frontmostApplication
-        let source = frontmost?.bundleIdentifier
+        let source = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         if let source, Defaults[.vitrinExcludedApps].contains(source) { return }
+        let captureImages = Defaults[.vitrinCaptureImages]
+        let fileURLs: [URL] = types.contains(.fileURL) && captureImages
+            ? (pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? [])
+            : []
+        let text = types.contains(.fileURL) ? nil : pb.string(forType: .string)
+        var imageData: Data?
+        if captureImages && !types.contains(.fileURL) {
+            for type in [NSPasteboard.PasteboardType.png, .tiff] where types.contains(type) {
+                imageData = pb.data(forType: type)
+                break
+            }
+        }
+        guard pb.changeCount == count else { return }
+        let request = ClipCaptureRequest(
+            source: source,
+            captureText: Defaults[.vitrinCaptureText],
+            captureLinks: Defaults[.vitrinCaptureLinks],
+            captureImages: captureImages,
+            text: text,
+            imageData: imageData,
+            fileURLs: fileURLs
+        )
+        Self.captureQueue.async { Self.capture(request) }
+    }
 
-        if types.contains(.fileURL) {
-            captureImageFile(from: pb, count: count, source: source)
+    private nonisolated static func capture(_ request: ClipCaptureRequest) {
+        if !request.fileURLs.isEmpty {
+            captureImageFile(request: request)
             return
         }
-        let hasImage = types.contains(.png) || types.contains(.tiff)
-        if let text = pb.string(forType: .string) {
-            guard pb.changeCount == count else { return }
+        let hasImage = request.imageData != nil
+        if let text = request.text {
             let classified = ClipClassifier.classify(text)
             let imageWithURL = hasImage && (classified?.kind == .link
                 || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             if !imageWithURL {
                 guard let classified else { return }
                 switch classified.kind {
-                case .text where !Defaults[.vitrinCaptureText]: return
-                case .link where !Defaults[.vitrinCaptureLinks]: return
+                case .text where !request.captureText: return
+                case .link where !request.captureLinks: return
                 default: break
                 }
-                ClipStore.shared.addText(text, source: source)
+                let hash = ClipImageProcessor.textHash(classified.content)
+                let source = request.source
+                Task { @MainActor in ClipStore.shared.addText(classified, hash: hash, source: source) }
                 return
             }
         }
-        guard Defaults[.vitrinCaptureImages] else { return }
-        for type in [NSPasteboard.PasteboardType.png, .tiff] where types.contains(type) {
-            guard let data = pb.data(forType: type), pb.changeCount == count else { return }
-            process(data, source: source)
-            return
-        }
+        guard request.captureImages, let data = request.imageData else { return }
+        process(data, source: request.source)
     }
 
-    private func captureImageFile(from pb: NSPasteboard, count: Int, source: String?) {
-        guard Defaults[.vitrinCaptureImages] else { return }
-        let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        guard urls.count == 1, let url = urls.first,
+    private nonisolated static func captureImageFile(request: ClipCaptureRequest) {
+        guard request.captureImages, request.fileURLs.count == 1, let url = request.fileURLs.first,
               let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
               let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
               size <= ClipImageProcessor.maximumBytes,
-              let data = try? Data(contentsOf: url), pb.changeCount == count else { return }
-        process(data, source: source)
+              let data = try? Data(contentsOf: url) else { return }
+        process(data, source: request.source)
     }
 
-    private func process(_ data: Data, source: String?) {
-        guard data.count <= ClipImageProcessor.maximumBytes else { return }
-        Task.detached(priority: .utility) {
-            guard let prepared = ClipImageProcessor.prepare(data) else { return }
-            await MainActor.run { _ = ClipStore.shared.addImage(prepared, source: source) }
-        }
+    private nonisolated static func process(_ data: Data, source: String?) {
+        guard data.count <= ClipImageProcessor.maximumBytes,
+              let prepared = ClipImageProcessor.prepare(data) else { return }
+        Task { @MainActor in _ = await ClipStore.shared.addImage(prepared, source: source) }
     }
 }
