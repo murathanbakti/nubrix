@@ -59,6 +59,13 @@ status_cmd="$(quote "$bin/nubrix-statusline")"
 
 events=(SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUseFailure PermissionRequest PermissionDenied Notification Stop StopFailure SessionEnd)
 
+settings_file="$HOME/.claude/settings.json"
+if [ "${NUBRIX_SHOW_SNIPPET:-0}" != "1" ] && [ -r "$settings_file" ] \
+  && grep -qF "$bin/nubrix-hook" "$settings_file" && grep -qF "$bin/nubrix-statusline" "$settings_file"; then
+  echo "~/.claude/settings.json already uses these scripts (NUBRIX_SHOW_SNIPPET=1 to print the snippet)."
+  exit 0
+fi
+
 cat <<TXT
 
 Add this to ~/.claude/settings.json (this script never edits it). Hook commands
