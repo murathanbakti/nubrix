@@ -15,10 +15,10 @@ final class AgentSessionStore: ObservableObject {
 
     static let contextWarningThreshold = 85.0
     static let contextRearmThreshold = 70.0
-    @Published private(set) var lastHookEventAt: Date?
-    @Published private(set) var lastStatusAt: Date?
-    @Published private(set) var lastPermissionRequestAt: Date?
-    @Published var serverPort: UInt16?
+    private(set) var lastHookEventAt: Date?
+    private(set) var lastStatusAt: Date?
+    private(set) var lastPermissionRequestAt: Date?
+    var serverPort: UInt16?
     private(set) var rateLimitsUpdatedAt = Date.distantPast
     private var statusSeen: [String: Date] = [:]
     static let statusFreshness: TimeInterval = 120
@@ -105,7 +105,7 @@ final class AgentSessionStore: ObservableObject {
         guard let next = Self.state(after: event, current: current) else { return }
 
         var session = index.map { sessions[$0] }
-            ?? AgentSession(id: event.sessionID, cwd: event.cwd ?? "", state: next, startedAt: now, updatedAt: now)
+            ?? AgentSession(id: event.sessionID, cwd: AgentText.sanitized(event.cwd, limit: 1024), state: next, startedAt: now, updatedAt: now)
         if let cwd = event.cwd, !cwd.isEmpty { session.cwd = cwd }
         session.source.merge(event.source)
         if let branch = event.branch, !branch.isEmpty { session.branch = branch }
@@ -192,10 +192,8 @@ final class AgentSessionStore: ObservableObject {
     }
 
     func recordTurn(session id: String, tokens: Int, cost: Double, model: String?, now: Date) {
-        var next = ledger
-        next.append(ClaudeUsageRecord(date: now, session: ClaudeUsageRecord.sessionHash(id), tokens: tokens,
-                                      costUSD: cost, model: model), now: now)
-        ledger = next
+        ledger.append(ClaudeUsageRecord(date: now, session: ClaudeUsageRecord.sessionHash(id), tokens: tokens,
+                                        costUSD: cost, model: model), now: now)
         refreshToday(now: now)
         scheduleLedgerSave()
     }
@@ -279,7 +277,9 @@ final class AgentSessionStore: ObservableObject {
     private func sweep() {
         let now = Date()
         let cutoff = now.addingTimeInterval(-retention)
-        sessions.removeAll { $0.updatedAt < cutoff }
+        if sessions.contains(where: { $0.updatedAt < cutoff }) {
+            sessions.removeAll { $0.updatedAt < cutoff }
+        }
         let live = Set(sessions.map(\.id))
         statusSeen = statusSeen.filter { live.contains($0.key) }
         var pruned = ledger

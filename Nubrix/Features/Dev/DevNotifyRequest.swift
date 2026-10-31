@@ -19,19 +19,27 @@ struct DevNotifyRequest: Equatable {
     let style: DevNotificationStyle
     let duration: Double
 
+    private static func flattened(_ text: String) -> String {
+        text.replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\t", with: " ")
+    }
+
     static func parse(_ data: Data) -> Result<DevNotifyRequest, Failure> {
         guard let any = try? JSONSerialization.jsonObject(with: data),
               let object = any as? [String: Any]
         else { return .failure(.malformed) }
 
         guard let rawMessage = object["message"] as? String else { return .failure(.invalid) }
-        let message = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty, message.count <= maxMessage else { return .failure(.invalid) }
+        guard rawMessage.count <= maxMessage else { return .failure(.invalid) }
+        let message = AgentText.sanitized(flattened(rawMessage), limit: maxMessage)
+        guard !message.isEmpty else { return .failure(.invalid) }
 
         var title: String?
         if let raw = object["title"], !(raw is NSNull) {
             guard let text = raw as? String, text.count <= maxTitle else { return .failure(.invalid) }
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmed = AgentText.sanitized(flattened(text), limit: maxTitle)
             title = trimmed.isEmpty ? nil : trimmed
         }
 

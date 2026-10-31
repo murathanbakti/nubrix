@@ -32,11 +32,17 @@ enum AgentPermissionRisk {
         "/.git/hooks/", "/.git/config", "/.claude/", "/library/launchagents/", "/library/launchdaemons/",
         "/etc/", "/.config/gcloud", "/.npmrc", "/.netrc", "/.env", "/.envrc", "/.vscode/tasks.json",
         "/.vscode/launch.json", "/.vscode/settings.json", "/.github/workflows/", "/.husky/", "/makefile",
+        "/.config/nubrix/", "/.config/nubrix-run/", "/opt/homebrew/bin/", "/usr/local/bin/", "/.local/bin/",
     ]
+
+    private static let protectedConfigFragments = ["/.config/nubrix"]
+    private static let programDirectoryFragments = ["/opt/homebrew/bin/", "/usr/local/bin/", "/.local/bin/"]
+    private static let knownShellKeys: Set<String> = ["command", "description", "timeout", "run_in_background", "dangerouslyDisableSandbox"]
+    private static let readTools: Set<String> = ["Read", "Glob", "Grep"]
 
     private static let shellTools: Set<String> = ["Bash", "PowerShell"]
     private static let fileTools: Set<String> = ["Write", "Edit", "MultiEdit", "NotebookEdit"]
-    private static let passiveTools: Set<String> = ["Read", "Glob", "Grep", "WebFetch", "WebSearch"]
+    private static let passiveTools: Set<String> = ["WebFetch", "WebSearch"]
     private static let longCommand = 500
     private static let longInput = 2000
     private static let lineWindow = 4096
@@ -49,7 +55,11 @@ enum AgentPermissionRisk {
         if shellTools.contains(toolName) {
             guard let command = input?["command"] as? String else { return [] }
             for reason in scan(command) { add(reason) }
+            if isTrue(input?["dangerouslyDisableSandbox"]) { add("Runs outside the sandbox") }
+            if isTrue(input?["run_in_background"]) { add("Runs in background") }
+            if !extraShellInput(input).isEmpty { add("Extra tool input") }
             if writesOutsideProject(command: command, cwd: cwd) { add("Touches files outside the project") }
+            for reason in protectedTargets(command: command) { add(reason) }
             if command.contains(where: \.isNewline) { add("Multi-line command") }
             if command.count > longCommand { add("Long command") }
         } else if fileTools.contains(toolName) {
@@ -57,12 +67,44 @@ enum AgentPermissionRisk {
             guard let path, !path.isEmpty else { return [] }
             if isOutside(path, cwd: cwd) { add("Writes outside the project") }
             if isSensitive(path) { add("Sensitive file") }
+            if toolName == "Edit", isTrue(input?["replace_all"]) { add("Replaces all occurrences") }
+            if toolName == "MultiEdit",
+               (input?["edits"] as? [[String: Any]])?.contains(where: { isTrue($0["replace_all"]) }) == true {
+                add("Replaces all occurrences")
+            }
+        } else if readTools.contains(toolName) {
+            var candidates: [String] = []
+            if toolName == "Read" {
+                if let path = input?["file_path"] as? String { candidates.append(path) }
+            } else {
+                if let path = input?["path"] as? String { candidates.append(path) }
+                if let pattern = input?["pattern"] as? String, pattern.hasPrefix("/") || pattern.hasPrefix("~") {
+                    candidates.append(pattern)
+                }
+            }
+            let sensitive = candidates.contains { path in
+                guard !path.isEmpty else { return false }
+                if path.hasPrefix("/") || path.hasPrefix("~") { return isSensitive(path) }
+                guard let cwd, !cwd.isEmpty else { return isSensitive(path) }
+                return isSensitive((cwd as NSString).appendingPathComponent(path))
+            }
+            if sensitive { add("Reads a sensitive file") }
         } else if !passiveTools.contains(toolName) {
             let text = summary ?? AgentToolSummary.summary(toolName: toolName, input: input, limit: Int.max)
             for reason in scan(text) { add(reason) }
             if text.count > longInput { add("Very long input") }
         }
         return reasons
+    }
+
+    static func isTrue(_ value: Any?) -> Bool {
+        if let string = value as? String { return string.lowercased() == "true" }
+        return (value as? NSNumber)?.boolValue == true
+    }
+
+    static func extraShellInput(_ input: [String: Any]?) -> [String: Any] {
+        guard let input else { return [:] }
+        return input.filter { !knownShellKeys.contains($0.key) }
     }
 
     static func scan(_ text: String) -> [String] {
@@ -115,9 +157,8 @@ enum AgentPermissionRisk {
 
     private static let writerCommands: Set<String> = ["rm", "mv", "cp", "tee", "chmod", "chown", "ln", "touch", "mkdir", "rmdir", "truncate", "install"]
 
-    private static func writesOutsideProject(command: String, cwd: String?) -> Bool {
-        guard let cwd, !cwd.isEmpty else { return false }
-        let tokens = command
+    private static func shellTokens(_ command: String) -> [String] {
+        command
             .replacingOccurrences(of: ">>", with: " >> ")
             .replacingOccurrences(of: ">", with: " > ")
             .replacingOccurrences(of: ";", with: " ; ")
@@ -127,6 +168,34 @@ enum AgentPermissionRisk {
             .replacingOccurrences(of: "\n", with: " ; ")
             .split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" })
             .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "\"'")) }
+    }
+
+    private static func protectedTargets(command: String) -> [String] {
+        var reasons: [String] = []
+        var writerActive = false
+        var expectTarget = false
+        for token in shellTokens(command) {
+            if token == ";" { writerActive = false; expectTarget = false; continue }
+            if token == ">" || token == ">>" { expectTarget = true; continue }
+            if writerCommands.contains(token) { writerActive = true; continue }
+            let lowered = token.lowercased()
+            if protectedConfigFragments.contains(where: { lowered.contains($0) }),
+               !reasons.contains("Touches Nubrix hook or endpoint files") {
+                reasons.append("Touches Nubrix hook or endpoint files")
+            }
+            if expectTarget || writerActive,
+               programDirectoryFragments.contains(where: { lowered.contains($0) }),
+               !reasons.contains("Writes into a program directory") {
+                reasons.append("Writes into a program directory")
+            }
+            expectTarget = false
+        }
+        return reasons
+    }
+
+    private static func writesOutsideProject(command: String, cwd: String?) -> Bool {
+        guard let cwd, !cwd.isEmpty else { return false }
+        let tokens = shellTokens(command)
         var writerActive = false
         var expectTarget = false
         for token in tokens {

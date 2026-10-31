@@ -17,6 +17,7 @@ enum AgentRoute {
         case status(AgentStatusUpdate)
         case permission(AgentPermissionPayload, nonce: String)
         case notify(DevNotifyRequest)
+        case ping
     }
 
     struct Outcome {
@@ -100,6 +101,8 @@ enum AgentRoute {
             case .failure(.invalid):
                 return Outcome(status: "422 Unprocessable Entity", action: nil)
             }
+        case pingPath:
+            return Outcome(status: "204 No Content", action: .ping)
         default:
             return Outcome(status: "204 No Content", action: nil)
         }

@@ -85,7 +85,7 @@ enum AgentInfoModel {
         lines.append("  },")
         lines.append("  \"statusLine\": { \"type\": \"command\", \"command\": \"\(statusLine)\" },")
         lines.append("  \"permissions\": {")
-        lines.append("    \"deny\": [\"Edit(~/.config/nubrix/**)\", \"Write(~/.config/nubrix/**)\"]")
+        lines.append("    \"deny\": [\"Edit(~/.config/nubrix/**)\", \"Write(~/.config/nubrix/**)\", \"Edit(~/.config/nubrix-run/**)\", \"Write(~/.config/nubrix-run/**)\", \"Read(~/.config/nubrix-run/**)\"]")
         lines.append("  }")
         lines.append("}")
         return lines.joined(separator: "\n")

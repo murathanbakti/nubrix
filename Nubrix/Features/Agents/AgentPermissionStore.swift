@@ -6,12 +6,14 @@ import SwiftUI
 final class AgentPermissionStore: ObservableObject {
     static let shared = AgentPermissionStore()
     static let capacity = 5
+    static let minimumDisplay: TimeInterval = 0.7
 
     @Published private(set) var queue: [AgentPermissionPrompt] = []
     @Published private(set) var isSuppressed = false
 
     private var replies: [UUID: (AgentPermissionAnswer) -> Void] = [:]
     private var expiries: [UUID: Task<Void, Never>] = [:]
+    private var shownAt: [UUID: TimeInterval] = [:]
 
     private var suppressionReasons: Set<String> = []
     private var surfaces: [String: Bool] = [:]
@@ -90,8 +92,16 @@ final class AgentPermissionStore: ObservableObject {
         }
     }
 
+    func noteShown(_ id: UUID) {
+        guard !isSuppressed, shownAt[id] == nil, queue.contains(where: { $0.id == id }) else { return }
+        shownAt[id] = ProcessInfo.processInfo.systemUptime
+    }
+
     func allow(_ id: UUID) {
-        guard !isSuppressed, let prompt = queue.first(where: { $0.id == id }) else { return }
+        guard !isSuppressed, let prompt = queue.first(where: { $0.id == id }),
+              let shown = shownAt[id],
+              ProcessInfo.processInfo.systemUptime - shown >= Self.minimumDisplay
+        else { return }
         finish(id, answer: .allow)
         AgentSessionStore.shared.markWorking(prompt.payload.sessionID)
     }
@@ -134,6 +144,7 @@ final class AgentPermissionStore: ObservableObject {
 
     private func finish(_ id: UUID, answer: AgentPermissionAnswer) {
         expiries.removeValue(forKey: id)?.cancel()
+        shownAt.removeValue(forKey: id)
         let reply = replies.removeValue(forKey: id)
         if queue.contains(where: { $0.id == id }) {
             withAnimation(.smooth) { queue.removeAll { $0.id == id } }

@@ -96,8 +96,7 @@ struct AgentPermissionPromptView: View {
     var showsTitle = true
 
     static func project(for payload: AgentPermissionPayload) -> String {
-        let name = URL(fileURLWithPath: payload.cwd ?? "").lastPathComponent
-        return name.isEmpty || name == "/" ? "Claude" : name
+        AgentText.projectName(cwd: payload.cwd)
     }
 
     var body: some View {
@@ -116,6 +115,7 @@ struct AgentPermissionPromptView: View {
             onOpen: { permissions.openInSourceApp(prompt.id) }
         )
         .id(prompt.id)
+        .onAppear { permissions.noteShown(prompt.id) }
     }
 
     static func with(source: AgentSourceInfo, payload: AgentPermissionPayload) -> AgentPermissionPayload {

@@ -310,6 +310,7 @@ struct AgentBoundedScroll<Content: View>: View {
 struct AgentPermissionCard: View {
     static let armDelay: Double = 0.7
     static let moveThreshold: CGFloat = 3
+    static let confirmDelay: Double = 0.5
 
     let prompt: AgentPermissionPrompt
     let title: String
@@ -323,6 +324,7 @@ struct AgentPermissionCard: View {
     var onOpen: () -> Void = {}
 
     @State private var confirming = false
+    @State private var confirmArmed = true
     @State private var expanded = false
     @State private var dwellElapsed = false
     @State private var pointerMoved = false
@@ -332,11 +334,17 @@ struct AgentPermissionCard: View {
     private var risky: Bool { !payload.risks.isEmpty }
     private var ready: Bool { startsReady || (dwellElapsed && pointerMoved) }
 
+    private static func isHardwareClick() -> Bool {
+        guard let event = NSApp.currentEvent, event.type == .leftMouseUp, let cgEvent = event.cgEvent else { return false }
+        return cgEvent.getIntegerValueField(.eventSourceStateID) == Int64(CGEventSourceStateID.hidSystemState.rawValue)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             headerRow
             toolRow
             commandBox
+            if let extra = payload.extraInput { extraBox(extra) }
             if let preview = payload.preview { previewBox(preview) }
             if risky { riskRow }
             buttonRow
@@ -348,6 +356,12 @@ struct AgentPermissionCard: View {
             try? await Task.sleep(for: .seconds(Self.armDelay))
             guard !Task.isCancelled else { return }
             dwellElapsed = true
+        }
+        .task(id: confirming) {
+            guard confirming else { return }
+            try? await Task.sleep(for: .seconds(Self.confirmDelay))
+            guard !Task.isCancelled else { return }
+            confirmArmed = true
         }
     }
 
@@ -424,6 +438,24 @@ struct AgentPermissionCard: View {
         .overlay(shape.stroke(risky ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1))
         .clipShape(shape)
         .overlay(alignment: .topTrailing) { expandToggle }
+    }
+
+    private func extraBox(_ text: String) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8)
+        return VStack(alignment: .leading, spacing: 3) {
+            Text("Extra tool input")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(Color(white: 0.75))
+            AgentBoundedScroll(maxHeight: 60) {
+                Text(text)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(commandColor)
+                    .multilineTextAlignment(.leading)
+                    .padding(8)
+            }
+            .background(shape.fill(Color.red.opacity(0.14)))
+            .clipShape(shape)
+        }
     }
 
     private var expandToggle: some View {
@@ -520,11 +552,21 @@ struct AgentPermissionCard: View {
     @ViewBuilder
     private var allowButton: some View {
         if risky && !confirming {
-            actionButton("Allow", fill: Color.red.opacity(0.28), text: Color(red: 1, green: 0.55, blue: 0.52), enabled: ready) { confirming = true }
+            actionButton("Allow", fill: Color.red.opacity(0.28), text: Color(red: 1, green: 0.55, blue: 0.52), enabled: ready) {
+                guard Self.isHardwareClick() else { return }
+                confirmArmed = false
+                confirming = true
+            }
         } else if risky {
-            actionButton("Allow anyway", fill: Color(red: 0.85, green: 0.2, blue: 0.2), text: .white, enabled: ready, action: onAllow)
+            actionButton("Allow anyway", fill: Color(red: 0.85, green: 0.2, blue: 0.2), text: .white, enabled: ready && confirmArmed) {
+                guard Self.isHardwareClick() else { return }
+                onAllow()
+            }
         } else {
-            actionButton("Allow", fill: Color(red: 0.2, green: 0.68, blue: 0.38), text: .white, enabled: ready, action: onAllow)
+            actionButton("Allow", fill: Color(red: 0.2, green: 0.68, blue: 0.38), text: .white, enabled: ready) {
+                guard Self.isHardwareClick() else { return }
+                onAllow()
+            }
         }
     }
 
@@ -539,6 +581,6 @@ struct AgentPermissionCard: View {
         }
         .buttonStyle(.plain)
         .opacity(enabled ? 1 : 0.4)
-        .allowsHitTesting(enabled)
+        .disabled(!enabled)
     }
 }

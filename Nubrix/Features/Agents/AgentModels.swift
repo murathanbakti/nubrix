@@ -47,6 +47,11 @@ enum AgentText {
         return String(String.UnicodeScalarView(scalars)).trimmingCharacters(in: .whitespaces).prefix(limit).description
     }
 
+    static func projectName(cwd: String?) -> String {
+        let name = sanitized(URL(fileURLWithPath: cwd ?? "").lastPathComponent, limit: 80)
+        return name.isEmpty || name == "/" ? "Claude" : name
+    }
+
     static func display(_ raw: String) -> (text: String, hidden: Bool) {
         var out = String.UnicodeScalarView()
         var hidden = false
@@ -234,10 +239,7 @@ struct AgentSession: Identifiable, Equatable {
         return nil
     }
 
-    var project: String {
-        let name = URL(fileURLWithPath: cwd).lastPathComponent
-        return name.isEmpty || name == "/" ? "Claude" : name
-    }
+    var project: String { AgentText.projectName(cwd: cwd) }
 
     var projectWithBranch: String {
         guard let branch, !branch.isEmpty else { return project }
@@ -314,7 +316,7 @@ struct AgentHookEvent {
         self.name = name
         self.sessionID = sessionID
         usage = (name == "Stop" || name == "SubagentStop") ? AgentUsageSample(object: object["nubrix_usage"] as? [String: Any]) : nil
-        cwd = object["cwd"] as? String
+        cwd = (object["cwd"] as? String).map { AgentText.sanitized($0, limit: 1024) }
         notificationType = object["notification_type"] as? String
         let tool = object["tool_name"] as? String
         toolName = tool
@@ -331,7 +333,8 @@ struct AgentHookEvent {
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .first { !$0.isEmpty } ?? ""
-        return line.count > 160 ? String(line.prefix(159)) + "…" : line
+        let clean = AgentText.sanitized(line, limit: 4096)
+        return clean.count > 160 ? String(clean.prefix(159)) + "…" : clean
     }
 }
 
@@ -352,7 +355,7 @@ struct AgentStatusUpdate: Equatable {
         else { return nil }
         self.sessionID = sessionID
         let workspace = object["workspace"] as? [String: Any]
-        cwd = (workspace?["current_dir"] as? String) ?? (object["cwd"] as? String)
+        cwd = ((workspace?["current_dir"] as? String) ?? (object["cwd"] as? String)).map { AgentText.sanitized($0, limit: 1024) }
         let model = object["model"] as? [String: Any]
         let name = AgentText.sanitized((model?["display_name"] as? String) ?? (model?["id"] as? String), limit: 40)
         modelName = name.isEmpty ? nil : name
@@ -387,6 +390,7 @@ struct AgentPermissionPayload: Equatable {
     let summaryTruncated: Bool
     let preview: AgentPermissionPreview?
     let note: String?
+    let extraInput: String?
     let risks: [String]
     let matchKey: String?
     let waitSeconds: Int
@@ -394,7 +398,7 @@ struct AgentPermissionPayload: Equatable {
 
     init(id: UUID = UUID(), sessionID: String, cwd: String? = nil, toolName: String, summary: String,
          summaryTruncated: Bool = false, preview: AgentPermissionPreview? = nil, note: String? = nil,
-         risks: [String] = [], matchKey: String? = nil, waitSeconds: Int = AgentPermissionPayload.defaultWait,
+         extraInput: String? = nil, risks: [String] = [], matchKey: String? = nil, waitSeconds: Int = AgentPermissionPayload.defaultWait,
          source: AgentSourceInfo = AgentSourceInfo()) {
         self.id = id
         self.sessionID = sessionID
@@ -405,6 +409,7 @@ struct AgentPermissionPayload: Equatable {
         self.summaryTruncated = summaryTruncated
         self.preview = preview
         self.note = note
+        self.extraInput = extraInput
         self.risks = risks
         self.matchKey = matchKey
         self.waitSeconds = waitSeconds
@@ -426,11 +431,24 @@ struct AgentPermissionPayload: Equatable {
         let preview = AgentPermissionPreviewBuilder.build(toolName: toolName, input: input, limit: Self.maxPreview)
         let description = AgentText.display(AgentText.sanitized(input?["description"] as? String, limit: 200))
 
+        var extraText: String?
+        var extraHidden = false
+        if toolName == "Bash" || toolName == "PowerShell" {
+            let extra = AgentPermissionRisk.extraShellInput(input)
+            if !extra.isEmpty {
+                let compact = AgentToolSummary.compact(extra)
+                let clipped = compact.count > 2000 ? String(compact.prefix(2000)) + "…" : compact
+                let display = AgentText.display(clipped)
+                extraText = display.text
+                extraHidden = display.hidden
+            }
+        }
+
         var risks = AgentPermissionRisk.assess(toolName: toolName, input: input, cwd: cwd, summary: fullSummary)
         func add(_ reason: String) { if !risks.contains(reason) { risks.append(reason) } }
         if truncated { add("Input truncated, not fully shown") }
         if preview?.truncated == true { add("Content preview truncated") }
-        if shown.hidden || preview?.hidden == true || description.hidden { add("Hidden or control characters") }
+        if shown.hidden || preview?.hidden == true || description.hidden || extraHidden { add("Hidden or control characters") }
 
         self.init(
             id: id,
@@ -441,6 +459,7 @@ struct AgentPermissionPayload: Equatable {
             summaryTruncated: truncated,
             preview: preview?.preview,
             note: description.text.isEmpty ? nil : description.text,
+            extraInput: extraText,
             risks: risks,
             matchKey: AgentToolSummary.matchKey(toolName: toolName, input: input),
             waitSeconds: min(Self.maxWait, max(3, waitHeader.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) } ?? Self.defaultWait)),
@@ -467,11 +486,12 @@ enum AgentPermissionPreviewBuilder {
             raw = content
         case "Edit":
             guard let change = diff(old: input["old_string"] as? String, new: input["new_string"] as? String) else { return nil }
-            label = "Change"
+            label = AgentPermissionRisk.isTrue(input["replace_all"]) ? "Change · replace all occurrences" : "Change"
             raw = change
         case "MultiEdit":
             guard let edits = input["edits"] as? [[String: Any]], !edits.isEmpty else { return nil }
-            label = "Changes"
+            label = edits.contains(where: { AgentPermissionRisk.isTrue($0["replace_all"]) })
+                ? "Changes · replace all occurrences" : "Changes"
             raw = edits.compactMap { diff(old: $0["old_string"] as? String, new: $0["new_string"] as? String) }
                 .joined(separator: "\n@@\n")
         case "NotebookEdit":

@@ -23,14 +23,13 @@
 		<string>com.spotify.client</string>
 		<string>com.apple.Music</string>
 	</array>
-	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
 	<array>
 		<string>/.config/nubrix/</string>
 	</array>
-	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
 	<array>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spks</string>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spki</string>
+		<string>/.config/nubrix-run/</string>
 	</array>
 </dict>
 </plist>
