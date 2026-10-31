@@ -72,6 +72,7 @@ if pgrep -xq Nubrix; then
   for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -xq Nubrix || break; sleep 0.5; done
   pkill -KILL -x Nubrix || true
 fi
+pkill -TERM -f "$dest/Nubrix.app/Contents/Resources/mediaremote-adapter.pl" || true
 
 rm -rf "$dest/Nubrix.app"
 cp -R "$app" "$dest/"
