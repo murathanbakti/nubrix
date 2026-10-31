@@ -68,11 +68,6 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/nubrix-hook\"",
             "async": true,
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/nubrix-permission\"",
-            "timeout": 125
           }
         ]
       }

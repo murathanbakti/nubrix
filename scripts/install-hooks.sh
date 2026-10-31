@@ -5,6 +5,7 @@ umask 077
 root="$(cd "$(dirname "$0")/.." && pwd)"
 base="${HOME:?HOME is not set}/.config/nubrix"
 bin="$base/bin"
+run="${HOME}/.config/nubrix-run"
 
 fail() {
   echo "install-hooks: $*" >&2
@@ -24,12 +25,18 @@ for rel in "${sources[@]}"; do
 done
 
 mkdir -p "$(dirname "$base")"
-for dir in "$base" "$bin"; do
+for dir in "$base" "$bin" "$run"; do
   [ ! -L "$dir" ] || fail "$dir is a symlink, refusing to continue"
   [ -d "$dir" ] || mkdir "$dir"
   [ "$(stat -f '%u' "$dir")" = "$(id -u)" ] || fail "$dir is not owned by you"
   chmod 700 "$dir"
 done
+
+legacy="$base/agent-endpoint"
+if [ -f "$legacy" ] && [ ! -L "$legacy" ] && [ "$(stat -f '%u' "$legacy")" = "$(id -u)" ]; then
+  rm -f "$legacy"
+  echo "removed    $legacy (the endpoint now lives in $run)"
+fi
 
 for rel in "${sources[@]}"; do
   name="$(basename "$rel")"
@@ -60,8 +67,16 @@ status_cmd="$(quote "$bin/nubrix-statusline")"
 events=(SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUseFailure PermissionRequest PermissionDenied Notification Stop StopFailure SessionEnd)
 
 settings_file="$HOME/.claude/settings.json"
-if [ "${NUBRIX_SHOW_SNIPPET:-0}" != "1" ] && [ -r "$settings_file" ] \
-  && grep -qF "$bin/nubrix-hook" "$settings_file" && grep -qF "$bin/nubrix-statusline" "$settings_file"; then
+if [ -r "$settings_file" ] && grep -qF 'claude-plugin/scripts/' "$settings_file"; then
+  cat >&2 <<'TXT'
+
+!!! WARNING: ~/.claude/settings.json still runs hooks from a source checkout (claude-plugin/scripts/).
+!!! Any change to that checkout, including a repository update, changes what Claude Code runs on every tool call.
+!!! Replace those commands with the sealed copies using the snippet below.
+TXT
+elif [ "${NUBRIX_SHOW_SNIPPET:-0}" != "1" ] && [ -r "$settings_file" ] \
+  && grep -qF "$bin/nubrix-hook" "$settings_file" && grep -qF "$bin/nubrix-statusline" "$settings_file" \
+  && grep -qF "$bin/nubrix-permission" "$settings_file" && grep -qF 'Read(~/.config/nubrix-run/**)' "$settings_file"; then
   echo "~/.claude/settings.json already uses these scripts (NUBRIX_SHOW_SNIPPET=1 to print the snippet)."
   exit 0
 fi
@@ -100,12 +115,16 @@ cat <<TXT
   },
   "statusLine": { "type": "command", "command": "$status_cmd" },
   "permissions": {
-    "deny": ["Edit(~/.config/nubrix/**)", "Write(~/.config/nubrix/**)"]
+    "deny": [
+      "Edit(~/.config/nubrix/**)", "Write(~/.config/nubrix/**)",
+      "Edit(~/.config/nubrix-run/**)", "Write(~/.config/nubrix-run/**)",
+      "Read(~/.config/nubrix-run/**)"
+    ]
   }
 }
 
 Notes:
 - Drop the nubrix-permission entry to keep Claude Code's own permission dialogs only.
-- "permissions.deny" is merged with your existing list; it stops Claude from editing the sealed scripts.
+- "permissions.deny" is merged with your existing list; it stops Claude from editing the sealed scripts and from reading or editing the endpoint file.
 - Re-run this script after updating Nubrix to refresh the copies. Optional CLI: ln -sf "$bin/notchctl" ~/.local/bin/notchctl
 TXT

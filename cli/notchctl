@@ -1,6 +1,11 @@
 #!/bin/bash
-endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
 dev="${NUBRIX_DEV:-}"
+if [ "$dev" = 1 ]; then
+  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix-run/agent-endpoint}"
+else
+  endpoint="$HOME/.config/nubrix-run/agent-endpoint"
+fi
 
 usage() {
   cat <<'USAGE'
@@ -19,8 +24,8 @@ Options for notify:
   --duration N    Seconds to show the banner, 1-30 (default 4).
 
 Environment:
-  NUBRIX_ENDPOINT_FILE   Endpoint file (default ~/.config/nubrix/agent-endpoint).
-  NUBRIX_DEV=1           Accept an endpoint file without a process id (tests only).
+  NUBRIX_DEV=1           Tests only: honour NUBRIX_ENDPOINT_FILE (default ~/.config/nubrix-run/agent-endpoint),
+                         skip the owner, mode and process checks, accept a file without a process id.
 USAGE
 }
 
@@ -54,17 +59,41 @@ json_escape() {
   printf '%s' "$out"
 }
 
+verify_pid() {
+  local info uid comm
+  info="$(/bin/ps -o uid=,comm= -p "$1" 2>/dev/null)" || return 1
+  case "$info" in ''|*$'\n'*) return 1 ;; esac
+  info="${info#"${info%%[![:space:]]*}"}"
+  uid="${info%%[[:space:]]*}"
+  comm="${info#*[[:space:]]}"
+  comm="${comm#"${comm%%[![:space:]]*}"}"
+  [ "$uid" = "$UID" ] || return 1
+  case "$comm" in */Nubrix.app/Contents/MacOS/Nubrix) return 0 ;; esac
+  return 1
+}
+
 load_endpoint() {
   [ -r "$endpoint" ] || fail "Nubrix is not running (no endpoint file at $endpoint)"
+  if [ "$dev" != 1 ]; then
+    [ "$(/usr/bin/stat -f '%u %Lp' "$endpoint" 2>/dev/null)" = "$UID 600" ] || fail "endpoint file $endpoint has the wrong owner or mode"
+  fi
   read -r port token pid < "$endpoint" || [ -n "$port" ]
   case "$port" in
     ''|*[!0-9]*) fail "endpoint file $endpoint is malformed" ;;
   esac
-  [ -n "$token" ] || fail "endpoint file $endpoint is malformed"
+  case "$token" in
+    ''|*[!0-9a-f]*) fail "endpoint file $endpoint is malformed" ;;
+  esac
+  [ "${#token}" -eq 64 ] || fail "endpoint file $endpoint is malformed"
   case "$pid" in
     '') [ "$dev" = 1 ] || fail "endpoint file $endpoint is outdated (restart Nubrix)" ;;
     *[!0-9]*) fail "endpoint file $endpoint is malformed" ;;
-    *) kill -0 "$pid" 2>/dev/null || fail "Nubrix is not running (stale endpoint file)" ;;
+    *)
+      kill -0 "$pid" 2>/dev/null || fail "Nubrix is not running (stale endpoint file)"
+      if [ "$dev" != 1 ]; then
+        verify_pid "$pid" || fail "endpoint file $endpoint does not belong to a running Nubrix"
+      fi
+      ;;
   esac
 }
 
@@ -72,12 +101,12 @@ request() {
   local method=$1 path=$2 body=${3-}
   local args=(--silent --output /dev/null --write-out '%{http_code}' --max-time 2 -X "$method")
   if [ -n "$body" ]; then
-    status=$(printf '%s' "$body" | curl "${args[@]}" \
+    status=$(printf '%s' "$body" | /usr/bin/curl "${args[@]}" \
       -H @<(printf 'Authorization: Bearer %s\n' "$token") \
       -H "Content-Type: application/json" --data-binary @- \
       "http://127.0.0.1:$port$path") || status=000
   else
-    status=$(curl "${args[@]}" \
+    status=$(/usr/bin/curl "${args[@]}" \
       -H @<(printf 'Authorization: Bearer %s\n' "$token") \
       "http://127.0.0.1:$port$path") || status=000
   fi

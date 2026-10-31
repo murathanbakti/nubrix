@@ -4,17 +4,16 @@ Send notifications to the Nubrix notch from any shell script. Needs only `bash` 
 
 ## Install
 
-```sh
-ln -s "$PWD/cli/notchctl" /usr/local/bin/notchctl
-```
-
-or, without sudo:
+Run `scripts/install-hooks.sh` from the Nubrix repository. It installs a sealed, read-only copy at
+`~/.config/nubrix/bin/notchctl`. Use it directly, or put that directory on your `PATH`:
 
 ```sh
-mkdir -p ~/.local/bin && ln -sf "$PWD/cli/notchctl" ~/.local/bin/notchctl
+~/.config/nubrix/bin/notchctl ping
+export PATH="$HOME/.config/nubrix/bin:$PATH"
 ```
 
-Make sure `~/.local/bin` is on your `PATH`.
+Do not symlink `cli/notchctl` from a repository checkout: the sealed copy cannot be changed by a repository update or by
+a program running as you.
 
 ## Usage
 
@@ -38,8 +37,10 @@ long-running-command; notchctl notify "Finished with exit code $?" --title "$(ba
 
 ## How it works
 
-Nubrix writes its loopback port, a random token and its process id to `~/.config/nubrix/agent-endpoint`
-(override with `NUBRIX_ENDPOINT_FILE`). `notchctl` posts JSON to `/v1/notify` with that bearer token; the token
+Nubrix writes its loopback port, a random token and its process id to `~/.config/nubrix-run/agent-endpoint`
+(directory mode 0700, file mode 0600). `notchctl` checks that the file is owned by you with mode 0600 and that its
+process id belongs to a running `Nubrix.app` of yours, then posts JSON to `/v1/notify` with that bearer token; the token
 and the message are passed to `curl` through file descriptors, never on its command line.
 If Nubrix is not running (or the endpoint file is stale), `notchctl` prints an error to stderr and exits 1.
-`scripts/install-hooks.sh` also copies `notchctl` to `~/.config/nubrix/bin/`.
+`NUBRIX_ENDPOINT_FILE` is honoured only together with `NUBRIX_DEV=1`, which also skips the owner, mode and process
+checks (tests only).

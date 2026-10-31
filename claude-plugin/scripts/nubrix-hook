@@ -1,11 +1,25 @@
 #!/bin/bash
+PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
 export LC_ALL=C
 dev="${NUBRIX_DEV:-}"
 if [ "$dev" = 1 ]; then
-  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix-run/agent-endpoint}"
 else
-  endpoint="$HOME/.config/nubrix/agent-endpoint"
+  endpoint="$HOME/.config/nubrix-run/agent-endpoint"
 fi
+
+nubrix_verify_pid() {
+  local info uid comm
+  info="$(/bin/ps -o uid=,comm= -p "$1" 2>/dev/null)" || return 1
+  case "$info" in ''|*$'\n'*) return 1 ;; esac
+  info="${info#"${info%%[![:space:]]*}"}"
+  uid="${info%%[[:space:]]*}"
+  comm="${info#*[[:space:]]}"
+  comm="${comm#"${comm%%[![:space:]]*}"}"
+  [ "$uid" = "$UID" ] || return 1
+  case "$comm" in */Nubrix.app/Contents/MacOS/Nubrix) return 0 ;; esac
+  return 1
+}
 
 nubrix_load_endpoint() {
   [ -r "$endpoint" ] || return 1
@@ -19,6 +33,9 @@ nubrix_load_endpoint() {
   if [ -n "$pid" ] || [ "$dev" != 1 ]; then
     case "$pid" in ''|*[!0-9]*) return 1 ;; esac
     kill -0 "$pid" 2>/dev/null || return 1
+  fi
+  if [ "$dev" != 1 ]; then
+    nubrix_verify_pid "$pid" || return 1
   fi
   return 0
 }
@@ -212,7 +229,7 @@ case "$event" in
     ;;
 esac
 
-printf '%s' "$body" | curl --silent --output /dev/null --max-time 1 \
+printf '%s' "$body" | /usr/bin/curl --silent --output /dev/null --max-time 1 \
   -H @<(printf 'Authorization: Bearer %s\n' "$token") \
   -H "Content-Type: application/json" \
   "${source_args[@]}" \

@@ -1,11 +1,25 @@
 #!/bin/bash
+PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
 export LC_ALL=C
 dev="${NUBRIX_DEV:-}"
 if [ "$dev" = 1 ]; then
-  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix/agent-endpoint}"
+  endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix-run/agent-endpoint}"
 else
-  endpoint="$HOME/.config/nubrix/agent-endpoint"
+  endpoint="$HOME/.config/nubrix-run/agent-endpoint"
 fi
+
+nubrix_verify_pid() {
+  local info uid comm
+  info="$(/bin/ps -o uid=,comm= -p "$1" 2>/dev/null)" || return 1
+  case "$info" in ''|*$'\n'*) return 1 ;; esac
+  info="${info#"${info%%[![:space:]]*}"}"
+  uid="${info%%[[:space:]]*}"
+  comm="${info#*[[:space:]]}"
+  comm="${comm#"${comm%%[![:space:]]*}"}"
+  [ "$uid" = "$UID" ] || return 1
+  case "$comm" in */Nubrix.app/Contents/MacOS/Nubrix) return 0 ;; esac
+  return 1
+}
 
 nubrix_load_endpoint() {
   [ -r "$endpoint" ] || return 1
@@ -20,17 +34,20 @@ nubrix_load_endpoint() {
     case "$pid" in ''|*[!0-9]*) return 1 ;; esac
     kill -0 "$pid" 2>/dev/null || return 1
   fi
+  if [ "$dev" != 1 ]; then
+    nubrix_verify_pid "$pid" || return 1
+  fi
   return 0
 }
 
 nubrix_clean() {
-  printf '%s' "$1" | tr -cd 'A-Za-z0-9._:+@/# -' | cut -c1-"${2:-100}"
+  printf '%s' "$1" | /usr/bin/tr -cd 'A-Za-z0-9._:+@/# -' | /usr/bin/cut -c1-"${2:-100}"
 }
 
 nubrix_json_string() {
   local rest="${2#*\"$1\"}"
   [ "$rest" = "$2" ] && return 0
-  printf '%s' "$rest" | sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | head -n 1
+  printf '%s' "$rest" | /usr/bin/sed -n 's/^[[:space:]]*:[[:space:]]*"\([^"\\]*\)".*/\1/p' | /usr/bin/head -n 1
 }
 
 nubrix_source_args() {
@@ -58,13 +75,18 @@ nubrix_hmac() {
   {
     printf "$opad"
     { printf "$ipad"; printf '%s' "$msg"; } | /usr/bin/openssl dgst -sha256 -binary
-  } | /usr/bin/openssl dgst -sha256 | sed 's/^.*= *//'
+  } | /usr/bin/openssl dgst -sha256 | /usr/bin/sed 's/^.*= *//'
 }
 
 nubrix_load_endpoint || exit 0
 
-body="$(head -c 65537)"
-cat >/dev/null
+if [ "$dev" != 1 ]; then
+  listener="$(/usr/sbin/lsof -nP -a -p "$pid" -iTCP@127.0.0.1:"$port" -sTCP:LISTEN -t 2>/dev/null)"
+  [ "$listener" = "$pid" ] || exit 0
+fi
+
+body="$(/usr/bin/head -c 65537)"
+/bin/cat >/dev/null
 [ "${#body}" -le 65536 ] || exit 0
 session="$(nubrix_json_string session_id "$body")"
 [ -n "$session" ] || exit 0
@@ -82,7 +104,7 @@ fi
 
 base="http://127.0.0.1:$port"
 
-probe="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 1 --connect-timeout 1 \
+probe="$(/usr/bin/curl --silent --output /dev/null --write-out '%{http_code}' --max-time 1 --connect-timeout 1 \
   -H @<(printf 'Authorization: Bearer %s\n' "$token") \
   "$base/v1/ping" 2>/dev/null)"
 [ "$probe" = "204" ] || exit 0
@@ -93,7 +115,7 @@ case "$nonce" in ''|*[!0-9a-f]*) exit 0 ;; esac
 
 nubrix_source_args
 
-answer="$(printf '%s' "$body" | curl --silent --fail --max-time "$wait" --connect-timeout 1 \
+answer="$(printf '%s' "$body" | /usr/bin/curl --silent --fail --max-time "$wait" --connect-timeout 1 \
   -H @<(printf 'Authorization: Bearer %s\n' "$token") \
   -H "Content-Type: application/json" \
   -H "X-Nubrix-Wait: $wait" \
@@ -103,11 +125,11 @@ answer="$(printf '%s' "$body" | curl --silent --fail --max-time "$wait" --connec
   "$base/v1/claude/permission" 2>/dev/null)" || exit 0
 
 decision=""
-proof="$(printf '%s' "$answer" | sed -n 's/^{"decision":"allow","proof":"\([0-9a-f]\{64\}\)"}$/\1/p')"
+proof="$(printf '%s' "$answer" | /usr/bin/sed -n 's/^{"decision":"allow","proof":"\([0-9a-f]\{64\}\)"}$/\1/p')"
 if [ -n "$proof" ]; then
   decision="allow"
 else
-  proof="$(printf '%s' "$answer" | sed -n 's/^{"decision":"deny","message":"Denied from the Nubrix notch","proof":"\([0-9a-f]\{64\}\)"}$/\1/p')"
+  proof="$(printf '%s' "$answer" | /usr/bin/sed -n 's/^{"decision":"deny","message":"Denied from the Nubrix notch","proof":"\([0-9a-f]\{64\}\)"}$/\1/p')"
   [ -n "$proof" ] && decision="deny"
 fi
 [ -n "$decision" ] || exit 0
