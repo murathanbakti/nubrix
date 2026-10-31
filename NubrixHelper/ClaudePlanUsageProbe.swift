@@ -279,7 +279,12 @@ enum ClaudePlanUsageProbe {
         let parsed = ClaudePlanUsageParser.parse(run.data)
         if parsed.error == nil { return parsed }
         if run.timedOut { return .failure(.timeout) }
-        return parsed
+
+        let fallback = executeViaLaunchd(executable: executable, arguments: arguments, environment: environment,
+                                         directory: directory, timeout: timeout, cap: outputCap)
+        guard fallback.launched, !fallback.unsupported else { return parsed }
+        let second = ClaudePlanUsageParser.parse(fallback.data)
+        return second.error == nil ? second : parsed
     }
 
     static func makeScratchDirectory() -> URL? {
@@ -290,61 +295,319 @@ enum ClaudePlanUsageProbe {
 
     static func execute(executable: URL, arguments: [String], environment: [String: String],
                         directory: URL, timeout: TimeInterval, cap: Int) -> ProbeExecution {
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = arguments
-        process.environment = environment
-        process.currentDirectoryURL = directory
-        process.qualityOfService = .utility
-        process.standardInput = FileHandle(forReadingAtPath: "/dev/null")
-        process.standardError = FileHandle(forWritingAtPath: "/dev/null")
-        let pipe = Pipe()
-        process.standardOutput = pipe
-
-        let exited = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in exited.signal() }
         var execution = ProbeExecution()
-        do {
-            try process.run()
-        } catch {
+        var descriptors: [Int32] = [-1, -1]
+        guard pipe(&descriptors) == 0 else { return execution }
+        let readEnd = descriptors[0]
+        let writeEnd = descriptors[1]
+        _ = fcntl(readEnd, F_SETFD, FD_CLOEXEC)
+        _ = fcntl(writeEnd, F_SETFD, FD_CLOEXEC)
+
+        let spawned = ProbeSpawner.spawn(path: executable.path, arguments: arguments, environment: environment,
+                                         directory: directory.path, standardOutput: writeEnd, disclaim: true)
+        close(writeEnd)
+        guard let pid = spawned else {
+            close(readEnd)
             return execution
         }
         execution.launched = true
-        let pid = process.processIdentifier
 
         let box = OutputBox(cap: cap)
+        let control = ReaderControl()
         let readerDone = DispatchSemaphore(value: 0)
-        let reader = pipe.fileHandleForReading
         let thread = Thread {
-            while true {
-                let chunk = reader.availableData
-                if chunk.isEmpty { break }
-                switch box.append(chunk) {
-                case .continue: break
-                case .overflow: kill(pid, SIGTERM)
-                case .unsupported: kill(pid, SIGKILL)
+            var buffer = [UInt8](repeating: 0, count: 65536)
+            while !control.stopRequested {
+                var descriptor = pollfd(fd: readEnd, events: Int16(POLLIN), revents: 0)
+                let ready = poll(&descriptor, 1, 100)
+                if ready < 0 {
+                    if errno == EINTR { continue }
+                    break
+                }
+                if ready == 0 { continue }
+                let count = read(readEnd, &buffer, buffer.count)
+                if count > 0 {
+                    switch box.append(Data(buffer[0..<count])) {
+                    case .continue: break
+                    case .overflow: control.request(SIGTERM)
+                    case .unsupported: control.request(SIGKILL)
+                    }
+                } else if count < 0, errno == EINTR || errno == EAGAIN {
+                    continue
+                } else {
+                    break
                 }
             }
             readerDone.signal()
         }
+        thread.qualityOfService = .utility
         thread.start()
 
-        if exited.wait(timeout: .now() + timeout) == .timedOut {
+        let exited = ProbeSpawner.supervise(pid: pid, timeout: timeout, control: control) {
             execution.timedOut = true
-            process.terminate()
-            if exited.wait(timeout: .now() + 2) == .timedOut {
-                kill(pid, SIGKILL)
-                _ = exited.wait(timeout: .now() + 2)
+        }
+        if !exited {
+            Thread.detachNewThread {
+                var status: Int32 = 0
+                while waitpid(pid, &status, 0) == -1, errno == EINTR {}
             }
         }
+
         if readerDone.wait(timeout: .now() + 2) == .timedOut {
-            try? reader.close()
+            control.stop()
+            _ = readerDone.wait(timeout: .now() + 1)
         }
+        close(readEnd)
+
         let snapshot = box.snapshot()
         execution.data = snapshot.data
         execution.overflowed = snapshot.overflowed
         execution.unsupported = snapshot.unsupported
         return execution
+    }
+
+    static func executeViaLaunchd(executable: URL, arguments: [String], environment: [String: String],
+                                  directory: URL, timeout: TimeInterval, cap: Int) -> ProbeExecution {
+        var execution = ProbeExecution()
+        let label = "dev.nubrix.usage-probe." + randomHex()
+        let outputPath = directory.appendingPathComponent("launchd.out").path
+
+        var submit = [
+            "submit", "-l", label, "-o", outputPath, "-e", "/dev/null", "--",
+            "/bin/sh", "-c", "cd \"$1\" && shift && exec \"$@\"", "sh", directory.path,
+            "/usr/bin/env", "-i"
+        ]
+        submit += environment.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }
+        submit.append(executable.path)
+        submit += arguments
+
+        guard ProbeSpawner.runToCompletion(path: "/bin/launchctl", arguments: submit, directory: directory.path) == 0 else {
+            _ = ProbeSpawner.runToCompletion(path: "/bin/launchctl", arguments: ["remove", label], directory: directory.path)
+            return execution
+        }
+        execution.launched = true
+        defer { removeJob(label, directory: directory.path) }
+
+        let deadline = ProbeSpawner.monotonic() + timeout
+        while true {
+            Thread.sleep(forTimeInterval: 0.5)
+            let data = readFile(outputPath, cap: cap)
+            execution.data = data
+            execution.overflowed = data.count >= cap
+            var inspector = ProbeStreamInspector()
+            _ = inspector.feed(data)
+            if inspector.unsupported {
+                execution.unsupported = true
+                break
+            }
+            if hasResultLine(data) || execution.overflowed { break }
+            if ProbeSpawner.monotonic() >= deadline {
+                execution.timedOut = true
+                break
+            }
+        }
+        return execution
+    }
+
+    static func removeJob(_ label: String, directory: String) {
+        _ = ProbeSpawner.runToCompletion(path: "/bin/launchctl", arguments: ["remove", label], directory: directory)
+        for _ in 0..<20 {
+            let status = ProbeSpawner.runToCompletion(path: "/bin/launchctl", arguments: ["list", label], directory: directory)
+            if status != 0 { return }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+    }
+
+    static func hasResultLine(_ data: Data) -> Bool {
+        let marker = Data("\"result\"".utf8)
+        var lines = data.split(separator: 0x0A, omittingEmptySubsequences: true)
+        if data.last != 0x0A, !lines.isEmpty { lines.removeLast() }
+        for line in lines where line.first == 0x7B && line.count <= ProbeStreamInspector.maxLine && line.range(of: marker) != nil {
+            if let object = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+               object["type"] as? String == "result" {
+                return true
+            }
+        }
+        return false
+    }
+
+    static func readFile(_ path: String, cap: Int) -> Data {
+        let descriptor = open(path, O_RDONLY | O_CLOEXEC)
+        guard descriptor >= 0 else { return Data() }
+        defer { close(descriptor) }
+        var result = Data()
+        var buffer = [UInt8](repeating: 0, count: 65536)
+        while result.count < cap {
+            let count = read(descriptor, &buffer, min(buffer.count, cap - result.count))
+            if count > 0 {
+                result.append(buffer, count: count)
+            } else if count < 0, errno == EINTR {
+                continue
+            } else {
+                break
+            }
+        }
+        return result
+    }
+
+    static func randomHex() -> String {
+        String(format: "%08x%08x", arc4random(), arc4random())
+    }
+}
+
+enum ProbeSpawner {
+    typealias DisclaimFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t?>, Int32) -> Int32
+
+    static let disclaimFunction: DisclaimFunction? = {
+        guard let handle = dlopen(nil, RTLD_NOW),
+              let symbol = dlsym(handle, "responsibility_spawnattrs_setdisclaim") else { return nil }
+        return unsafeBitCast(symbol, to: DisclaimFunction.self)
+    }()
+
+    typealias ChangeDirectoryFunction = @convention(c) (UnsafeMutablePointer<posix_spawn_file_actions_t?>, UnsafePointer<CChar>) -> Int32
+
+    static let changeDirectoryFunction: ChangeDirectoryFunction? = {
+        guard let handle = dlopen(nil, RTLD_NOW),
+              let symbol = dlsym(handle, "posix_spawn_file_actions_addchdir_np") else { return nil }
+        return unsafeBitCast(symbol, to: ChangeDirectoryFunction.self)
+    }()
+
+    static func monotonic() -> TimeInterval {
+        ProcessInfo.processInfo.systemUptime
+    }
+
+    static func spawn(path: String, arguments: [String], environment: [String: String], directory: String,
+                      standardOutput: Int32?, disclaim: Bool) -> pid_t? {
+        var attributes: posix_spawnattr_t?
+        guard posix_spawnattr_init(&attributes) == 0 else { return nil }
+        defer { posix_spawnattr_destroy(&attributes) }
+        var actions: posix_spawn_file_actions_t?
+        guard posix_spawn_file_actions_init(&actions) == 0 else { return nil }
+        defer { posix_spawn_file_actions_destroy(&actions) }
+
+        var defaultSignals = sigset_t()
+        sigfillset(&defaultSignals)
+        var blockedSignals = sigset_t()
+        sigemptyset(&blockedSignals)
+        let flags = POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETPGROUP
+        guard posix_spawnattr_setsigdefault(&attributes, &defaultSignals) == 0,
+              posix_spawnattr_setsigmask(&attributes, &blockedSignals) == 0,
+              posix_spawnattr_setpgroup(&attributes, 0) == 0,
+              posix_spawnattr_setflags(&attributes, Int16(flags)) == 0 else { return nil }
+        if disclaim, let setDisclaim = disclaimFunction {
+            _ = setDisclaim(&attributes, 1)
+        }
+
+        guard posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0) == 0,
+              posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", O_WRONLY, 0) == 0,
+              let changeDirectory = changeDirectoryFunction,
+              changeDirectory(&actions, directory) == 0 else { return nil }
+        if let standardOutput {
+            guard posix_spawn_file_actions_adddup2(&actions, standardOutput, 1) == 0 else { return nil }
+        } else {
+            guard posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0) == 0 else { return nil }
+        }
+
+        let argv: [UnsafeMutablePointer<CChar>?] = ([path] + arguments).map { strdup($0) } + [nil]
+        let envp: [UnsafeMutablePointer<CChar>?] = environment.sorted { $0.key < $1.key }
+            .map { strdup("\($0.key)=\($0.value)") } + [nil]
+        defer {
+            argv.forEach { free($0) }
+            envp.forEach { free($0) }
+        }
+
+        var pid: pid_t = 0
+        guard posix_spawn(&pid, path, &actions, &attributes, argv, envp) == 0 else { return nil }
+        return pid
+    }
+
+    static func supervise(pid: pid_t, timeout: TimeInterval, control: ReaderControl, onTimeout: () -> Void) -> Bool {
+        let deadline = monotonic() + timeout
+        var phase = 0
+        var phaseStart = 0.0
+        while true {
+            var status: Int32 = 0
+            let result = waitpid(pid, &status, WNOHANG)
+            if result == pid { return true }
+            if result == -1, errno != EINTR { return true }
+
+            let now = monotonic()
+            let requested = control.pendingRequest
+            if phase == 0, now >= deadline {
+                onTimeout()
+                kill(-pid, SIGTERM)
+                phase = 1
+                phaseStart = now
+            } else if requested == SIGKILL, phase < 2 {
+                kill(-pid, SIGKILL)
+                phase = 2
+                phaseStart = now
+            } else if requested == SIGTERM, phase < 1 {
+                kill(-pid, SIGTERM)
+                phase = 1
+                phaseStart = now
+            }
+            if phase == 1, now - phaseStart >= 2 {
+                kill(-pid, SIGKILL)
+                phase = 2
+                phaseStart = now
+            }
+            if phase == 2, now - phaseStart >= 2 { return false }
+            usleep(20_000)
+        }
+    }
+
+    static func runToCompletion(path: String, arguments: [String], directory: String, timeout: TimeInterval = 10) -> Int32? {
+        let environment = ["PATH": ClaudePlanUsageProbe.searchPath]
+        guard let pid = spawn(path: path, arguments: arguments, environment: environment, directory: directory,
+                              standardOutput: nil, disclaim: false) else { return nil }
+        let deadline = monotonic() + timeout
+        while true {
+            var status: Int32 = 0
+            let result = waitpid(pid, &status, WNOHANG)
+            if result == pid {
+                let exited = (status & 0x7F) == 0
+                return exited ? (status >> 8) & 0xFF : -1
+            }
+            if result == -1, errno != EINTR { return nil }
+            if monotonic() >= deadline {
+                kill(-pid, SIGKILL)
+                var final: Int32 = 0
+                while waitpid(pid, &final, 0) == -1, errno == EINTR {}
+                return nil
+            }
+            usleep(10_000)
+        }
+    }
+}
+
+final class ReaderControl: @unchecked Sendable {
+    private let lock = NSLock()
+    private var requested: Int32 = 0
+    private var stopped = false
+
+    var pendingRequest: Int32 {
+        lock.lock()
+        defer { lock.unlock() }
+        return requested
+    }
+
+    var stopRequested: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return stopped
+    }
+
+    func request(_ signal: Int32) {
+        lock.lock()
+        if signal == SIGKILL || requested == 0 { requested = signal }
+        lock.unlock()
+    }
+
+    func stop() {
+        lock.lock()
+        stopped = true
+        lock.unlock()
     }
 }
 
