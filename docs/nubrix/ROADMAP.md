@@ -10,13 +10,13 @@ files are kept small so upstream fixes can be merged.
 
 ## Phase 0: Fork and rebrand (done)
 
-- Product name Nubrix, bundle id `dev.nubrix.app`, upstream update feed removed.
-- Builds with Xcode 26.2 on macOS 26; music control works with ad-hoc signing.
+- Product name Nubrix, bundle id `dev.nubrix.app`, upstream update feed removed (Sparkle itself was removed later).
+- Builds with Xcode 26 on macOS 26 (CI pins 26.6); music control works with ad-hoc signing.
 
 ## Phase 1: Claude Code sessions (done)
 
-- `Nubrix/Agents/`: loopback-only HTTP event server, session store, notch views.
-- Endpoint and token in `~/.config/nubrix/agent-endpoint` (0600).
+- `Nubrix/Features/Agents/`: loopback-only HTTP event server, session store, notch views.
+- Endpoint, token and pid in `~/.config/nubrix-run/agent-endpoint` (0600, directory 0700).
 - `claude-plugin/`: async command hooks that forward hook JSON to Nubrix.
 - Verified: hooks fire from Claude Code desktop sessions and the CLI.
 - Source label (entrypoint, app bundle id, terminal) and git branch per session; click a
@@ -30,7 +30,7 @@ files are kept small so upstream fixes can be merged.
   Not yet tried with the live app and Claude Code.
 - Hardening (audit 2026-10-31, S-01/02/04/05/06/07/11/12/13/14): hook scripts verify the
   server with an HMAC challenge-response, endpoint file carries the Nubrix pid, scripts are
-  installed to `~/.config/nubrix/bin` (`scripts/install-hooks.sh`), the token never appears
+  installed to `~/.config/nubrix/bin` (`scripts/install-hooks.sh`; the sandboxed app can only read that folder and writes only to `~/.config/nubrix-run`), the token never appears
   in argv, the approval card shows the full command and a content/diff preview, Allow is
   armed after 0.7 s plus pointer movement, prompts are withdrawn on lock/sleep/session
   switch, the HTTP server authenticates on headers and caps connections. Not yet tried on
@@ -42,7 +42,7 @@ files are kept small so upstream fixes can be merged.
 Goal: everything copied (images, text, links) is kept locally and shown as a
 showcase, both inside the open notch and in a larger panel.
 
-Data layer (`Nubrix/Clipboard/`):
+Data layer (`Nubrix/Features/Clipboard/`):
 - `ClipboardMonitor`: polls `NSPasteboard.general.changeCount` (0.5 s). Skips
   concealed / transient / auto-generated pasteboard types and password-manager
   markers; skips Nubrix's own writes; respects `NSPasteboard.accessBehavior`
@@ -96,7 +96,7 @@ UI:
   e.g. `gh run watch && notchctl notify "CI green"`.
 - Dev servers: the sandbox cannot list other processes, so Nubrix probes a
   configurable list of localhost ports (3000, 3001, 4200, 5000, 5173, 5432,
-  6379, 8000, 8080, 8888, 9000 …) with short TCP connects every few seconds and
+  6379, 8000, 8080, 8888, 9000 …) with short TCP connects every 15 seconds and
   shows which are up in the "Dev" tab; clicking an HTTP port opens it in the
   browser.
 - A GitHub module via the `gh` login was dropped (the sandbox cannot use `gh` credentials); it came back as a token-based integration, see below.
@@ -105,8 +105,8 @@ UI:
 
 - `Nubrix/Features/GitHub/`: Keychain token store, URLSession client (GraphQL for PR search,
   REST for Actions runs with ETags, rate-limit headers and Retry-After honoured, redirects
-  blocked), polling store (120 s idle, 30 s while visible or a run is in progress, paused on
-  sleep and lock), change detector that decides which banners and inbox entries fire.
+  blocked), polling store (2 min; 30 s while the section is visible or a run is in progress on
+  AC power; 7.5 min when quiet; backs off when offline or failing; paused on sleep and lock), change detector that decides which banners and inbox entries fire.
 - Dev tab: GitHub / Servers / Notifications switch with Review requested, My PRs and Actions
   columns; Claude session rows show the PR of their branch (`nubrix-hook` sends
   `X-Nubrix-Remote` with the branch); Settings, GitHub holds the token, watched repositories
@@ -123,7 +123,7 @@ Done locally:
   upstream credits/GPL-3.0); full rename of the Xcode project, targets, Swift
   types, preference keys, identifiers and the XPC helper (`NubrixHelper`), with a
   one-time `NubrixMigration` for old preference keys and the shelf folder.
-- Software-update UI hidden (Sparkle is not started and has no feed).
+- Auto-updater removed: Sparkle, its entitlements and the update UI are gone. Nubrix has no updater.
 - Original placeholder app icon and in-app logo.
 - README, CONTRIBUTING, SECURITY rewritten; upstream workflows, funding and
   Crowdin config removed; `.github/workflows/build.yml` (unsigned Debug build
@@ -133,14 +133,14 @@ Done locally:
 Left for publishing:
 - Create the GitHub repository and add its URL to the README, About page and issue templates.
 - Developer ID signing and notarization; CI-built release DMG.
-- Own Sparkle feed and EdDSA keys, then re-enable the updater UI.
+- Decide on an update mechanism (none exists; Sparkle was removed).
 - Encryption at rest for Vitrin (needs stable signing identity for Keychain access).
-- Private vulnerability reporting channel.
+- Enable GitHub private vulnerability reporting on the repository (SECURITY.md already points to it).
 - Screenshots and final app icon.
 
 ## Notch extensions
 
-`Nubrix/Shell/NotchExtensionHost` presents content that grows out of the notch
+`Nubrix/Features/Shell/NotchExtensionHost` presents content that grows out of the notch
 (goo/mitosis transition) in a borderless panel; one extension at a time.
 - Mirror: detached mode, the notch splits and the camera panel floats below it.
   Global shortcut ⌃⌥M. The host handles Esc.
