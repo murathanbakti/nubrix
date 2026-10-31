@@ -165,6 +165,7 @@ struct NubrixCalendarView: View {
         case .downArrow: moveDay(7)
         case .pageUp: moveMonth(-1)
         case .pageDown: moveMonth(1)
+        case .escape: handleEscape()
         default:
             guard press.characters.lowercased() == "t",
                   press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }

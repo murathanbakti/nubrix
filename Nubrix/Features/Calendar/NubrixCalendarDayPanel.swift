@@ -4,7 +4,11 @@ import SwiftUI
 extension NubrixCalendarView {
     var rightColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            goToField
+            HStack(spacing: 6) {
+                goToField
+                NubrixCalendarPill(symbol: "xmark") { onClose() }
+                    .help(text.close)
+            }
             if case .found(let date) = outcome {
                 resultChip(date)
             } else if case .failed(let message) = outcome {

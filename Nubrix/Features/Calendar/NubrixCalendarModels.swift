@@ -90,6 +90,7 @@ struct NubrixCalendarText {
     var locationPlaceholder: String { pick("Konum (isteğe bağlı)", "Location (optional)") }
     var cancel: String { pick("İptal", "Cancel") }
     var save: String { pick("Kaydet", "Save") }
+    var close: String { pick("Kapat (Esc)", "Close (Esc)") }
     var added: String { pick("Eklendi", "Added") }
     var accessTitle: String { pick("Takvim erişimi gerekli", "Calendar access needed") }
     var accessBody: String { pick("Etkinlikleri görmek ve eklemek için Nubrix'in takvimine izin ver.", "Allow Nubrix to read and add calendar events.") }
