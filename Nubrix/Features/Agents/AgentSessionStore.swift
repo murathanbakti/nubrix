@@ -11,6 +11,10 @@ final class AgentSessionStore: ObservableObject {
 
     static let contextWarningThreshold = 85.0
     static let contextRearmThreshold = 70.0
+    @Published private(set) var lastHookEventAt: Date?
+    @Published private(set) var lastStatusAt: Date?
+    @Published private(set) var lastPermissionRequestAt: Date?
+    @Published var serverPort: UInt16?
     private var rateLimitsUpdatedAt = Date.distantPast
 
     private var bannerTask: Task<Void, Never>?
@@ -36,8 +40,13 @@ final class AgentSessionStore: ObservableObject {
     var needsAttention: Bool { sessions.contains { $0.state == .needsAttention } }
     var isWorking: Bool { sessions.contains { $0.state == .working } }
 
+    func notePermissionRequest() {
+        lastPermissionRequestAt = Date()
+    }
+
     func apply(_ event: AgentHookEvent) {
         let now = Date()
+        lastHookEventAt = now
         if event.name == "SessionEnd" {
             sessions.removeAll { $0.id == event.sessionID }
             NubrixInbox.shared.sessionEnded(id: event.sessionID)
@@ -79,6 +88,7 @@ final class AgentSessionStore: ObservableObject {
 
     func apply(_ update: AgentStatusUpdate) {
         let now = Date()
+        lastStatusAt = now
         if let limits = update.rateLimits, now >= rateLimitsUpdatedAt {
             if rateLimits != limits { rateLimits = limits }
             rateLimitsUpdatedAt = now

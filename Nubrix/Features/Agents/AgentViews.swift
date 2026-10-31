@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import SwiftUI
 
 struct AgentLiveActivity: View {
@@ -124,29 +125,59 @@ struct AgentPermissionPromptView: View {
     }
 }
 
+struct AgentInfoPanelContainer: View {
+    @ObservedObject var agents = AgentSessionStore.shared
+    @Default(.claudeNotchApprovals) var approvals
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            AgentInfoPanel(
+                snapshot: AgentInfoSnapshot(
+                    lastHookEventAt: agents.lastHookEventAt,
+                    lastStatusAt: agents.lastStatusAt,
+                    approvalsEnabled: approvals,
+                    lastPermissionRequestAt: agents.lastPermissionRequestAt,
+                    sealedScripts: AgentInfoModel.sealedCount(in: AgentEventServer.configDirectory.appendingPathComponent("bin", isDirectory: true)),
+                    sealedTotal: AgentInfoModel.sealedNames.count,
+                    serverPort: agents.serverPort
+                ),
+                now: context.date,
+                onCopy: {
+                    let bin = AgentEventServer.configDirectory.appendingPathComponent("bin", isDirectory: true).path
+                    ClipStore.shared.copyTransformed(AgentInfoModel.setupSnippet(binDirectory: bin))
+                }
+            )
+        }
+    }
+}
+
 struct AgentSessionsView: View {
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var permissions = AgentPermissionStore.shared
 
+    @State private var showsInfo = false
+
     var body: some View {
-        Group {
-            if agents.sessions.isEmpty && permissions.queue.isEmpty {
+        VStack(alignment: .leading, spacing: 6) {
+            AgentUsageHeader(
+                limits: agents.rateLimits,
+                clearVisible: !showsInfo && agents.sessions.contains(where: { [.done, .failed, .idle].contains($0.state) }),
+                infoActive: showsInfo,
+                onInfo: { withAnimation(.smooth(duration: 0.2)) { showsInfo.toggle() } },
+                onClear: { withAnimation(.smooth) { agents.clearFinished() } }
+            )
+            if showsInfo {
+                AgentInfoPanelContainer()
+            } else if agents.sessions.isEmpty && permissions.queue.isEmpty {
                 emptyState
             } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    AgentUsageHeader(
-                        limits: agents.rateLimits,
-                        clearVisible: agents.sessions.contains(where: { [.done, .failed, .idle].contains($0.state) }),
-                        onClear: { withAnimation(.smooth) { agents.clearFinished() } }
-                    )
-                    ScrollView(.vertical, showsIndicators: false) {
-                        LazyVStack(spacing: 4) {
-                            ForEach(Array(permissions.queue.enumerated()), id: \.element.id) { index, prompt in
-                                AgentPermissionPromptView(prompt: prompt, position: index + 1)
-                            }
-                            ForEach(agents.sortedSessions) { session in
-                                AgentSessionRow(session: session)
-                            }
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 4) {
+                        ForEach(Array(permissions.queue.enumerated()), id: \.element.id) { index, prompt in
+                            AgentPermissionPromptView(prompt: prompt, position: index + 1)
+                        }
+                        ForEach(agents.sortedSessions) { session in
+                            AgentSessionRow(session: session)
                         }
                     }
                 }

@@ -51,6 +51,7 @@ final class AgentEventServer: @unchecked Sendable {
                     case .ready:
                         if let port = listener?.port?.rawValue {
                             self?.boundPort = port
+                            Task { @MainActor in AgentSessionStore.shared.serverPort = port }
                             self?.publishEndpoint(port: port)
                         }
                     case .failed(let error):
@@ -86,6 +87,7 @@ final class AgentEventServer: @unchecked Sendable {
     }
 
     private static func removeEndpoint() {
+        Task { @MainActor in AgentSessionStore.shared.serverPort = nil }
         unlink(endpointFile.path)
     }
 
@@ -189,6 +191,7 @@ final class AgentEventServer: @unchecked Sendable {
     private func handle(_ request: HTTPRequest, on connection: NWConnection) {
         let outcome = AgentRoute.resolve(request, token: token)
         if case .permission(let payload, let nonce) = outcome.action {
+            Task { @MainActor in AgentSessionStore.shared.notePermissionRequest() }
             holdPermission(payload, nonce: nonce, on: connection)
             return
         }

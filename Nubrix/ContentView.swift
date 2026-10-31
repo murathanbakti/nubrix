@@ -116,12 +116,6 @@ struct ContentView: View {
             && !musicActivityShowing && !meetingCountdownShowing
     }
 
-    private var inboxDotSeverity: InboxSeverity? {
-        guard vm.notchState == .closed, !vm.hideOnClosed, vm.effectiveClosedNotchHeight > 0,
-              !bannerShowing, !inboxWingShowing, !agents.needsAttention else { return nil }
-        return inbox.topSeverity
-    }
-
     private func markVisibleTabRead() {
         guard vm.notchState == .open else { return }
         inbox.markViewed(coordinator.currentView)
@@ -154,11 +148,6 @@ struct ContentView: View {
                             .fill(.black)
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
-                    }
-                    .overlay(alignment: .topTrailing) {
-                        if let severity = inboxDotSeverity {
-                            InboxEdgeDot(severity: severity)
-                        }
                     }
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])

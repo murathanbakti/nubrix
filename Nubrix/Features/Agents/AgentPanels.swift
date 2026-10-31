@@ -162,6 +162,8 @@ struct AgentSessionRowBody: View {
 struct AgentUsageHeader: View {
     let limits: AgentRateLimits?
     var clearVisible = false
+    var infoActive = false
+    var onInfo: () -> Void = {}
     var onClear: () -> Void = {}
 
     var body: some View {
@@ -184,6 +186,13 @@ struct AgentUsageHeader: View {
                     .font(.caption)
                     .foregroundStyle(.gray)
             }
+            Button(action: onInfo) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(infoActive ? Color.white : Color.gray)
+            }
+            .buttonStyle(.plain)
+            .help("How the Claude integration works")
         }
         .padding(.horizontal, 4)
     }

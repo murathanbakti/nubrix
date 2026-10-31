@@ -68,29 +68,6 @@ struct InboxLiveActivity: View {
     }
 }
 
-struct InboxBadgeDot: View {
-    let severity: InboxSeverity
-
-    var body: some View {
-        Circle()
-            .fill(severity.tint)
-            .frame(width: 6, height: 6)
-            .background(Circle().fill(.black).padding(-1))
-    }
-}
-
-struct InboxEdgeDot: View {
-    @EnvironmentObject var vm: NubrixViewModel
-    let severity: InboxSeverity
-
-    var body: some View {
-        InboxBadgeDot(severity: severity)
-            .offset(x: 9, y: max(0, (vm.effectiveClosedNotchHeight - 6) / 2))
-            .allowsHitTesting(false)
-            .transition(.opacity)
-    }
-}
-
 struct InboxSettings: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @Default(.inboxClaudeEnabled) var claudeEnabled
@@ -103,7 +80,7 @@ struct InboxSettings: View {
                     Text("Keep notification icon in the notch")
                 }
             } footer: {
-                Text("While something is unread, the closed notch keeps a small icon and count. When this is off, or when music is playing, a small dot beside the notch is shown instead. Tabs with unread items always show a dot.")
+                Text("While something is unread, the closed notch keeps a small icon and count. When this is off, or when music is playing, the closed notch shows nothing; unread items are marked with a dot on their tab once you open the notch.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
