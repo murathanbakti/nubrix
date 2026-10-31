@@ -25,6 +25,53 @@ enum SecretGuard {
         "\\b[A-Za-z][A-Za-z0-9+.\\-]{1,15}://[^\\s/:@?#]+:[^\\s/@?#]+@"
     ].compactMap { regex($0) }
 
+    private struct GatedPattern {
+        let needles: [String]
+        let regex: NSRegularExpression?
+
+        init(_ needles: [String], _ pattern: String) {
+            self.needles = needles
+            regex = try? NSRegularExpression(pattern: pattern)
+        }
+    }
+
+    private static let gatedProviderPatterns: [GatedPattern] = [
+        GatedPattern(["glptt-", "gldt-", "glrt-", "glcbt-", "glimt-", "glft-", "gloas-"], "\\bgl(?:ptt|dt|rt|cbt|imt|ft|oas)-[A-Za-z0-9_\\-]{20,}"),
+        GatedPattern(["xapp-"], "\\bxapp-\\d-[A-Za-z0-9-]{20,}"),
+        GatedPattern(["ya29."], "\\bya29\\.[A-Za-z0-9_\\-]{20,}"),
+        GatedPattern(["GOCSPX-"], "\\bGOCSPX-[A-Za-z0-9_\\-]{20,}"),
+        GatedPattern(["hf_"], "\\bhf_[A-Za-z0-9]{30,}"),
+        GatedPattern(["AccountKey=", "SharedAccessKey="], "\\b(?:AccountKey|SharedAccessKey)=[A-Za-z0-9+/=]{20,}")
+    ]
+
+    private static let gatedCommandPatterns: [GatedPattern] = [
+        GatedPattern(["mysql"], "\\bmysql(?:dump|admin)?\\b[^\\n]{0,80}?\\s-p[^\\s\\-]\\S{3,}"),
+        GatedPattern(["curl"], "\\bcurl\\b[^\\n]{0,80}?\\s(?:-u|--user)[\\s=]+[^\\s:]+:(?![$<{\\[%(])\\S{3,}"),
+        GatedPattern(["--password"], "--password(?:=|\\s+)(?![-$<{\\[%(])\\S{4,}"),
+        GatedPattern(["docker"], "\\bdocker\\s+login\\b[^\\n]{0,80}?\\s(?:-p|--password)[\\s=]+(?![-$<{\\[%(])\\S{4,}")
+    ]
+
+    private static let capsNeedles = ["PASSWORD", "PASSWD", "PWD", "TOKEN", "SECRET"]
+
+    private static func contains(_ text: String, anyOf needles: [String]) -> Bool {
+        var text = text
+        return text.withUTF8 { haystack -> Bool in
+            guard let base = haystack.baseAddress else { return false }
+            for needle in needles {
+                let found = needle.withCString { memmem(base, haystack.count, $0, strlen($0)) }
+                if found != nil { return true }
+            }
+            return false
+        }
+    }
+
+    private static let capsAssignment = regex("\\b[A-Z][A-Z0-9_]*?(PASSWORD|PASSWD|PWD|TOKEN|SECRET)[ \\t]*=[ \\t]*(\"[^\"\\n]{1,200}\"|'[^'\\n]{1,200}'|[^\\s\"']{1,200})")
+    private static let inlinePair = regex("[\"']([A-Za-z][A-Za-z0-9_.\\-]{1,40})[\"']\\s*:\\s*[\"']([^\"'\\s]{6,200})[\"']")
+    private static let wordScanSkip = ["sha1", "sha256", "sha512", "md5", "checksum", "integrity", "commit"]
+    private static let wordTrim = CharacterSet(charactersIn: ".,;:\"'")
+    static let wordScanMaxBytes = 512
+    static let wordScanMaxLines = 5
+
     private static let authorizationBasic = regex("authorization:\\s*basic\\s+[A-Za-z0-9+/=]{12,}", [.caseInsensitive])
     private static let bearer = regex("\\bbearer\\s+([A-Za-z0-9._~+/=\\-]{16,})", [.caseInsensitive])
     private static let queryPair = regex("[?&;#]([A-Za-z0-9_.\\-]{2,40})=([^&\\s#\"']+)")
@@ -68,14 +115,58 @@ enum SecretGuard {
                 }
             }
         }
+        for gated in gatedProviderPatterns where contains(text, anyOf: gated.needles) {
+            if let regex = gated.regex, regex.firstMatch(in: text, range: range) != nil { return true }
+        }
         if hasSensitiveQuery(text, range: range) { return true }
         if containsCardNumber(text, range: range) { return true }
         if isURL { return false }
+        if hasInlineCredential(text, range: range) { return true }
         if hasSecretAssignment(text) { return true }
+        if hasInlinePair(text, range: range) { return true }
         let token = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if looksLikeHexToken(token) { return true }
         if looksLikeOpaqueToken(token) { return true }
-        return looksLikePasswordToken(token)
+        if looksLikePasswordToken(token) { return true }
+        return hasSecretWord(text)
+    }
+
+    static func hasInlineCredential(_ text: String, range: NSRange) -> Bool {
+        for gated in gatedCommandPatterns where contains(text, anyOf: gated.needles) {
+            if let regex = gated.regex, regex.firstMatch(in: text, range: range) != nil { return true }
+        }
+        guard let capsAssignment, contains(text, anyOf: ["="]), contains(text, anyOf: capsNeedles) else { return false }
+        for match in capsAssignment.matches(in: text, range: range) where match.numberOfRanges > 2 {
+            guard let kr = Range(match.range(at: 1), in: text), let vr = Range(match.range(at: 2), in: text) else { continue }
+            let name = text[kr] == "TOKEN" || text[kr] == "SECRET" ? "secret" : "password"
+            if secretAssignment(name: name, rawValue: String(text[vr])) { return true }
+        }
+        return false
+    }
+
+    static func hasInlinePair(_ text: String, range: NSRange) -> Bool {
+        guard let inlinePair, text.contains(":") else { return false }
+        for match in inlinePair.matches(in: text, range: range) where match.numberOfRanges > 2 {
+            guard let nr = Range(match.range(at: 1), in: text), let vr = Range(match.range(at: 2), in: text) else { continue }
+            if secretAssignment(name: String(text[nr]), rawValue: String(text[vr])) { return true }
+        }
+        return false
+    }
+
+    static func hasSecretWord(_ text: String) -> Bool {
+        guard text.utf8.count <= wordScanMaxBytes else { return false }
+        let lines = text.split(whereSeparator: \.isNewline)
+        guard lines.count <= wordScanMaxLines else { return false }
+        for line in lines {
+            let lowered = line.lowercased()
+            if wordScanSkip.contains(where: { lowered.contains($0) }) { continue }
+            for word in line.split(whereSeparator: { $0.isWhitespace }) {
+                let candidate = word.trimmingCharacters(in: wordTrim)
+                guard candidate.count >= 10 else { continue }
+                if looksLikeHexToken(candidate) || looksLikeOpaqueToken(candidate) || looksLikePasswordToken(candidate) { return true }
+            }
+        }
+        return false
     }
 
     static func hasSensitiveQuery(_ text: String, range: NSRange) -> Bool {

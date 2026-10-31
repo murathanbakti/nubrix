@@ -14,6 +14,7 @@ extension Defaults.Keys {
     static let vitrinScreenshotPromptDismissed = Key<Bool>("vitrinScreenshotPromptDismissed", default: false)
     static let vitrinRetentionDays = Key<Int>("vitrinRetentionDays", default: 30)
     static let vitrinExcludedApps = Key<[String]>("vitrinExcludedApps", default: VitrinDefaultsValues.excludedApps)
+    static let vitrinHideFromCapture = Key<Bool>("vitrinHideFromCapture", default: true)
 }
 
 enum VitrinDefaultsValues {
@@ -22,7 +23,11 @@ enum VitrinDefaultsValues {
         "com.apple.Passwords",
         "com.1password.1password",
         "com.agilebits.onepassword7",
-        "com.bitwarden.desktop"
+        "com.bitwarden.desktop",
+        "org.keepassxc.keepassxc",
+        "com.markmcguill.strongbox",
+        "me.proton.pass.electron",
+        "in.sinew.Enpass-Desktop"
     ]
 }
 

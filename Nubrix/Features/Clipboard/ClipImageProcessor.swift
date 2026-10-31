@@ -9,11 +9,14 @@ struct PreparedClipImage {
     let width: Int
     let height: Int
     let hash: String
+
+    var bytes: Int { png.count + thumbnail.count }
 }
 
 enum ClipImageProcessor {
     static let maximumBytes = 25 * 1024 * 1024
     static let maximumPixelCount = 60_000_000
+    static let reencodePixelCount = 24_000_000
     static let thumbnailPixels = 480
 
     static func prepare(_ data: Data) -> PreparedClipImage? {
@@ -27,11 +30,29 @@ enum ClipImageProcessor {
               width > 0, height > 0, width <= maximumPixelCount / height else { return nil }
 
         let png: Data
+        var storedWidth = width
+        var storedHeight = height
         if uttype == .png {
             png = data
         } else {
-            guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
-                  let encoded = encodePNG(image) else { return nil }
+            let image: CGImage
+            if width * height > reencodePixelCount {
+                let scale = (Double(reencodePixelCount) / Double(width * height)).squareRoot()
+                let options: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: max(1, Int(Double(max(width, height)) * scale)),
+                    kCGImageSourceShouldCacheImmediately: true
+                ]
+                guard let scaled = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+                image = scaled
+                storedWidth = scaled.width
+                storedHeight = scaled.height
+            } else {
+                guard let full = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+                image = full
+            }
+            guard let encoded = encodePNG(image), encoded.count <= maximumBytes else { return nil }
             png = encoded
         }
         let thumbOptions: [CFString: Any] = [
@@ -43,7 +64,7 @@ enum ClipImageProcessor {
         guard let thumbImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary),
               let thumb = encodePNG(thumbImage) else { return nil }
         let hash = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
-        return PreparedClipImage(png: png, thumbnail: thumb, width: width, height: height, hash: hash)
+        return PreparedClipImage(png: png, thumbnail: thumb, width: storedWidth, height: storedHeight, hash: hash)
     }
 
     private static func encodePNG(_ image: CGImage) -> Data? {

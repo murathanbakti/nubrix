@@ -28,6 +28,12 @@ struct VitrinSettings: View {
                     .font(.caption)
             }
 
+            Section {
+                Defaults.Toggle(key: .vitrinHideFromCapture) {
+                    Text("Hide Vitrin from screen sharing")
+                }
+            }
+
             Section("Capture") {
                 Defaults.Toggle(key: .vitrinCaptureImages) { Text("Images") }
                 Defaults.Toggle(key: .vitrinCaptureText) { Text("Text") }
@@ -83,7 +89,7 @@ struct VitrinSettings: View {
             } header: {
                 Text("History")
             } footer: {
-                Text("Pinned items never expire. Text that looks like a password, key or token is never stored.")
+                Text("Pinned items never expire. Text that looks like a password, key or token is skipped when detected.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }

@@ -54,27 +54,4 @@ enum ClipImageLoader {
     static func cost(of image: CGImage) -> Int {
         image.bytesPerRow * image.height
     }
-
-    static func tiffData(from url: URL) -> Data? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
-              let out = CFDataCreateMutable(nil, 0),
-              let destination = CGImageDestinationCreateWithData(out, UTType.tiff.identifier as CFString, 1, nil) else { return nil }
-        let properties: [CFString: Any] = [kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFCompression: 5]]
-        CGImageDestinationAddImageFromSource(destination, source, 0, properties as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return out as Data
-    }
-}
-
-final class ClipLazyImagePasteboardOwner: NSObject, NSPasteboardTypeOwner, @unchecked Sendable {
-    private let url: URL
-
-    init(url: URL) {
-        self.url = url
-    }
-
-    func pasteboard(_ pasteboard: NSPasteboard, provideDataForType type: NSPasteboard.PasteboardType) {
-        guard type == .tiff, let data = ClipImageLoader.tiffData(from: url) else { return }
-        pasteboard.setData(data, forType: .tiff)
-    }
 }

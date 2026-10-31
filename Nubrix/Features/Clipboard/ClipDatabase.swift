@@ -1,7 +1,10 @@
 import Foundation
+import os
 import SQLite3
 
 private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+private let clipLog = Logger(subsystem: "dev.nubrix.app", category: "vitrin")
 
 enum ClipDatabaseError: Error {
     case open(String)
@@ -10,7 +13,7 @@ enum ClipDatabaseError: Error {
 
 final class ClipDatabase: @unchecked Sendable {
     static let previewLength = 300
-    static let schemaVersion: Int32 = 1
+    static let schemaVersion: Int32 = 2
 
     let directory: URL
     private var db: OpaquePointer?
@@ -83,8 +86,12 @@ final class ClipDatabase: @unchecked Sendable {
         if !existing.contains("text_len") {
             try exec("ALTER TABLE clips ADD COLUMN text_len INTEGER NOT NULL DEFAULT 0")
         }
+        if !existing.contains("bytes") {
+            try exec("ALTER TABLE clips ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0")
+        }
         try exec("CREATE UNIQUE INDEX IF NOT EXISTS clips_hash ON clips(hash)")
         try exec("CREATE INDEX IF NOT EXISTS clips_used ON clips(used)")
+        try exec("CREATE INDEX IF NOT EXISTS clips_unpinned_used ON clips(pinned, used DESC, id DESC)")
         try exec("""
         CREATE VIRTUAL TABLE IF NOT EXISTS clips_fts USING fts5(
             content, content='clips', content_rowid='id', tokenize='unicode61 remove_diacritics 2'
@@ -118,13 +125,73 @@ final class ClipDatabase: @unchecked Sendable {
 
     @discardableResult
     func runDeferredMigration() -> Bool {
-        guard userVersion < Self.schemaVersion else { return false }
-        _ = try? run("UPDATE clips SET preview = substr(content, 1, ?), text_len = length(content) WHERE content IS NOT NULL AND preview IS NULL", [Self.previewLength])
-        _ = try? exec("INSERT INTO clips_fts(clips_fts, rank) VALUES('secure-delete', 1)")
-        _ = try? exec("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')")
+        let secure = ensureFTSSecureDelete()
+        let current = userVersion
+        guard current < Self.schemaVersion else { return false }
+        var ok = secure
+        if current < 1 {
+            if !secure {
+                clipLog.error("FTS secure-delete is not enabled; skipping the index rebuild until the next start")
+            } else {
+                do {
+                    try run("UPDATE clips SET preview = substr(content, 1, ?), text_len = length(content) WHERE content IS NOT NULL AND preview IS NULL", [Self.previewLength])
+                    try exec("INSERT INTO clips_fts(clips_fts) VALUES('rebuild')")
+                } catch {
+                    clipLog.error("Vitrin FTS rebuild failed: \(String(describing: error), privacy: .public)")
+                    ok = false
+                }
+            }
+        }
+        if current < 2, !backfillBytes() { ok = false }
         checkpoint()
-        _ = try? exec("PRAGMA user_version = \(Self.schemaVersion)")
+        if ok {
+            do {
+                try exec("PRAGMA user_version = \(Self.schemaVersion)")
+            } catch {
+                clipLog.error("Vitrin could not record the schema version: \(String(describing: error), privacy: .public)")
+            }
+        }
         return true
+    }
+
+    @discardableResult
+    func ensureFTSSecureDelete() -> Bool {
+        if scalarText("SELECT v FROM clips_fts_config WHERE k = 'secure-delete'") == "1" { return true }
+        do {
+            try exec("INSERT INTO clips_fts(clips_fts, rank) VALUES('secure-delete', 1)")
+            return true
+        } catch {
+            clipLog.error("Vitrin FTS secure-delete could not be enabled: \(String(describing: error), privacy: .public)")
+            return false
+        }
+    }
+
+    private func backfillBytes() -> Bool {
+        do {
+            try exec("BEGIN")
+            try run("UPDATE clips SET bytes = length(CAST(content AS BLOB)) WHERE content IS NOT NULL AND bytes = 0")
+            let stmt = try prepare("SELECT id, image_file FROM clips WHERE image_file IS NOT NULL AND bytes = 0")
+            var rows: [(Int64, String)] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let file = Self.text(stmt, 1) { rows.append((sqlite3_column_int64(stmt, 0), file)) }
+            }
+            sqlite3_finalize(stmt)
+            for (id, file) in rows {
+                let size = fileSize(file) + fileSize(Self.thumbnailName(for: file))
+                try run("UPDATE clips SET bytes = ? WHERE id = ?", [size, id])
+            }
+            try exec("COMMIT")
+            return true
+        } catch {
+            try? exec("ROLLBACK")
+            clipLog.error("Vitrin size backfill failed: \(String(describing: error), privacy: .public)")
+            return false
+        }
+    }
+
+    private func fileSize(_ name: String) -> Int {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent(name).path)
+        return (attributes?[.size] as? NSNumber)?.intValue ?? 0
     }
 
     func checkpoint() {
@@ -153,7 +220,7 @@ final class ClipDatabase: @unchecked Sendable {
             let idx = Int32(i + 1)
             switch value {
             case nil: sqlite3_bind_null(stmt, idx)
-            case let v as String: sqlite3_bind_text(stmt, idx, v, -1, sqliteTransient)
+            case let v as String: _ = v.withCString { sqlite3_bind_text(stmt, idx, $0, Int32(v.utf8.count), sqliteTransient) }
             case let v as Int: sqlite3_bind_int64(stmt, idx, Int64(v))
             case let v as Int64: sqlite3_bind_int64(stmt, idx, v)
             case let v as Double: sqlite3_bind_double(stmt, idx, v)
@@ -163,7 +230,8 @@ final class ClipDatabase: @unchecked Sendable {
         }
     }
 
-    private func run(_ sql: String, _ values: [Any?] = []) throws {
+    @discardableResult
+    private func run(_ sql: String, _ values: [Any?] = []) throws -> Int {
         let stmt = try prepare(sql)
         defer { sqlite3_finalize(stmt) }
         bind(stmt, values)
@@ -171,6 +239,7 @@ final class ClipDatabase: @unchecked Sendable {
         if rc != SQLITE_DONE && rc != SQLITE_ROW {
             throw ClipDatabaseError.statement(String(cString: sqlite3_errmsg(db)))
         }
+        return Int(sqlite3_changes(db))
     }
 
     private func query(_ sql: String, _ values: [Any?] = []) throws -> [ClipItem] {
@@ -195,7 +264,8 @@ final class ClipDatabase: @unchecked Sendable {
 
     private static func text(_ stmt: OpaquePointer, _ col: Int32) -> String? {
         guard let c = sqlite3_column_text(stmt, col) else { return nil }
-        return String(cString: c)
+        let count = Int(sqlite3_column_bytes(stmt, col))
+        return String(decoding: UnsafeBufferPointer(start: UnsafeRawPointer(c).assumingMemoryBound(to: UInt8.self), count: count), as: UTF8.self)
     }
 
     private static func row(_ stmt: OpaquePointer) -> ClipItem {
@@ -273,17 +343,19 @@ final class ClipDatabase: @unchecked Sendable {
         (try? run("UPDATE clips SET used = ? WHERE id = ?", [now.timeIntervalSince1970, id])) != nil
     }
 
-    func insert(kind: ClipKind, content: String?, imageFile: String?, width: Int, height: Int, hash: String, source: String?, now: Date = Date()) throws -> Int64 {
+    func insert(kind: ClipKind, content: String?, imageFile: String?, width: Int, height: Int, hash: String, source: String?, bytes: Int = 0, now: Date = Date()) throws -> Int64 {
         var preview: String?
         var length = 0
+        var size = bytes
         if let content {
             let scalars = content.unicodeScalars
             preview = String(String.UnicodeScalarView(scalars.prefix(Self.previewLength)))
             length = scalars.count
+            size += content.utf8.count
         }
         try run(
-            "INSERT INTO clips(kind, content, preview, text_len, image_file, image_w, image_h, hash, source, created, used, pinned) VALUES (?,?,?,?,?,?,?,?,?,?,?,0)",
-            [kind.rawValue, content, preview, length, imageFile, width, height, hash, source, now.timeIntervalSince1970, now.timeIntervalSince1970]
+            "INSERT INTO clips(kind, content, preview, text_len, image_file, image_w, image_h, hash, source, created, used, pinned, bytes) VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?)",
+            [kind.rawValue, content, preview, length, imageFile, width, height, hash, source, now.timeIntervalSince1970, now.timeIntervalSince1970, size]
         )
         return lastInsertedID
     }
@@ -322,12 +394,12 @@ final class ClipDatabase: @unchecked Sendable {
     }
 
     func setPinned(id: Int64, _ pinned: Bool) {
-        try? run("UPDATE clips SET pinned = ? WHERE id = ?", [pinned, id])
+        _ = try? run("UPDATE clips SET pinned = ? WHERE id = ?", [pinned, id])
     }
 
     func delete(id: Int64) {
         let file = imageFile(id: id)
-        try? run("DELETE FROM clips WHERE id = ?", [id])
+        _ = try? run("DELETE FROM clips WHERE id = ?", [id])
         if let file { removeFiles([file]) }
         checkpoint()
     }
@@ -339,10 +411,8 @@ final class ClipDatabase: @unchecked Sendable {
     @discardableResult
     func expire(olderThan cutoff: Date) -> Int {
         let files = imageFiles(where: "pinned = 0 AND used < ?", [cutoff.timeIntervalSince1970])
-        let before = (try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0
-        try? run("DELETE FROM clips WHERE pinned = 0 AND used < ?", [cutoff.timeIntervalSince1970])
+        guard let removed = try? run("DELETE FROM clips WHERE pinned = 0 AND used < ?", [cutoff.timeIntervalSince1970]) else { return 0 }
         removeFiles(files)
-        let removed = Int(before - ((try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0))
         if removed > 0 { checkpoint() }
         return removed
     }
@@ -350,17 +420,53 @@ final class ClipDatabase: @unchecked Sendable {
     @discardableResult
     func trim(maxUnpinned: Int) -> Int {
         let files = imageFiles(where: "pinned = 0 AND id NOT IN (SELECT id FROM clips WHERE pinned = 0 ORDER BY used DESC, id DESC LIMIT ?)", [maxUnpinned])
-        let before = (try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0
-        try? run("DELETE FROM clips WHERE pinned = 0 AND id NOT IN (SELECT id FROM clips WHERE pinned = 0 ORDER BY used DESC, id DESC LIMIT ?)", [maxUnpinned])
+        guard let removed = try? run("DELETE FROM clips WHERE pinned = 0 AND id NOT IN (SELECT id FROM clips WHERE pinned = 0 ORDER BY used DESC, id DESC LIMIT ?)", [maxUnpinned]) else { return 0 }
         removeFiles(files)
-        let removed = Int(before - ((try? scalarInt("SELECT COUNT(*) FROM clips")) ?? 0))
+        if removed > 0 { checkpoint() }
+        return removed
+    }
+
+    var totalBytes: Int64 {
+        (try? scalarInt("SELECT COALESCE(SUM(bytes), 0) FROM clips")) ?? 0
+    }
+
+    @discardableResult
+    func trim(maxBytes: Int64) -> Int {
+        var excess = totalBytes - maxBytes
+        guard excess > 0 else { return 0 }
+        var removed = 0
+        while excess > 0 {
+            guard let stmt = try? prepare("SELECT id, bytes, image_file FROM clips WHERE pinned = 0 ORDER BY used ASC, id ASC LIMIT 64") else { break }
+            var batch: [(id: Int64, bytes: Int64, file: String?)] = []
+            var planned: Int64 = 0
+            while planned < excess, sqlite3_step(stmt) == SQLITE_ROW {
+                let size = sqlite3_column_int64(stmt, 1)
+                batch.append((sqlite3_column_int64(stmt, 0), size, Self.text(stmt, 2)))
+                planned += size
+            }
+            sqlite3_finalize(stmt)
+            if batch.isEmpty { break }
+            var deleted: [String] = []
+            var freed: Int64 = 0
+            var batchRemoved = 0
+            for row in batch {
+                guard let n = try? run("DELETE FROM clips WHERE id = ?", [row.id]) else { continue }
+                batchRemoved += n
+                freed += row.bytes
+                if let file = row.file { deleted.append(file) }
+            }
+            removeFiles(deleted)
+            removed += batchRemoved
+            if batchRemoved == 0 { break }
+            excess -= freed
+        }
         if removed > 0 { checkpoint() }
         return removed
     }
 
     func clear(keepPinned: Bool) {
         let files = imageFiles(where: keepPinned ? "pinned = 0" : "1 = 1", [])
-        try? run(keepPinned ? "DELETE FROM clips WHERE pinned = 0" : "DELETE FROM clips")
+        _ = try? run(keepPinned ? "DELETE FROM clips WHERE pinned = 0" : "DELETE FROM clips")
         removeFiles(files)
         checkpoint()
     }

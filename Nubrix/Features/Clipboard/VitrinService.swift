@@ -27,6 +27,12 @@ enum VitrinService {
             }
         }
         .store(in: &observers)
+        Defaults.publisher(.vitrinRetentionDays, options: [])
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                MainActor.assumeIsolated { ClipStore.shared.sweep() }
+            }
+            .store(in: &observers)
         KeyboardShortcuts.onKeyDown(for: .toggleVitrin) {
             Task { @MainActor in VitrinPanelController.shared.toggle() }
         }

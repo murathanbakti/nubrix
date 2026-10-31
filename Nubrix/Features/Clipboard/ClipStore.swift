@@ -8,6 +8,7 @@ final class ClipStore: ObservableObject {
     static let shared = ClipStore()
     static let ownPasteboardType = NSPasteboard.PasteboardType("dev.nubrix.vitrin")
     static let maxUnpinnedItems = 2000
+    static let maxTotalBytes: Int64 = 1_073_741_824
     static let listLimit = 1000
     static let searchLimit = 300
     static let thumbnailPixels = 384
@@ -23,7 +24,6 @@ final class ClipStore: ObservableObject {
     private var sweepTimer: Timer?
     private let thumbnailCache = NSCache<NSString, NSImage>()
     private var previewCache: (id: Int64, image: NSImage)?
-    private var pasteboardOwner: ClipLazyImagePasteboardOwner?
     private var lastTextHash: String?
     private var lastTextID: Int64?
     private(set) var fullReloadCount = 0
@@ -95,6 +95,7 @@ final class ClipStore: ObservableObject {
         guard database != nil else { return }
         let days = Defaults[.vitrinRetentionDays]
         let maxUnpinned = Self.maxUnpinnedItems
+        let maxBytes = Self.maxTotalBytes
         Task {
             let removed = await onQueue { db -> Int in
                 var count = 0
@@ -102,6 +103,7 @@ final class ClipStore: ObservableObject {
                     count += db.expire(olderThan: Date().addingTimeInterval(-Double(days) * 86_400))
                 }
                 count += db.trim(maxUnpinned: maxUnpinned)
+                count += db.trim(maxBytes: maxBytes)
                 return count
             }
             if reloadAlways || (removed ?? 0) > 0 {
@@ -148,20 +150,22 @@ final class ClipStore: ObservableObject {
 
     @discardableResult
     func addImage(_ image: PreparedClipImage, source: String?) async -> ClipItem? {
-        let item = await onQueue { db -> ClipItem? in
+        let created = await onQueue { db -> (item: ClipItem, isNew: Bool)? in
             if let existing = db.id(forHash: image.hash) {
                 db.touch(id: existing)
-                return db.summary(id: existing)
+                return db.summary(id: existing).map { ($0, false) }
             }
             guard let file = try? db.writeImage(png: image.png, thumbnail: image.thumbnail) else { return nil }
-            guard let inserted = try? db.insert(kind: .image, content: nil, imageFile: file, width: image.width, height: image.height, hash: image.hash, source: source) else {
+            guard let inserted = try? db.insert(kind: .image, content: nil, imageFile: file, width: image.width, height: image.height, hash: image.hash, source: source, bytes: image.bytes) else {
                 db.removeFiles([file])
                 return nil
             }
-            return db.summary(id: inserted)
+            return db.summary(id: inserted).map { ($0, true) }
         } ?? nil
-        if let item { place(item) }
-        return item
+        guard let created else { return nil }
+        place(created.item)
+        if created.isNew { sweep() }
+        return created.item
     }
 
     private func place(_ item: ClipItem) {
@@ -268,10 +272,8 @@ final class ClipStore: ObservableObject {
                     try? Data(contentsOf: url, options: .mappedIfSafe)
                 }.value
                 guard let data else { return }
-                let owner = ClipLazyImagePasteboardOwner(url: url)
-                pasteboardOwner = owner
                 let pb = NSPasteboard.general
-                pb.declareTypes([.png, .tiff, Self.ownPasteboardType], owner: owner)
+                pb.declareTypes([.png, Self.ownPasteboardType], owner: nil)
                 pb.setData(data, forType: .png)
                 pb.setData(Data([1]), forType: Self.ownPasteboardType)
                 ClipboardMonitor.shared.acknowledge(changeCount: pb.changeCount)

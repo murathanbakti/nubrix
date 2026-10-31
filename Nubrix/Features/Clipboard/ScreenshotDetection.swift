@@ -77,6 +77,7 @@ struct ScreenshotCandidate {
     private var checkedDate = false
 
     static let requiredStableReads = 2
+    static let rejectionStableReads = 4
 
     init(path: String, watchStart: Date) {
         self.path = path
@@ -99,6 +100,7 @@ struct ScreenshotCandidate {
             lastSize = size
         }
         guard stableReads >= Self.requiredStableReads else { return .waiting }
-        return ScreenshotDetection.isScreenCapture(atPath: path) ? .ready : .waiting
+        if ScreenshotDetection.isScreenCapture(atPath: path) { return .ready }
+        return stableReads >= Self.rejectionStableReads ? .rejected : .waiting
     }
 }

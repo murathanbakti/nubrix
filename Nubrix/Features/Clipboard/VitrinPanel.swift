@@ -516,6 +516,7 @@ final class VitrinPanelController {
 
     private var panel: VitrinPanel?
     private let model = VitrinPanelModel()
+    private var sharingObserver: AnyCancellable?
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -527,7 +528,6 @@ final class VitrinPanelController {
         guard Defaults[.vitrinEnabled], ClipStore.shared.isReady else { return }
         let panel = self.panel ?? makePanel()
         self.panel = panel
-        panel.sharingType = Defaults[.hideFromScreenRecording] ? .none : .readWrite
         model.reset()
         let screen = NSScreen.screen(withUUID: NubrixCoordinator.shared.selectedScreenUUID) ?? NSScreen.main ?? NSScreen.screens.first
         if let screen {
@@ -563,6 +563,16 @@ final class VitrinPanelController {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = NSHostingView(rootView: VitrinPanelView(model: model))
+        sharingObserver = Publishers.CombineLatest(
+            Defaults.publisher(.vitrinHideFromCapture).map(\.newValue),
+            Defaults.publisher(.hideFromScreenRecording).map(\.newValue)
+        )
+        .map { $0 || $1 }
+        .removeDuplicates()
+        .receive(on: RunLoop.main)
+        .sink { [weak panel] hide in
+            MainActor.assumeIsolated { panel?.sharingType = hide ? .none : .readWrite }
+        }
         panel.keyHandler = { [weak self] event in self?.model.handle(event) ?? false }
         panel.onResignKey = { [weak self] in self?.close() }
         model.requestClose = { [weak self] in self?.close() }
