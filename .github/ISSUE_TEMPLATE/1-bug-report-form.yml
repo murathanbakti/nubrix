@@ -1,4 +1,3 @@
----
 name: Bug Report
 description: File a bug report.
 title: '[Bug] '
@@ -9,14 +8,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thanks for taking the time to fill out this bug report. For security problems, do not open an issue; use the private report link on the issue chooser page or read SECURITY.md.
   - type: textarea
     id: what-happened
     attributes:
       label: What happened? What are the steps to reproduce the issue?
       description: >-
         Describe the bug and include the steps to replicate the issue. Issues
-        with images or videos will be resolved faster.
+        with screenshots or screen recordings will be resolved faster. Remove
+        anything private from them first.
       placeholder: Clearly explain the issue. Please limit each post to one issue.
     validations:
       required: true
@@ -30,19 +30,48 @@ body:
   - type: input
     id: version
     attributes:
-      label: Nubrix Version
+      label: Nubrix version
       description: >-
-        What version of Nubrix are you running? (Settings > About > Version)
+        Settings > About > Version, or the version in the release you downloaded.
       placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Install method
+      options:
+        - Homebrew
+        - Install script
+        - Built from source
+        - Other
     validations:
       required: true
   - type: input
     id: operating-system
     attributes:
-      label: macOS Version
-      description: Go to  > About This Mac
+      label: macOS version
+      description: Apple menu > About This Mac
+      placeholder: "macOS 15.5 Sequoia"
     validations:
       required: true
+  - type: input
+    id: mac-model
+    attributes:
+      label: Mac model and display
+      description: >-
+        For example "MacBook Pro 14-inch 2023 (notch)", "MacBook Air 2020 plus an external monitor (no notch)".
+    validations:
+      required: true
+  - type: input
+    id: claude-code-version
+    attributes:
+      label: Claude Code version (Claude-related bugs only)
+      description: >-
+        Output of `claude --version`. Also say whether you use the terminal, the desktop app or the VS Code extension.
+      placeholder: "2.1.0 (terminal)"
+    validations:
+      required: false
   - type: dropdown
     id: music-source
     attributes:
@@ -75,13 +104,15 @@ body:
       label: Relevant log output
       description: >-
         Please copy and paste any relevant log output. This will be
-        automatically formatted into code, so no need for backticks.
+        automatically formatted into code, so no need for backticks. Remove
+        tokens, paths and anything else private first.
       render: shell
   - type: checkboxes
     id: checks
     attributes:
       label: Checks
-      description: 
       options:
         - label: I haven't found any duplicates with my issue.
+          required: true
+        - label: I removed secrets and personal data from everything I pasted or attached.
           required: true

@@ -1,38 +1,98 @@
 # Contributing to Nubrix
 
-Thanks for your interest. Nubrix is a small personal project, so keep changes focused.
+Thanks for your interest. Nubrix is a small project maintained by one person, so keep changes focused.
 
 ## Before you start
 
 - Search existing issues and pull requests first.
 - For anything larger than a bug fix, open an issue to discuss it before writing code.
+- Changes to the hook scripts, the local event server, the XPC helper or the installer are security-sensitive; see [Security-sensitive areas](#security-sensitive-areas).
 
-## Setup
+## Requirements
 
-1. Fork and clone the repository.
-2. Use macOS 14 or later with Xcode 26.
-3. Build:
-   ```sh
-   xcodebuild -project Nubrix.xcodeproj -scheme Nubrix -configuration Debug \
-     -derivedDataPath build -destination 'platform=macOS' build
-   ```
+- macOS 14 or later (the app's deployment target) and Xcode 26 or later.
+- `shellcheck` for the shell scripts: `brew install shellcheck`.
+
+## Build
+
+```sh
+git clone https://github.com/murathanbakti/nubrix.git
+cd nubrix
+xcodebuild -project Nubrix.xcodeproj -scheme Nubrix -configuration Debug \
+  -derivedDataPath build -destination 'platform=macOS' build
+open build/Build/Products/Debug/Nubrix.app
+```
+
+Use a derived data path of your own (as above, or `~/Library/Caches/Nubrix/DerivedData`) instead of Xcode's default one. That keeps your command line builds, Xcode builds and `scripts/install-local.sh` from fighting over the same build products. `build/` is ignored by git.
+
+To try a Release build the way users get it, run `scripts/install-local.sh --open`. It builds into `~/Library/Caches/Nubrix/DerivedData`, verifies the bundle, installs to `/Applications` and refreshes the sealed hook copies.
+
+Local builds are ad-hoc signed. Each rebuild changes the code identity, so macOS may ask again for Keychain access and for permissions such as Camera or Accessibility.
 
 ## Where things live
 
 - Nubrix code is in `Nubrix/Features/`. It is a file-system synchronized group in Xcode, so new files are picked up automatically; avoid editing `project.pbxproj` by hand.
-- Files under the rest of `Nubrix/` come from the upstream project (see Credits in the README). Keep edits there small so upstream changes can still be merged.
-- Everything carries the Nubrix name: targets, Swift types, preference keys and identifiers.
+- `NubrixHelper/` is the small unsandboxed XPC service (Accessibility key handling, brightness, the `claude /usage` probe).
+- `claude-plugin/` holds the Claude Code hook scripts (`claude-plugin/scripts/`) and the status-only plugin manifest. `cli/notchctl` is the CLI. `scripts/` holds the installers and release tooling.
+- Files under the rest of `Nubrix/` come from the upstream project (see Credits in the README). Keep edits there small so upstream changes can still be merged. You can see the upstream repository with `git remote -v` (remote `upstream`).
+- Docs live in `docs/nubrix/` (roadmap, audit reports, supply chain notes).
+
+## Code style
+
+- Match the surrounding code: naming, formatting, error handling and structure. There is no separate formatter configuration.
+- No drive-by refactors or reformatting in a pull request. Unrelated clean-ups belong in their own pull request.
+- Do not add comments that only restate the code.
+- Shell scripts are `bash` with `set -euo pipefail`, use absolute paths for system tools and must pass `shellcheck -S error`.
+
+## Checks to run
+
+CI (`.github/workflows/build.yml`) builds the app unsigned in Debug and validates the scripts. Run the same checks before you open a pull request:
+
+```sh
+for f in claude-plugin/scripts/* cli/notchctl scripts/*.sh; do bash -n "$f"; done
+shellcheck -S error claude-plugin/scripts/* cli/notchctl scripts/*.sh
+python3 -m json.tool claude-plugin/hooks/hooks.json > /dev/null
+python3 -m json.tool claude-plugin/.claude-plugin/plugin.json > /dev/null
+```
+
+Then build with the `xcodebuild` command above. If you change anything the UI shows, run the app and try it.
+
+## Security-sensitive areas
+
+Nubrix runs next to Claude Code with your privileges. Take extra care, explain the threat model in the pull request, and expect a slower review for changes to:
+
+- the hook scripts (`claude-plugin/scripts/*`, `cli/notchctl`) and `scripts/install-hooks.sh`: they are installed as sealed read-only copies and run unsandboxed on every Claude Code event. Keep `PATH` pinned, call tools by absolute path, never put tokens on a command line, and keep failing closed (print nothing, exit 0, let Claude Code ask natively).
+- the loopback event server and the permission flow (`Nubrix/Features/Agents/`): authentication, the HMAC proof, the approval card and the risk flags.
+- `NubrixHelper/` and the XPC protocol: it is not sandboxed, so keep its surface minimal and its inputs validated.
+- entitlements and the sandbox exceptions in `Nubrix/*.entitlements`.
+- the Vitrin secret guard and anything that stores clipboard content.
+
+Never add telemetry, automatic approval of permission requests, or code that edits `~/.claude/settings.json`. Report vulnerabilities privately, see [SECURITY.md](SECURITY.md).
 
 ## Pull requests
 
-- Create a branch from `nubrix`, make the change, and make sure the project builds.
+- Create a branch from `main`, make the change, and make sure the project builds and the checks above pass.
 - Describe what changed and why, and include screenshots or a screen recording for UI changes.
 - Link the issue it fixes with `closes #123`.
 - Do not include secrets, personal data or build output.
 
+## Upstream changes
+
+Nubrix started as a fork of the project named in the README's Credits section and still tracks it. Upstream changes are merged by the maintainer from the `upstream` remote; please do not open pull requests that only bring in upstream commits.
+
+## Releases (maintainer)
+
+1. Bump `MARKETING_VERSION` in the Xcode project (app and helper targets) and update docs if needed. Merge to `main`.
+2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. The release workflow (`.github/workflows/release.yml`) builds a universal app via `scripts/package-release.sh` and creates a draft GitHub release with `Nubrix-<version>.zip` and `Nubrix-<version>.zip.sha256`. It also renders the Homebrew cask as `nubrix.rb`.
+4. Check the draft, then publish it.
+5. Update the cask in [murathanbakti/homebrew-tap](https://github.com/murathanbakti/homebrew-tap) with the workflow's rendered `nubrix.rb` (`Casks/nubrix.rb`) and push.
+
+Releases are ad-hoc signed and not notarized, and there is no auto-updater; users update with `brew upgrade --cask nubrix` or by running the install script again.
+
 ## Reporting bugs and requesting features
 
-Open an issue with your macOS version, Nubrix version, steps to reproduce, and expected versus actual behavior. For security problems read [SECURITY.md](SECURITY.md) first.
+Use the issue forms. For a bug, include your macOS version, Nubrix version, install method (Homebrew, script or source), Mac model, steps to reproduce, and expected versus actual behavior; for Claude Code related bugs also the Claude Code version. For security problems read [SECURITY.md](SECURITY.md) first.
 
 ## License
 

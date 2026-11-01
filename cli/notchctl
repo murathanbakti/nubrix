@@ -140,7 +140,8 @@ cmd_notify() {
     *[!0-9.]*|.|*.*.*) fail "invalid duration '$duration'" ;;
   esac
 
-  local body="{\"message\":\"$(json_escape "$message")\""
+  local body
+  body="{\"message\":\"$(json_escape "$message")\""
   [ -z "$title" ] || body+=",\"title\":\"$(json_escape "$title")\""
   [ -z "$style" ] || body+=",\"style\":\"$style\""
   [ -z "$duration" ] || body+=",\"duration\":$duration"

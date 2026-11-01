@@ -3,6 +3,7 @@ set -euo pipefail
 umask 077
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
+self="$root/scripts/$(basename "$0")"
 base="${HOME:?HOME is not set}/.config/nubrix"
 bin="$base/bin"
 run="${HOME}/.config/nubrix-run"
@@ -18,6 +19,13 @@ sources=(
   "claude-plugin/scripts/nubrix-statusline"
   "cli/notchctl"
 )
+
+case "$root" in
+  *.app/Contents/Resources/nubrix-hooks)
+    app_bundle="${root%/Contents/Resources/nubrix-hooks}"
+    codesign --verify --strict --deep "$app_bundle" >/dev/null 2>&1 || fail "code signature of $app_bundle does not verify, refusing to install hooks from it"
+    ;;
+esac
 
 for rel in "${sources[@]}"; do
   [ -f "$root/$rel" ] || fail "missing $root/$rel"
@@ -77,7 +85,9 @@ TXT
 elif [ "${NUBRIX_SHOW_SNIPPET:-0}" != "1" ] && [ -r "$settings_file" ] \
   && grep -qF "$bin/nubrix-hook" "$settings_file" && grep -qF "$bin/nubrix-statusline" "$settings_file" \
   && grep -qF "$bin/nubrix-permission" "$settings_file" && grep -qF 'Read(~/.config/nubrix-run/**)' "$settings_file"; then
-  echo "~/.claude/settings.json already uses these scripts (NUBRIX_SHOW_SNIPPET=1 to print the snippet)."
+  cat <<'TXT'
+~/.claude/settings.json already uses these scripts (NUBRIX_SHOW_SNIPPET=1 to print the snippet).
+TXT
   exit 0
 fi
 
@@ -126,5 +136,5 @@ cat <<TXT
 Notes:
 - Drop the nubrix-permission entry to keep Claude Code's own permission dialogs only.
 - "permissions.deny" is merged with your existing list; it stops Claude from editing the sealed scripts and from reading or editing the endpoint file.
-- Re-run this script after updating Nubrix to refresh the copies. Optional CLI: ln -sf "$bin/notchctl" ~/.local/bin/notchctl
+- Re-run $self after updating Nubrix to refresh the copies. Optional CLI: ln -sf "$bin/notchctl" ~/.local/bin/notchctl
 TXT

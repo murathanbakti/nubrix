@@ -131,6 +131,11 @@
 		B1F747F92EC7E94000F841DB /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F747F82EC7E94000F841DB /* LottieView.swift */; };
 		B1FEB4992C7686630066EBBC /* PanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1FEB4982C7686630066EBBC /* PanGesture.swift */; };
 		F38DE6482D8243E7008B5C6D /* BatteryActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */; };
+		A1B2C3D40000000000000031 /* install-hooks.sh in Embed Hook Kit (scripts) */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000021 /* install-hooks.sh */; };
+		A1B2C3D40000000000000032 /* nubrix-hook in Embed Hook Kit (plugin scripts) */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000022 /* nubrix-hook */; };
+		A1B2C3D40000000000000033 /* nubrix-permission in Embed Hook Kit (plugin scripts) */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000023 /* nubrix-permission */; };
+		A1B2C3D40000000000000034 /* nubrix-statusline in Embed Hook Kit (plugin scripts) */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000024 /* nubrix-statusline */; };
+		A1B2C3D40000000000000035 /* notchctl in Embed Hook Kit (cli) */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000025 /* notchctl */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -164,6 +169,41 @@
 				117AB5172E30E09C00558921 /* MediaRemoteAdapter.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000000000041 /* Embed Hook Kit (scripts) */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "nubrix-hooks/scripts";
+			dstSubfolderSpec = 7;
+			files = (
+				A1B2C3D40000000000000031 /* install-hooks.sh in Embed Hook Kit (scripts) */,
+			);
+			name = "Embed Hook Kit (scripts)";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000000000042 /* Embed Hook Kit (plugin scripts) */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "nubrix-hooks/claude-plugin/scripts";
+			dstSubfolderSpec = 7;
+			files = (
+				A1B2C3D40000000000000032 /* nubrix-hook in Embed Hook Kit (plugin scripts) */,
+				A1B2C3D40000000000000033 /* nubrix-permission in Embed Hook Kit (plugin scripts) */,
+				A1B2C3D40000000000000034 /* nubrix-statusline in Embed Hook Kit (plugin scripts) */,
+			);
+			name = "Embed Hook Kit (plugin scripts)";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000000000043 /* Embed Hook Kit (cli) */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "nubrix-hooks/cli";
+			dstSubfolderSpec = 7;
+			files = (
+				A1B2C3D40000000000000035 /* notchctl in Embed Hook Kit (cli) */,
+			);
+			name = "Embed Hook Kit (cli)";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -289,6 +329,11 @@
 		B1F747F82EC7E94000F841DB /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
 		B1FEB4982C7686630066EBBC /* PanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanGesture.swift; sourceTree = "<group>"; };
 		F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryActivityManager.swift; sourceTree = "<group>"; };
+		A1B2C3D40000000000000021 /* install-hooks.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "scripts/install-hooks.sh"; sourceTree = "<group>"; };
+		A1B2C3D40000000000000022 /* nubrix-hook */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "claude-plugin/scripts/nubrix-hook"; sourceTree = "<group>"; };
+		A1B2C3D40000000000000023 /* nubrix-permission */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "claude-plugin/scripts/nubrix-permission"; sourceTree = "<group>"; };
+		A1B2C3D40000000000000024 /* nubrix-statusline */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "claude-plugin/scripts/nubrix-statusline"; sourceTree = "<group>"; };
+		A1B2C3D40000000000000025 /* notchctl */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "cli/notchctl"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -334,6 +379,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A1B2C3D40000000000000050 /* HookKit */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D40000000000000021 /* install-hooks.sh */,
+				A1B2C3D40000000000000022 /* nubrix-hook */,
+				A1B2C3D40000000000000023 /* nubrix-permission */,
+				A1B2C3D40000000000000024 /* nubrix-statusline */,
+				A1B2C3D40000000000000025 /* notchctl */,
+			);
+			name = HookKit;
+			sourceTree = "<group>";
+		};
 		1113ABB82E80E27000EC13B2 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -513,6 +570,7 @@
 				A1B2C3D40000000000000011 /* LICENSE */,
 				A1B2C3D40000000000000012 /* NOTICE */,
 				A1B2C3D40000000000000013 /* THIRD_PARTY_LICENSES */,
+				A1B2C3D40000000000000050 /* HookKit */,
 			);
 			sourceTree = "<group>";
 		};
@@ -753,6 +811,9 @@
 				14CEF4102C5CAED300855D72 /* Resources */,
 				B1ECFA062C6FE58A002ACD87 /* Embed Frameworks */,
 				11F748412EC8051E00F841DB /* Embed XPC Services */,
+				A1B2C3D40000000000000041 /* Embed Hook Kit (scripts) */,
+				A1B2C3D40000000000000042 /* Embed Hook Kit (plugin scripts) */,
+				A1B2C3D40000000000000043 /* Embed Hook Kit (cli) */,
 			);
 			buildRules = (
 			);

@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release, for example v0.1.0"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Package and draft release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      PROJECT_NAME: Nubrix
+      XCODE_VERSION: "26.6"
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          XCODE_PATH="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [[ ! -d "$XCODE_PATH" ]]; then
+            echo "Xcode ${XCODE_VERSION} not found, falling back to the newest Xcode 26.x"
+            ls -d /Applications/Xcode*.app 2>/dev/null || true
+            XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "::error::No Xcode 26 found on this runner"
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile -project "$PROJECT_NAME.xcodeproj"
+
+      - name: Check tag against MARKETING_VERSION
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' is not of the form vX.Y.Z"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          PROJECT_VERSION="$(xcodebuild -project "$PROJECT_NAME.xcodeproj" -scheme "$PROJECT_NAME" -configuration Release -showBuildSettings 2>/dev/null | awk '$1 == "MARKETING_VERSION" { print $3; exit }')"
+          if [[ "$PROJECT_VERSION" != "$VERSION" ]]; then
+            echo "::error::Tag $TAG does not match MARKETING_VERSION $PROJECT_VERSION"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Package
+        run: scripts/package-release.sh "$VERSION"
+        env:
+          NUBRIX_DERIVED_DATA: ${{ runner.temp }}/DerivedData-release
+
+      - name: Create draft release
+        run: |
+          gh release create "$TAG" dist/Nubrix-*.zip dist/Nubrix-*.zip.sha256 \
+            --draft --verify-tag --title "Nubrix $VERSION" --generate-notes
+
+      - name: Summary
+        run: |
+          {
+            echo "## Nubrix $VERSION"
+            echo
+            echo "Draft release created for \`$TAG\`. Review and publish it, then copy the cask below into the tap."
+            echo
+            echo "SHA-256:"
+            echo '```'
+            cat "dist/Nubrix-$VERSION.zip.sha256"
+            echo '```'
+            echo
+            echo "Cask (\`Casks/nubrix.rb\`):"
+            echo '```ruby'
+            cat dist/nubrix.rb
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nubrix-cask
+          path: dist/nubrix.rb
+          if-no-files-found: error

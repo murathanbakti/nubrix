@@ -4,11 +4,23 @@ Send notifications to the Nubrix notch from any shell script. Needs only `bash` 
 
 ## Install
 
-Run `scripts/install-hooks.sh` from the Nubrix repository. It installs a sealed, read-only copy at
-`~/.config/nubrix/bin/notchctl`. Use it directly, or put that directory on your `PATH`:
+`notchctl` ships with Nubrix and is installed by the hook installer, which puts a sealed, read-only copy at
+`~/.config/nubrix/bin/notchctl`:
+
+```sh
+# Homebrew or install script
+/Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
+
+# from a source checkout
+scripts/install-hooks.sh
+```
+
+Run it again after updating Nubrix. Then use the copy directly, link it into a folder on your `PATH`, or add its
+directory to your `PATH`:
 
 ```sh
 ~/.config/nubrix/bin/notchctl ping
+ln -sf ~/.config/nubrix/bin/notchctl ~/.local/bin/notchctl
 export PATH="$HOME/.config/nubrix/bin:$PATH"
 ```
 
