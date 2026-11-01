@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Re-encode a PNG losslessly with per-row filter selection and zlib level 9 (stdlib + numpy, pixels via sips/BMP).
-Usage: optimize_png.py file.png   (no-op, exit 0, if numpy or sips is unavailable)"""
 import struct, subprocess, sys, tempfile, zlib, os
 
 def main(path):
@@ -25,7 +23,7 @@ def main(path):
     a = np.frombuffer(raw, dtype=np.uint8, offset=off, count=stride * h).reshape(h, stride)[:, : w * ch]
     if not top_down:
         a = a[::-1]
-    a = a.reshape(h, w, ch)[:, :, [2, 1, 0] + ([3] if ch == 4 else [])]  # BGR(A) -> RGB(A)
+    a = a.reshape(h, w, ch)[:, :, [2, 1, 0] + ([3] if ch == 4 else [])]
     if ch == 4 and (a[:, :, 3] == 255).all():
         a = a[:, :, :3]
         ch = 3

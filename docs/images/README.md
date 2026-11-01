@@ -18,7 +18,7 @@ The README images are rendered from HTML mockups in [`mockups/`](mockups), not c
 
 ## Rendering
 
-`mockups/render.sh` renders every scene, or only the scenes you name, with headless Google Chrome at 2x and writes `docs/images/<scene>.png`:
+`mockups/render.sh` renders every scene, or only the scenes you name, with headless Google Chrome and writes `docs/images/<scene>.png`. The device scale factor is chosen so each image is 1800 px wide (at most 2x), enough for the README width of about 830 px on a Retina display; set `MAX_WIDTH` to change it:
 
 ```sh
 docs/images/mockups/render.sh

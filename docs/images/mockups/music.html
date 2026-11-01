@@ -5,17 +5,14 @@
 <title>Nubrix music mockup</title>
 <link rel="stylesheet" href="kit.css">
 <style>
-  /* Each tile is its own "screen top": a notch hangs from the tile's top edge. 1 SwiftUI pt = 1 stage px. */
   .tile { position: absolute; overflow: hidden; }
   .tile.sep-r { box-shadow: inset -1px 0 0 rgba(255, 255, 255, .06); }
   
-  /* Closed notch with a live activity: HStack { art(h-12) , black gap(185-6) , visualizer(h-12) }, spacing 8 */
   .mx-row { display: flex; align-items: center; gap: 8px; height: 32px; }
   .mx-art20 { width: 20px; height: 20px; border-radius: 4px; overflow: hidden; flex: none; }
   .mx-art20 svg { width: 100%; height: 100%; }
   .mx-vis { width: 20px; height: 20px; flex: none; display: flex; align-items: center; justify-content: center; }
 
-  /* InlineHUD */
   .mx-hud-l { width: 88px; display: flex; align-items: center; gap: 5px; flex: none; color: #fff; }
   .mx-hud-l .ic { width: 20px; height: 15px; display: flex; align-items: center; }
   .mx-hud-l .t { font-size: 11px; font-weight: 500; white-space: nowrap; }
@@ -24,10 +21,8 @@
   .mx-bar > i { display: block; height: 100%; background: #fff; border-radius: 3px; }
   .mx-pct { font-size: 10px; font-weight: 500; color: var(--gray); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-  /* Lyrics line under the artist (LyricsLineView: .subheadline, gray) */
   .mx-lyric { font-size: 11px; line-height: 14px; color: var(--gray); white-space: nowrap; }
 
-  /* OpenNotchHUD capsule in the header */
   .mx-ohud {
     display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px;
     background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
@@ -39,11 +34,9 @@
 </style>
 </head>
 <body>
-<!-- Music: closed-notch live activity, inline volume HUD, and the open Home player with a synced lyric line and the open-notch HUD. -->
 <div class="scene" data-size="1400x546" style="--W:1400px;--H:546px">
   <div class="desk"></div>
 
-  <!-- 1. Closed notch, music live activity -->
   <div class="tile sep-r" style="left:0;top:0;width:560px;height:112px;--W:560px;--H:112px;--s:2">
     <div class="stage">
       <div class="notch closed" style="--nw:263px;--nh:32px">
@@ -68,7 +61,6 @@
     </div>
   </div>
 
-  <!-- 2. Closed notch, inline volume HUD -->
   <div class="tile" style="left:560px;top:0;width:840px;height:112px;--W:840px;--H:112px;--s:2">
     <div class="stage">
       <div class="notch closed" style="--nw:385px;--nh:32px">
@@ -89,7 +81,6 @@
     </div>
   </div>
 
-  <!-- 3. Open notch, Home tab: player with synced lyric line; header shows the volume HUD capsule -->
   <div style="position:absolute;left:0;top:112px;width:1400px;height:6px;background:#090b15"></div>
   <div class="tile" style="left:0;top:118px;width:1400px;height:428px;--W:1400px;--H:428px;--s:2">
     <div class="stage">
@@ -152,7 +143,6 @@
 
 <script src="icons.js"></script>
 <script>
-  // Abstract "Night Drive" artwork (same as hero): dusk sky, striped sun, hills. No real album art.
   function mxArt(p) {
     return '' +
     '<defs>' +

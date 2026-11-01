@@ -6,7 +6,6 @@
 <link rel="stylesheet" href="kit.css">
 <style>
   :root { --cal-red: rgb(255, 69, 59); --cal-meta: rgba(255, 255, 255, .5); --cal-fill: rgba(255, 255, 255, .06); --cal-stroke: rgba(255, 255, 255, .08); }
-  /* Attached sheet: NotchShape(top 20, bottom 26), content 620x356 placed below the notch height (32), side inset 20+16, bottom inset 16. */
   .notch.sheet .notch-body { padding: 32px 36px 16px; }
   .cal { width: 620px; height: 356px; display: flex; gap: 12px; align-items: flex-start; }
   .cal-left { width: 300px; height: 356px; display: flex; flex-direction: column; gap: 6px; }
@@ -48,7 +47,6 @@
 </style>
 </head>
 <body>
-<!-- Calendar sheet attached to the notch. November 2026, today = Mon 2 Nov. Dummy events only. -->
 <div class="scene" data-size="1400x756" style="--W:1400px;--H:756px;--s:1.8">
   <div class="desk"></div>
   <div class="stage">
@@ -87,11 +85,10 @@
             </div>
             <div class="evs">
               <div class="ev"><div class="bar" style="background:#0a84ff"></div><div class="tx"><div class="ti">Standup</div><div class="su">09:30 – 09:45</div></div></div>
-              <div class="ev"><div class="bar" style="background:#bf5af2"></div><div class="tx"><div class="ti">Design review</div><div class="su">11:00 – 12:00<span>·</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="M15.5 10.4 21 7v10l-5.5-3.4"/></svg><span>meet.example.com/design-review</span></div></div></div>
+              <div class="ev"><div class="bar" style="background:#bf5af2"></div><div class="tx"><div class="ti">Design review</div><div class="su">11:00 – 12:00<span>·</span><span>meet.example.com/design-review</span></div></div></div>
               <div class="ev"><div class="bar" style="background:#30d158"></div><div class="tx"><div class="ti">Lunch with team</div><div class="su">13:00 – 14:00<span>·</span><span>Canteen</span></div></div></div>
               <div class="ev"><div class="bar" style="background:#ff9f0a"></div><div class="tx"><div class="ti">Release 2.4 cutoff</div><div class="su">16:00 – 16:30</div></div></div>
-              <div class="ev"><div class="bar" style="background:#ffd60a"></div><div class="tx"><div class="ti">Renew TLS certs</div><div class="su">17:00<span>·</span><span>Reminders</span></div></div></div>
+              <div class="ev"><div class="bar" style="background:#ffd60a"></div><div class="tx"><div class="ti">Renew TLS certs</div><div class="su">17:00 – 17:30<span>·</span><span>Ops room</span></div></div></div>
             </div>
           </div>
         </div>
@@ -102,7 +99,6 @@
 <script src="icons.js"></script>
 <script>
   var B = '#0a84ff', P = '#bf5af2', G = '#30d158', O = '#ff9f0a', Y = '#ffd60a';
-  // Monday-first grid for November 2026 (Nov 1 is a Sunday): starts Mon 26 Oct, 6 rows.
   var days = [
     [26,1,[]],[27,1,[B]],[28,1,[G]],[29,1,[]],[30,1,[B,P]],[31,1,[]],[1,0,[]],
     [2,0,[B,P,G]],[3,0,[B]],[4,0,[B,O]],[5,0,[P]],[6,0,[B,G]],[7,0,[]],[8,0,[]],
@@ -123,7 +119,6 @@
   }
   document.getElementById('grid').innerHTML = html;
 
-  // NotchShape for the attached sheet: top radius 20, bottom radius 26 (NotchExtensionMetrics).
   function sheetShape() {
     var n = document.getElementById('sheet'), b = n.querySelector('.notch-body');
     var w = n.offsetWidth, h = n.offsetHeight, T = 20, B2 = 26;

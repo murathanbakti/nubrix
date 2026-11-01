@@ -1,26 +1,22 @@
-/* Nubrix mockup kit. 1 SwiftUI point = 1 CSS px. Values read from the SwiftUI source:
-   NotchShape (top 19 / bottom 24 open, 6 / 14 closed), openNotchSize 640x190,
-   NubrixHeader (32pt header), TabSelectionView, AgentViews / AgentPanels, ClaudeUsageCard. */
 
 :root {
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
   --rounded: ".SF NS Rounded", ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* SwiftUI system colors, dark appearance */
   --orange: #ff9f0a;
   --green: #32d74b;
   --red: #ff453a;
   --gray: #98989d;
-  --claude: rgb(217, 120, 87);          /* AgentSessionState.working.tint */
-  --ctrl-fill: rgba(255, 255, 255, .16); /* secondarySystemFill capsule behind the selected tab */
-  --w62: rgb(158, 158, 158);             /* Color(white: 0.62) */
+  --claude: rgb(217, 120, 87);
+  --ctrl-fill: rgba(255, 255, 255, .16);
+  --w62: rgb(158, 158, 158);
   --w55: rgb(140, 140, 140);
   --w60: rgb(153, 153, 153);
   --w70: rgb(179, 179, 179);
   --w72: rgb(184, 184, 184);
   --w78: rgb(199, 199, 199);
-  --risk: rgb(255, 107, 102);            /* Color(red: 1, green: 0.42, blue: 0.4) */
+  --risk: rgb(255, 107, 102);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,20 +33,17 @@ svg { display: block; overflow: visible; }
 .rounded { font-family: var(--rounded); }
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* ---------- scene, stage, desktop ---------- */
 .scene { position: relative; width: var(--W); height: var(--H); overflow: hidden; }
 .desk {
   position: absolute; inset: 0;
   background: linear-gradient(180deg, #343d62 0%, #262c48 45%, #1a1f35 100%);
 }
-/* The stage lets a scene show the 1x UI scaled up while keeping every px value true to the source. */
 .stage {
   position: absolute; left: 0; top: 0;
   width: calc(var(--W) / var(--s)); height: calc(var(--H) / var(--s));
   transform: scale(var(--s)); transform-origin: 0 0;
 }
 
-/* ---------- macOS-style menu bar ---------- */
 .menubar {
   position: absolute; left: 0; right: 0; top: 0; height: 32px;
   background: rgba(14, 16, 28, .38);
@@ -62,7 +55,6 @@ svg { display: block; overflow: visible; }
 .menubar .dot { width: 14px; height: 14px; border-radius: 4px; background: rgba(255, 255, 255, .9); }
 .menubar .right { gap: 14px; font-weight: 500; }
 
-/* ---------- notch panel ---------- */
 .notch {
   position: absolute; left: 50%; top: 0;
   width: var(--nw, 640px);
@@ -72,15 +64,13 @@ svg { display: block; overflow: visible; }
 }
 .notch-body {
   position: relative; background: #000; height: 100%;
-  /* clip-path is set by icons.js from data-top / data-bottom (NotchShape) */
 }
-.notch.open .notch-body { padding: 0 31px 12px; }      /* 19 (top corner) + 12, bottom 12 */
-.notch.closed .notch-body { padding: 0 14px 0; }       /* closed bottom radius */
-.notch-body::before { /* the 1px black overlay under the top edge */
+.notch.open .notch-body { padding: 0 31px 12px; }
+.notch.closed .notch-body { padding: 0 14px 0; }
+.notch-body::before {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: #000;
 }
 
-/* ---------- NubrixHeader ---------- */
 .nx-header { height: 32px; display: flex; align-items: center; position: relative; color: var(--gray); }
 .nx-left { flex: 1; display: flex; align-items: center; }
 .nx-gap { width: 185px; height: 32px; flex: none; }
@@ -110,10 +100,8 @@ svg { display: block; overflow: visible; }
 .battery-pct .pct { font-size: 12px; color: #fff; }
 .battery { position: relative; width: 31px; height: 15px; }
 
-/* ---------- NotchLayout body ---------- */
 .nx-content { margin-top: 8px; height: 138px; position: relative; }
 
-/* ---------- Home: music ---------- */
 .home-row { display: flex; align-items: flex-start; gap: 12px; height: 138px; }
 .music { display: flex; gap: 8px; width: 426px; height: 138px; }
 .art-wrap { position: relative; width: 138px; height: 138px; padding: 5px; flex: none; }
@@ -126,7 +114,7 @@ svg { display: block; overflow: visible; }
 .art svg { width: 100%; height: 100%; }
 .app-badge {
   position: absolute; width: 30px; height: 30px; border-radius: 7px;
-  right: -5px; bottom: -5px; /* bottom-trailing of the art + offset(10,10) */
+  right: -5px; bottom: -5px;
   background: linear-gradient(160deg, #6a7bff, #a24bd8);
   display: flex; align-items: center; justify-content: center; color: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, .5);
@@ -145,7 +133,6 @@ svg { display: block; overflow: visible; }
 .hover-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #fff; }
 .hover-btn.large { width: 40px; height: 40px; }
 
-/* ---------- Claude usage card (ClaudeUsageCardContent) ---------- */
 .ucard {
   width: 140px; height: 138px; padding: 7px 10px;
   border-radius: 12px; background: rgba(255, 255, 255, .06);
@@ -162,7 +149,6 @@ svg { display: block; overflow: visible; }
 .ubar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .14); overflow: hidden; }
 .ubar > i { display: block; height: 100%; border-radius: 2px; }
 
-/* ---------- Agents: session list ---------- */
 .agents { padding-top: 4px; display: flex; flex-direction: column; gap: 6px; }
 .usage-header { display: flex; align-items: center; gap: 10px; padding: 0 4px; height: 14px; }
 .usage-header .today { font-size: 11px; font-weight: 500; color: var(--w70); white-space: nowrap; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
@@ -198,7 +184,6 @@ svg { display: block; overflow: visible; }
 .ctx .tok { font-size: 10px; color: var(--gray); font-variant-numeric: tabular-nums; }
 .srow .age { width: 26px; text-align: right; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; flex: none; }
 
-/* ---------- Permission (closed notch with approval card) ---------- */
 .perm-header { height: 32px; display: flex; align-items: center; position: relative; }
 .perm-left { display: flex; align-items: center; gap: 6px; width: 208px; }
 .perm-left .name { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

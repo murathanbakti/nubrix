@@ -5,7 +5,6 @@
 <title>Nubrix shelf mockup</title>
 <link rel="stylesheet" href="kit.css">
 <style>
-  /* ShelfView: HStack(spacing 12) { FileShareView (square), panel (dashed RoundedRectangle r16, padding 16) } */
   .sh-row { display: flex; gap: 12px; height: 138px; }
   .sh-share { width: 138px; height: 138px; position: relative; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
   .sh-share .dash, .sh-panel .dash { position: absolute; inset: 0; }
@@ -21,7 +20,6 @@
 </style>
 </head>
 <body>
-<!-- Open notch, Shelf tab (tray selected): quick-share drop zone + shelf items. Dummy files only. -->
 <div class="scene" data-size="1400x404" style="--W:1400px;--H:404px;--s:1.9">
   <div class="desk"></div>
   <div class="stage">
@@ -68,7 +66,6 @@
             <div class="sh-panel">
               <svg class="dash" width="508" height="138" viewBox="0 0 508 138"><rect x="0" y="0" width="508" height="138" rx="16" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 10"/></svg>
               <div class="sh-items">
-                <!-- PDF -->
                 <div class="sh-item">
                   <div class="ico"><svg viewBox="0 0 56 56">
                     <rect x="7" y="0.5" width="42" height="55" rx="3" fill="#f7f7f9"/><rect x="7" y="0.5" width="42" height="55" rx="3" fill="none" stroke="rgba(0,0,0,.14)"/>
@@ -80,7 +77,6 @@
                   </svg></div>
                   <div class="nm">design-review.pdf</div>
                 </div>
-                <!-- PNG (selected) -->
                 <div class="sh-item sel">
                   <div class="ico"><svg viewBox="0 0 56 56">
                     <defs>
@@ -101,7 +97,6 @@
                   </svg></div>
                   <div class="nm">hero@2x.png</div>
                 </div>
-                <!-- MD -->
                 <div class="sh-item">
                   <div class="ico"><svg viewBox="0 0 56 56">
                     <path d="M10 3.5C10 2 11 1 12.5 1H37l10 10v41.5c0 1.5-1 2.5-2.5 2.5h-32C11 55 10 54 10 52.5z" fill="#f2f2f4"/>
@@ -115,7 +110,6 @@
                   </svg></div>
                   <div class="nm">release-notes.md</div>
                 </div>
-                <!-- ZIP -->
                 <div class="sh-item">
                   <div class="ico"><svg viewBox="0 0 56 56">
                     <path d="M10 3.5C10 2 11 1 12.5 1H37l10 10v41.5c0 1.5-1 2.5-2.5 2.5h-32C11 55 10 54 10 52.5z" fill="#ece8df"/>

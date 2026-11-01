@@ -8,14 +8,12 @@
   html, body { background: #151827; }
   .scene { background: #151827; }
   .grid { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; row-gap: 12px; }
-  /* One slice of the top of a screen: flat backdrop, the closed notch flush with the top edge, centered. */
   .tile { position: relative; width: 1400px; height: 96px; overflow: hidden; --W: 1400px; --H: 96px; --s: 2.2; background: #2a3152; }
-  /* closed-notch rows: HStack(spacing 0) of left cluster, notch gap, right text. Text style .subheadline = 11pt on macOS. */
   .row { height: 32px; display: flex; align-items: center; }
-  .row.live { gap: 8px; }                       /* HStack { } default spacing */
+  .row.live { gap: 8px; }
   .L { display: flex; align-items: center; gap: 6px; flex: none; }
   .L .t { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gap { flex: none; width: 195px; height: 32px; }     /* closedNotchSize.width + 10 */
+  .gap { flex: none; width: 195px; height: 32px; }
   .R { flex: none; text-align: right; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .gl { display: flex; align-items: center; justify-content: center; flex: none; }
   .cnt { font-family: var(--rounded); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; }
@@ -27,7 +25,6 @@
 </style>
 </head>
 <body>
-<!-- Closed notch states: live activities and banners. Widths follow ContentView / AgentViews / DevViews / ScreenshotBanner / MeetingViewParts. Dummy data only. -->
 <div class="scene" data-size="1400x744" style="--W:1400px;--H:744px">
   <div class="grid" id="grid"></div>
 </div>
@@ -37,7 +34,6 @@
   function infoDisc(size, color) {
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" style="color:' + color + '"><mask id="mi"><rect width="24" height="24" fill="#fff"/><path d="M12 11v5.4" stroke="#000" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.5" r="1.4" fill="#000"/></mask><circle cx="12" cy="12" r="10.2" fill="currentColor" mask="url(#mi)"/></svg>';
   }
-  // video.fill look-alike: rounded body plus a lens wedge
   function video(size, color) {
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" style="color:' + color + '"><rect x="1.8" y="5.6" width="14.2" height="12.8" rx="3.4" fill="currentColor"/><path d="M17.6 10.4l4-2.7c.7-.5 1.2-.2 1.2.6v7.4c0 .8-.5 1.1-1.2.6l-4-2.7z" fill="currentColor"/></svg>';
   }

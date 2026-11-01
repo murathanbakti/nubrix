@@ -1,11 +1,7 @@
-/* Hand-drawn inline SVG icons that resemble the SF Symbols the Nubrix UI uses (no SF Symbols glyphs copied),
-   plus the NotchShape clip-path helper. A few shapes follow Lucide (ISC license): gear, webcam.
-   Usage: <i data-icon="house" data-size="15"></i>  (color comes from CSS color) */
 (function () {
   var uid = 0;
   var STROKE = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"';
 
-  // Filled disc with a cut-out glyph (mask), like checkmark.circle.fill
   function disc(cut, dot) {
     var id = 'm' + (++uid);
     return '<mask id="' + id + '"><rect width="24" height="24" fill="#fff"/>' +
@@ -28,13 +24,13 @@
     sparkle: function () {
       return '<path d="M12 2.4c.9 5.6 4 8.7 9.6 9.6-5.6.9-8.7 4-9.6 9.6-.9-5.6-4-8.7-9.6-9.6 5.6-.9 8.7-4 9.6-9.6z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>';
     },
-    terminal: function () { // terminal.fill
+    terminal: function () {
       var id = 'm' + (++uid);
       return '<mask id="' + id + '"><rect width="24" height="24" fill="#fff"/>' +
         '<path d="M7.2 9.4l3 2.6-3 2.6M12.6 15h4.4" stroke="#000" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></mask>' +
         '<rect x="2.4" y="3.6" width="19.2" height="16.8" rx="4" fill="currentColor" mask="url(#' + id + ')"/>';
     },
-    terminalLine: function () { // small outline terminal used by the source chip fallback
+    terminalLine: function () {
       return '<rect x="3" y="4.5" width="18" height="15" rx="3.5" ' + STROKE + ' stroke-width="2"/>' +
         '<path d="M7.5 10l3 2.4-3 2.4M13 15h3.8" ' + STROKE + ' stroke-width="2"/>';
     },
@@ -42,12 +38,12 @@
       return '<rect x="3" y="4.5" width="18" height="15" rx="3.2" ' + STROKE + ' stroke-width="2"/>' +
         '<path d="M3 9.5h18" ' + STROKE + ' stroke-width="2"/>';
     },
-    camera: function () { // web.camera (Lucide webcam)
+    camera: function () {
       return '<circle cx="12" cy="10" r="8" ' + STROKE + ' stroke-width="1.9"/>' +
         '<circle cx="12" cy="10" r="3" ' + STROKE + ' stroke-width="1.9"/>' +
         '<path d="M7 22h10M12 18v4" ' + STROKE + ' stroke-width="1.9"/>';
     },
-    gear: function () { // Lucide settings
+    gear: function () {
       return '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" ' + STROKE + ' stroke-width="1.8"/>' +
         '<circle cx="12" cy="12" r="3" ' + STROKE + ' stroke-width="1.8"/>';
     },
@@ -100,7 +96,6 @@
     }
   };
 
-  // Orange spinner of AgentAnimatedGlyphView (.spinner): stroke 0.15..0.85 of a circle, round caps.
   function spinner(size, rot) {
     var lw = Math.max(1.5, size / 7), inset = lw / 2 + size * 0.08, r = size / 2 - inset;
     var c = 2 * Math.PI * r;
@@ -128,7 +123,6 @@
     });
   }
 
-  // NotchShape.swift: quad curves into the straight sides, concave top corners.
   function notchPath(w, h, T, B) {
     return 'M0,0 Q' + T + ',0 ' + T + ',' + T + ' L' + T + ',' + (h - B) +
       ' Q' + T + ',' + h + ' ' + (T + B) + ',' + h + ' L' + (w - T - B) + ',' + h +

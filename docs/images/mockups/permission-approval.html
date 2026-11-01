@@ -5,14 +5,12 @@
 <title>Nubrix permission approval mockup</title>
 <link rel="stylesheet" href="kit.css">
 <style>
-  /* Two screens stacked, a darker band between them; each notch is flush with the top edge of its own screen. */
   .scene { background: #151827; display: flex; flex-direction: column; gap: 16px; }
   .tile { position: relative; width: 1400px; overflow: hidden; --W: 1400px; --s: 1.6; flex: none; }
   .tile.a { height: 340px; --H: 340px; } .tile.b { height: 376px; --H: 376px; }
 </style>
 </head>
 <body>
-<!-- Closed notch with an approval card (AgentPermissionHeader + AgentPermissionCard). Top: normal Bash command. Bottom: risky command, second-click "Allow anyway" state. -->
 <div class="scene" data-size="1400x732" style="--W:1400px;--H:732px">
   <div class="tile a"><div class="desk"></div><div class="stage">
     <div class="menubar"><div class="left"><span class="dot"></span><span class="app">Finder</span></div><div class="right"><span>Mon&nbsp;&nbsp;09:41</span></div></div>

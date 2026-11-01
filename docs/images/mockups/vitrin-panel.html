@@ -5,7 +5,6 @@
 <title>Nubrix Vitrin panel mockup</title>
 <link rel="stylesheet" href="kit.css">
 <style>
-/* ---- Vitrin cards (VitrinCards.swift). 1pt = 1px. Accent = system blue, dark appearance. ---- */
 :root { --accent: #0a84ff; --accent-18: rgba(10, 132, 255, .18); }
 .vcard {
   position: relative; flex: none; overflow: hidden; border-radius: 10px;
@@ -57,14 +56,11 @@
 .vc-host { font-size: 12px; font-weight: 600; line-height: 14.5px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
 .vc-rest { font-size: 10.5px; line-height: 13px; color: rgba(255, 255, 255, .55); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-all; }
 .vc-linkcol { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; }
-/* syntax colors (ClipHighlighter) */
 .sx-c { color: rgb(115, 148, 120); } .sx-s { color: rgb(250, 158, 102); } .sx-n { color: rgb(133, 194, 255); } .sx-k { color: rgb(245, 120, 199); }
-/* chip bar (VitrinChipBar) */
 .vc-chips { display: flex; align-items: center; gap: 6px; padding: 0 6px; height: 20px; }
 .vc-chip { height: 20px; padding: 0 9px; border-radius: 10px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .75); font-size: 10.5px; font-weight: 500; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .vc-chip .n { font-weight: 400; opacity: .55; font-variant-numeric: tabular-nums; }
 .vc-chip.sel { background: #fff; color: #000; }
-/* scroller (VitrinCardScroller) */
 .vc-row { display: flex; padding: 0 6px; overflow: hidden; position: relative; }
 .vc-row.fade { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); }
 
@@ -96,7 +92,6 @@
 </style>
 </head>
 <body>
-<!-- Vitrin showcase panel (VitrinPanel, 880x520): top = browse state, bottom = the same panel with the Space preview open. Stacked so the 9-10pt card text stays legible at README width. -->
 <div class="scene" data-size="1200x1192" style="--W:1200px;--H:1192px;--s:1.333333">
   <div class="stage" style="width:900px;height:894px">
     <div class="sec" style="top:0">
@@ -127,7 +122,6 @@
 
 <script src="icons.js"></script>
 <script>
-/* ---- Vitrin mock lib: hand-drawn icons, CSS thumbnails, highlighter, card builders ---- */
 var VS = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"';
 var VICONS = {
   photo: '<rect x="3" y="4.5" width="18" height="15" rx="3" ' + VS + ' stroke-width="2"/><circle cx="9" cy="10" r="1.7" fill="currentColor"/><path d="M4 17.2l5-4.6 3.4 3 3-2.6 5.2 4.2" ' + VS + ' stroke-width="2"/>',
@@ -142,7 +136,6 @@ function vi(name, size) {
 }
 function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-/* ClipHighlighter grammars (subset used here). Groups: comment, string, number, keyword. */
 var QUOTES = '"(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\'';
 function words(l) { return '\\b(?:' + l.split(' ').join('|') + ')\\b'; }
 var GRAMMAR = {
@@ -167,7 +160,6 @@ function hl(text, lang) {
   return out + esc(text.slice(cur));
 }
 
-/* ---- CSS thumbnails (dummy screenshots / images). Layout is percentage based so it fits any card size. ---- */
 function bar(l, t, w, h, bg, extra) { return '<i style="position:absolute;left:' + l + '%;top:' + t + '%;width:' + w + '%;height:' + h + '%;background:' + bg + ';border-radius:' + (extra || 1.5) + 'px"></i>'; }
 function windowShell(bg, titleBg, inner, wallpaper) {
   return '<div class="thumb" style="background:' + (wallpaper || 'linear-gradient(135deg,#5a67ff,#b863ff 60%,#ff8f6b)') + '">' +
@@ -201,7 +193,6 @@ var THUMB = {
   imgC: function () { return '<div class="thumb" style="background:radial-gradient(70% 60% at 25% 100%,#fde68a 0%,rgba(253,230,138,0) 70%),radial-gradient(80% 90% at 85% 15%,#22d3a6 0%,rgba(34,211,166,0) 70%),linear-gradient(160deg,#0b4f63,#0f766e)"></div>'; }
 };
 
-/* ---- card builders ---- */
 function foot(glyph, age, detail) {
   return '<div class="vc-foot"><span class="fi">' + vi(glyph, 10) + '</span><span>' + age + '</span>' +
     (detail ? '<span class="sp"></span><span class="tn">' + detail + '</span>' : '') + '</div>';
