@@ -21,7 +21,7 @@ Contents: [Features](#features) · [Install](#install) · [First launch](#first-
 **Claude Code sessions** (notch tab "Claude")
 - Shows each Claude Code session as Working, Needs you, Failed, Done or Idle, fed by Claude Code hooks
 - Works with the Claude Code CLI, the desktop app and the VS Code extension; each row shows where the session runs (Desktop, Terminal · iTerm, VS Code, Cursor, ...) and its git branch, and clicking a row brings that app to the front
-- Context window bar and session cost per row, and your 5-hour and weekly plan usage as percentages ([details](#usage-context-and-cost))
+- Context window bar and token count per row (cost in the row tooltip and the header's Today line), and your 5-hour and weekly plan usage as percentages ([details](#usage-context-and-cost))
 - Approve or deny Claude Code permission requests from the notch (Allow needs a real mouse click and risky requests need a second click; see [Approving permissions from the notch](#approving-permissions-from-the-notch))
 - A done, failed or needs-you event shows a banner on the closed notch and an inbox entry
 
@@ -35,7 +35,7 @@ Contents: [Features](#features) · [Install](#install) · [First launch](#first-
 **Vitrin, a clipboard and screenshot showcase** (notch tab "Vitrin", global shortcut Control-Option-V)
 - Keeps copied images, text and links locally and shows them as cards, with a filter for All, Images, Screenshots, Text and Links
 - Screenshots: after you allow read-only access to the folder where macOS saves screenshots, new screenshots appear in Vitrin and a thumbnail banner shows in the closed notch. Nubrix only reads new files there and never changes them. Screenshots you drag out of the macOS floating preview are not saved to disk, so Vitrin cannot show them (see [Troubleshooting](#troubleshooting))
-- Showcase panel under the notch with search, keyboard navigation (arrows, Enter to copy, P to pin, Delete to remove, Space for a large preview, Esc to close)
+- Showcase panel under the notch with search, keyboard navigation (arrows, Enter to copy, P to pin (⌘P in the large preview), Delete to remove, Space for a large preview, Esc to close)
 - Secret guard: text that looks like a credential (private keys, `sk-` keys, GitHub tokens, AWS keys, Slack tokens, JWTs, `Bearer` tokens, long high-entropy strings) is never stored; concealed, transient and password-manager pasteboard types are skipped
 - Excluded apps: nothing copied while an excluded app is frontmost is stored (password managers and Keychain Access are excluded by default; the list is editable)
 - Retention: history expires after a configurable period (default 30 days); pinned items never expire
@@ -114,7 +114,7 @@ brew trust --tap murathanbakti/tap
 brew install --cask nubrix
 ```
 
-Homebrew 7 only installs from non-official taps you have explicitly trusted, which is what `brew trust` does.
+Homebrew 7 only installs from non-official taps you have explicitly trusted, which is what `brew trust` does. The cask needs Homebrew 5.1.14 or later; `brew install` updates Homebrew first unless `HOMEBREW_NO_AUTO_UPDATE` is set.
 
 After installing, the cask runs `/usr/bin/xattr -dr com.apple.quarantine` on `Nubrix.app`, so macOS opens it without the "Nubrix was blocked" prompt, also after `brew upgrade`. Know what this costs: without the quarantine flag, Gatekeeper does not run Apple's malware check on this app at all. Your trust moves from Apple to the `murathanbakti/tap` tap (the cask file decides what is installed) and to the GitHub release it downloads, whose SHA-256 is pinned in the cask. Only this one app is affected; Gatekeeper stays on for everything else.
 
@@ -148,7 +148,7 @@ This needs Xcode 26 or later. `scripts/install-local.sh [--open]` builds Release
 
 Homebrew and install script users can skip this. It is for a `Nubrix-<version>.zip` you downloaded with a browser, while that version is not notarized:
 
-1. Open Nubrix (Spotlight or `/Applications`). macOS says "Nubrix" was blocked or cannot be verified. Click **Done**. Do **not** click **Move to Trash**: that deletes the app, and you have to download or `brew reinstall --cask nubrix` again.
+1. Open Nubrix (Spotlight or `/Applications`). macOS says "Nubrix" was blocked or cannot be verified. Click **Done** (**Cancel** on macOS 14 Sonoma). Do **not** click **Move to Trash**: that deletes the app, and you have to download or `brew reinstall --cask nubrix` again.
 2. Open Privacy & Security directly:
    ```sh
    open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
@@ -158,7 +158,7 @@ Homebrew and install script users can skip this. It is for a `Nubrix-<version>.z
 
 <!-- screenshot: docs/images/gatekeeper-open-anyway.png -->
 
-You do this once per download. On macOS 15 Sequoia and later, the older right-click then Open shortcut no longer bypasses this check; use Privacy & Security. You do not need to, and should not, turn Gatekeeper off (`spctl --master-disable`): it protects every other app on your Mac.
+You do this once per download. On macOS 14 Sonoma you can instead right-click Nubrix in Finder, choose Open and confirm with Open. On macOS 15 Sequoia and later that shortcut no longer bypasses this check; use Privacy & Security. You do not need to, and should not, turn Gatekeeper off (`spctl --master-disable`): it protects every other app on your Mac.
 
 If you built or verified the app yourself and prefer the terminal, `xattr -d com.apple.quarantine /Applications/Nubrix.app` removes the quarantine flag for that one app. Only do this for a copy whose origin and checksum you have verified.
 
@@ -168,7 +168,7 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 
 | Permission | Why | When |
 |---|---|---|
-| Calendars and Reminders (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet; reminder lists appear in Settings, but reminders are not shown in the notch yet | Calendar and meeting features |
+| Calendars (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | Calendar and meeting features |
 | Camera* | Mirror preview | When you open Mirror |
 | Accessibility* | Intercept volume and brightness keys to replace the system HUDs. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" |
 | Automation (Apple Events) | Control Spotify and Apple Music, the only two apps Nubrix is allowed to script | When you pick those sources in Settings, Media |
@@ -190,7 +190,7 @@ The hook kit is bundled in the app at `/Applications/Nubrix.app/Contents/Resourc
   ```sh
   bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
   ```
-  (adjust the path if you used `NUBRIX_INSTALL_DIR`). Run it through `bash`: macOS keeps the quarantine flag on files inside a Homebrew-installed app and can refuse to execute them directly. When run from the app bundle it first verifies the app's code signature.
+  (adjust the path if you used `NUBRIX_INSTALL_DIR`). Run it through `bash`: files inside an app downloaded with a browser keep the quarantine flag, and macOS can refuse to execute them directly. When run from the app bundle it first verifies the app's code signature.
 - From source: `scripts/install-hooks.sh` (already run by `scripts/install-local.sh`).
 
 The installer copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` (directories mode 0700, files 0500) and can be run again at any time. It then prints a `~/.claude/settings.json` snippet: hooks for all events, the `statusLine` command and `permissions.deny` rules. **It never edits `~/.claude/settings.json`**: you paste or merge the snippet yourself. Re-run the installer after every Nubrix update to refresh the copies. It warns if your settings still point into a source checkout.
@@ -248,7 +248,7 @@ Hooks run with your full privileges in every Claude Code session, so they must n
 claude --plugin-dir /path/to/nubrix/claude-plugin
 ```
 
-It registers `nubrix-hook` for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, PermissionDenied, Notification, Stop, StopFailure and SessionEnd. It has no `PermissionRequest` hook: notch approvals work only with the sealed copies. The plugin runs the scripts from the checkout, so prefer the sealed install for daily use.
+It registers `nubrix-hook` for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, PermissionDenied, Notification, Stop, StopFailure and SessionEnd. It has no `nubrix-permission` hook: notch approvals work only with the sealed copies. The plugin runs the scripts from the checkout, so prefer the sealed install for daily use.
 
 ### Source label, branch and jump
 
@@ -264,7 +264,7 @@ Where the numbers come from depends on how you run Claude Code:
 | Context %, cost (exact) | not available | status line |
 | 5h / 7d rate limits | official plan usage (`claude /usage`) | official plan usage, or the status line |
 
-**Transcript (works everywhere).** The desktop app never runs the `statusLine` command, but every hook payload names the session transcript. On `Stop` (and `SubagentStop`, if you configure that hook; the setup snippet does not), `nubrix-hook` reads only the tail of that file (at most the last 6 MB and 400 relevant lines, never the whole file; it needs the system `jq`) and sends Nubrix a handful of numbers: the context size (`input + cache_creation + cache_read` tokens of the last assistant message), the token totals of the turn since your last prompt, the model id and the id of the last message (to avoid counting a turn twice). No message text is read into the request or sent. The transcript must be a regular `.jsonl` file you own, not a symlink, under `~/.claude/`; anything else is ignored. A turn longer than about 4000 transcript lines is not counted (the context figure still is). The extra work is roughly 40 to 70 ms per `Stop` on a 20 MB transcript, in the background.
+**Transcript (works everywhere).** The desktop app never runs the `statusLine` command, but every hook payload names the session transcript. On `Stop` (and `SubagentStop`, if you configure that hook; the setup snippet does not), `nubrix-hook` reads only the tail of that file (first the last 6 MB and 400 relevant lines; only when the turn started before that, a second pass over the last 24 MB and 4000 relevant lines; never more, and never the whole file of a larger transcript; it needs the system `jq`) and sends Nubrix a handful of numbers: the context size (`input + cache_creation + cache_read` tokens of the last assistant message), the token totals of the turn since your last prompt, the model id and the id of the last message (to avoid counting a turn twice). No message text is read into the request or sent. The transcript must be a regular `.jsonl` file you own, not a symlink, under `~/.claude/`; anything else is ignored. A turn longer than about 4000 transcript lines is not counted (the context figure still is). The extra work is roughly 60 to 80 ms per `Stop` on a 20 MB transcript, and about 0.4 s when the second pass is needed, in the background.
 
 Nubrix shows, per session, a context bar with the percentage and the session's tokens (input, output and cache writes; cache reads are not counted), and in the header `Today · 1.2M tokens · ~$4.20`, reset at local midnight. Each counted turn is also kept in a small usage ledger, `Application Support/Nubrix/claude-usage.json` (mode 0600, written atomically at most every 5 s, pruned to 7 days and 20,000 records). A record holds only the time, a short hash of the session id, the token count, the estimated cost and the model id; no prompts, paths, project names or content. The Today line is computed from that ledger. The context window is taken from the status line when known; otherwise it is 1M when the model id contains `[1m]` or when the context already exceeds 200k, and 200k otherwise. Costs are marked `~` because they are estimates from built-in list prices per million tokens (Opus 5.5 $4/$20, Opus 4.x and 5 $5/$25, Sonnet 5.x $2/$10, Sonnet 4.x $3/$15, Haiku 5.5 $0.10/$0.50, Haiku 4.5 $1/$5, cache writes 1.25x input, cache reads as listed or 0.1x input); plans, discounts and unknown models are not reflected. A status line cost, when present, replaces the estimate.
 
@@ -344,7 +344,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, gestures, haptics |
 | Appearance | Accent colour, settings icon in the notch, spectrogram and album-art options, custom Lottie visualizers, mirror options |
 | Media | Music source (Now Playing, Apple Music, Spotify, YouTube Music), lyrics, full screen behavior |
-| Calendar | Calendars shown in the notch and the calendar sheet, reminder lists |
+| Calendar | Calendars shown in the notch, on the Home tab and in the calendar sheet |
 | HUDs | Replace the system volume, display and keyboard-brightness HUDs (needs Accessibility) |
 | Battery | Power and charging notifications in the notch |
 | Shelf | File shelf behaviour |
@@ -377,7 +377,7 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 ## Troubleshooting
 
-**macOS says Nubrix cannot be opened or is "damaged" or from an unidentified developer.** Click "Done", not "Move to Trash", then see [First launch and Gatekeeper](#first-launch-and-gatekeeper): Privacy & Security, "Open Anyway". With Homebrew this should not happen; run `brew reinstall --cask nubrix` to apply the cask's quarantine removal again.
+**macOS says Nubrix cannot be opened or is "damaged" or from an unidentified developer.** Click "Done" ("Cancel" on macOS 14), not "Move to Trash", then see [First launch and Gatekeeper](#first-launch-and-gatekeeper): Privacy & Security, "Open Anyway". With Homebrew this should not happen; run `brew reinstall --cask nubrix` to apply the cask's quarantine removal again.
 
 **I clicked "Move to Trash" and Nubrix is gone.** Run `brew reinstall --cask nubrix` (Homebrew still lists it as installed), or install again with the method you used before. Your settings and the hooks in `~/.config/nubrix` are kept.
 

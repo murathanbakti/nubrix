@@ -34,8 +34,8 @@ cask "nubrix" do
     so the first launch is not blocked. The cost: Gatekeeper skips Apple's malware
     check for this app, and you trust this tap and its GitHub release instead.
 
-    If macOS still says "Nubrix" was blocked, click "Done" in that dialog,
-    never "Move to Trash" (that deletes the app). Then run
+    If macOS still says "Nubrix" was blocked, click "Done" ("Cancel" on macOS 14)
+    in that dialog, never "Move to Trash" (that deletes the app). Then run
       open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
     and click "Open Anyway" next to the Nubrix message.
 
