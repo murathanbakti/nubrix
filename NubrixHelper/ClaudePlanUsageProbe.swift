@@ -14,6 +14,7 @@ struct ProbeLimit: Codable, Equatable {
 enum ProbeError: String, Codable {
     case notInstalled
     case notSubscriber
+    case signedOut
     case timeout
     case failed
     case unsupported
@@ -236,8 +237,11 @@ enum ClaudePlanUsageProbe {
         "-p", "--output-format", "stream-json", "--verbose", "--setting-sources", "project",
         "--tools", "", "--strict-mcp-config", "--no-session-persistence", "/usage"
     ]
+    static let authArguments = ["auth", "status"]
     static let timeout: TimeInterval = 30
+    static let authTimeout: TimeInterval = 15
     static let outputCap = 1_048_576
+    static let authOutputCap = 65_536
     static let searchPath = "/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin"
 
     private static let gate = NSLock()
@@ -272,6 +276,23 @@ enum ClaudePlanUsageProbe {
             "PATH": searchPath,
             "LANG": "en_US.UTF-8"
         ]
+        let run = executeViaLaunchd(executable: executable, arguments: arguments, environment: environment,
+                                    directory: directory, timeout: timeout, cap: outputCap)
+        guard run.launched else {
+            return executeDirect(executable: executable, environment: environment, directory: directory)
+        }
+        if run.unsupported { return .failure(.unsupported) }
+        let parsed = ClaudePlanUsageParser.parse(run.data)
+        if parsed.error == nil { return parsed }
+        if run.timedOut { return .failure(.timeout) }
+        if parsed.error == .failed,
+           isSignedOut(executable: executable, environment: environment, directory: directory) {
+            return .failure(.signedOut)
+        }
+        return parsed
+    }
+
+    private static func executeDirect(executable: URL, environment: [String: String], directory: URL) -> ProbeResult {
         let run = execute(executable: executable, arguments: arguments, environment: environment,
                           directory: directory, timeout: timeout, cap: outputCap)
         guard run.launched else { return .failure(.failed) }
@@ -279,12 +300,28 @@ enum ClaudePlanUsageProbe {
         let parsed = ClaudePlanUsageParser.parse(run.data)
         if parsed.error == nil { return parsed }
         if run.timedOut { return .failure(.timeout) }
+        return parsed
+    }
 
-        let fallback = executeViaLaunchd(executable: executable, arguments: arguments, environment: environment,
-                                         directory: directory, timeout: timeout, cap: outputCap)
-        guard fallback.launched, !fallback.unsupported else { return parsed }
-        let second = ClaudePlanUsageParser.parse(fallback.data)
-        return second.error == nil ? second : parsed
+    static func isSignedOut(executable: URL, environment: [String: String], directory: URL) -> Bool {
+        let run = executeViaLaunchd(executable: executable, arguments: authArguments, environment: environment,
+                                    directory: directory, timeout: authTimeout, cap: authOutputCap,
+                                    outputName: "launchd-auth.out", inspectsStream: false,
+                                    isComplete: isCompleteJSONObject)
+        guard run.launched, !run.timedOut, let object = jsonObject(run.data),
+              let flag = object["loggedIn"] as? NSNumber,
+              CFGetTypeID(flag) == CFBooleanGetTypeID() else { return false }
+        return !flag.boolValue
+    }
+
+    static func isCompleteJSONObject(_ data: Data) -> Bool {
+        jsonObject(data) != nil
+    }
+
+    static func jsonObject(_ data: Data) -> [String: Any]? {
+        guard let start = data.firstIndex(where: { $0 != 0x20 && $0 != 0x0A && $0 != 0x0D && $0 != 0x09 }),
+              data[start] == 0x7B else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
     static func makeScratchDirectory() -> URL? {
@@ -367,10 +404,12 @@ enum ClaudePlanUsageProbe {
     }
 
     static func executeViaLaunchd(executable: URL, arguments: [String], environment: [String: String],
-                                  directory: URL, timeout: TimeInterval, cap: Int) -> ProbeExecution {
+                                  directory: URL, timeout: TimeInterval, cap: Int,
+                                  outputName: String = "launchd.out", inspectsStream: Bool = true,
+                                  isComplete: (Data) -> Bool = hasResultLine) -> ProbeExecution {
         var execution = ProbeExecution()
         let label = "dev.nubrix.usage-probe." + randomHex()
-        let outputPath = directory.appendingPathComponent("launchd.out").path
+        let outputPath = directory.appendingPathComponent(outputName).path
 
         var submit = [
             "submit", "-l", label, "-o", outputPath, "-e", "/dev/null", "--",
@@ -394,13 +433,15 @@ enum ClaudePlanUsageProbe {
             let data = readFile(outputPath, cap: cap)
             execution.data = data
             execution.overflowed = data.count >= cap
-            var inspector = ProbeStreamInspector()
-            _ = inspector.feed(data)
-            if inspector.unsupported {
-                execution.unsupported = true
-                break
+            if inspectsStream {
+                var inspector = ProbeStreamInspector()
+                _ = inspector.feed(data)
+                if inspector.unsupported {
+                    execution.unsupported = true
+                    break
+                }
             }
-            if hasResultLine(data) || execution.overflowed { break }
+            if isComplete(data) || execution.overflowed { break }
             if ProbeSpawner.monotonic() >= deadline {
                 execution.timedOut = true
                 break

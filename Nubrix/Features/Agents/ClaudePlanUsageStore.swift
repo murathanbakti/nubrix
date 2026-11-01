@@ -69,6 +69,7 @@ final class ClaudePlanUsageStore: ObservableObject {
         case .unsupported: return turkish ? "Plan kullanımı için Claude Code'u güncelleyin" : "Update Claude Code to see plan usage"
         case .notInstalled: return turkish ? "Claude Code bulunamadı" : "Claude Code not found"
         case .notSubscriber: return turkish ? "Plan kullanımı Claude aboneliği gerektirir" : "Plan usage needs a Claude subscription"
+        case .signedOut: return turkish ? "Claude girişi gerekli: claude auth login" : "Claude sign-in needed: claude auth login"
         case .timeout, .failed: return nil
         }
     }

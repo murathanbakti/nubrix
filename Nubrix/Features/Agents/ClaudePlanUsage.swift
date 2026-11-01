@@ -57,6 +57,7 @@ struct ClaudePlanLimit: Codable, Equatable, Sendable {
 enum ClaudePlanFailure: String, Codable, Sendable {
     case notInstalled
     case notSubscriber
+    case signedOut
     case timeout
     case failed
     case unsupported
