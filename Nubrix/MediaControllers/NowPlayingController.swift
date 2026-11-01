@@ -100,22 +100,29 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     deinit {
-        streamTask?.cancel()
-        
-        if let pipeHandler = self.pipeHandler {
-            Task { await pipeHandler.close()
-            }
-        }
-        
-        if let process = self.process {
-            if process.isRunning {
-                process.terminate()
-                process.waitUntilExit()
-            }
-        }
+        stop()
 
-        self.process = nil
+        if let pipeHandler = self.pipeHandler {
+            Task { await pipeHandler.close() }
+        }
         self.pipeHandler = nil
+    }
+
+    func stop() {
+        streamTask?.cancel()
+        streamTask = nil
+        guard let process else { return }
+        self.process = nil
+        guard process.isRunning else { return }
+        let pid = process.processIdentifier
+        process.terminate()
+        let deadline = Date().addingTimeInterval(0.5)
+        while process.isRunning, Date() < deadline {
+            usleep(10_000)
+        }
+        if process.isRunning {
+            kill(pid, SIGKILL)
+        }
     }
 
     // MARK: - Protocol Implementation

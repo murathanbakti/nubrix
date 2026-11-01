@@ -103,8 +103,12 @@ class MusicManager: ObservableObject {
         flipWorkItem?.cancel()
         transitionWorkItem?.cancel()
 
-        // Release active controller
+        stopActiveController()
         activeController = nil
+    }
+
+    private func stopActiveController() {
+        (activeController as? NowPlayingController)?.stop()
     }
 
     // MARK: - Setup Methods
@@ -112,6 +116,7 @@ class MusicManager: ObservableObject {
         // Cleanup previous controller
         if activeController != nil {
             controllerCancellables.removeAll()
+            stopActiveController()
             activeController = nil
         }
 
