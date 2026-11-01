@@ -85,8 +85,8 @@ Contents: [Features](#features) · [Install](#install) · [First launch](#first-
 </p>
 
 **Calendar, meetings and mirror**
-- Calendar sheet that drops from the notch (header date pill or Control-Option-K) for events and reminders, with a day panel and quick add
-- Meeting countdown in the closed notch with a Join button when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link
+- Calendar sheet that drops from the notch (header date pill or Control-Option-K) for your events, with a day panel and quick add
+- Meeting countdown in the closed notch, and a meeting card with a Join button on the Home tab when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link
 - Mirror: a camera preview that splits out of the notch (Control-Option-M)
 
 <p align="center">
@@ -168,7 +168,7 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 
 | Permission | Why | When |
 |---|---|---|
-| Calendars and Reminders (full access)* | Show upcoming events and reminders, meeting countdown, add events from the calendar sheet | Calendar and meeting features |
+| Calendars and Reminders (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet; reminder lists appear in Settings, but reminders are not shown in the notch yet | Calendar and meeting features |
 | Camera* | Mirror preview | When you open Mirror |
 | Accessibility* | Intercept volume and brightness keys to replace the system HUDs. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" |
 | Automation (Apple Events) | Control Spotify and Apple Music, the only two apps Nubrix is allowed to script | When you pick those sources in Settings, Media |
@@ -344,7 +344,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, gestures, haptics |
 | Appearance | Accent colour, settings icon in the notch, spectrogram and album-art options, custom Lottie visualizers, mirror options |
 | Media | Music source (Now Playing, Apple Music, Spotify, YouTube Music), lyrics, full screen behavior |
-| Calendar | Calendars and reminders shown in the notch and the calendar sheet |
+| Calendar | Calendars shown in the notch and the calendar sheet, reminder lists |
 | HUDs | Replace the system volume, display and keyboard-brightness HUDs (needs Accessibility) |
 | Battery | Power and charging notifications in the notch |
 | Shelf | File shelf behaviour |
