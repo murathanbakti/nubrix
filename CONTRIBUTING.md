@@ -88,7 +88,22 @@ Nubrix started as a fork of the project named in the README's Credits section an
 4. Check the draft, then publish it.
 5. Update the cask in [murathanbakti/homebrew-tap](https://github.com/murathanbakti/homebrew-tap) with the workflow's rendered `nubrix.rb` (`Casks/nubrix.rb`) and push.
 
-Releases are ad-hoc signed and not notarized, and there is no auto-updater; users update with `brew upgrade --cask nubrix` or by running the install script again.
+### Signing and notarization
+
+Without signing secrets the workflow builds an ad-hoc signed release that is not notarized, as before. With them it re-signs every piece of code in the bundle with a Developer ID Application certificate (hardened runtime, secure timestamp, existing entitlements kept, `get-task-allow` removed), from the inside out: `MediaRemoteAdapterTestClient`, `Lottie.framework`, `MediaRemoteAdapter.framework`, `NubrixHelper.xpc`, then `Nubrix.app`. The hook kit scripts and `notchctl` are sealed by the app signature. It then submits the app with `notarytool`, staples the ticket and checks it with `spctl`. The draft release notes say which kind of build it is.
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `DEVELOPER_ID_P12_BASE64` | secret | `base64 -i DeveloperID.p12` of the exported Developer ID Application certificate and its private key |
+| `DEVELOPER_ID_P12_PASSWORD` | secret | the password chosen when exporting the `.p12` |
+| `NOTARY_API_KEY_P8_BASE64` | secret | `base64 -i AuthKey_<KEYID>.p8` of an App Store Connect API key |
+| `NOTARY_API_KEY_ID` | secret | the key ID of that API key |
+| `NOTARY_API_ISSUER_ID` | secret | the issuer ID shown above the App Store Connect key list |
+| `APPLE_TEAM_ID` | variable | the 10 character team ID that owns the certificate |
+
+If `DEVELOPER_ID_P12_BASE64` is set, all other entries are required and the workflow stops when one is missing. Locally, `NUBRIX_SIGN_IDENTITY=- scripts/sign-release.sh <app>` runs the same re-signing ad hoc as a dry run.
+
+There is no auto-updater; users update with `brew upgrade --cask nubrix` or by running the install script again.
 
 ## Reporting bugs and requesting features
 

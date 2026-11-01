@@ -16,6 +16,10 @@ cask "nubrix" do
 
   app "Nubrix.app"
 
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/Nubrix.app"]
+  end
+
   uninstall quit: "dev.nubrix.app"
 
   zap trash: [
@@ -26,9 +30,14 @@ cask "nubrix" do
   ]
 
   caveats <<~EOS
-    Nubrix is ad-hoc signed and not notarized, so macOS blocks the first launch.
-    Open System Settings > Privacy & Security, scroll to the message about "Nubrix"
-    and click "Open Anyway". This is needed once; macOS may ask again after an upgrade.
+    This cask removes the macOS quarantine flag from Nubrix.app after installing it,
+    so the first launch is not blocked. The cost: Gatekeeper skips Apple's malware
+    check for this app, and you trust this tap and its GitHub release instead.
+
+    If macOS still says "Nubrix" was blocked, click "Done" in that dialog,
+    never "Move to Trash" (that deletes the app). Then run
+      open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
+    and click "Open Anyway" next to the Nubrix message.
 
     Optional Claude Code hooks (session status in the notch):
       bash "#{appdir}/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh"

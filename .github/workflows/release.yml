@@ -67,15 +67,126 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
+      - name: Choose signing mode
+        env:
+          DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_API_KEY_P8_BASE64: ${{ secrets.NOTARY_API_KEY_P8_BASE64 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          if [[ -z "$DEVELOPER_ID_P12_BASE64" ]]; then
+            echo "::notice::No Developer ID secrets, building an ad-hoc signed release that is not notarized"
+            echo "SIGNING_MODE=adhoc" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          missing=()
+          [[ -n "$DEVELOPER_ID_P12_PASSWORD" ]] || missing+=("secret DEVELOPER_ID_P12_PASSWORD")
+          [[ -n "$NOTARY_API_KEY_P8_BASE64" ]] || missing+=("secret NOTARY_API_KEY_P8_BASE64")
+          [[ -n "$NOTARY_API_KEY_ID" ]] || missing+=("secret NOTARY_API_KEY_ID")
+          [[ -n "$NOTARY_API_ISSUER_ID" ]] || missing+=("secret NOTARY_API_ISSUER_ID")
+          [[ "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || missing+=("variable APPLE_TEAM_ID (10 characters)")
+          if (( ${#missing[@]} )); then
+            echo "::error::DEVELOPER_ID_P12_BASE64 is set but these are missing: ${missing[*]}"
+            exit 1
+          fi
+          echo "SIGNING_MODE=developer-id" >> "$GITHUB_ENV"
+
+      - name: Import Developer ID certificate and notary key
+        if: env.SIGNING_MODE == 'developer-id'
+        env:
+          DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_API_KEY_P8_BASE64: ${{ secrets.NOTARY_API_KEY_P8_BASE64 }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          umask 077
+          secrets_dir="$RUNNER_TEMP/nubrix-signing"
+          mkdir -p "$secrets_dir"
+          keychain="$secrets_dir/signing.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$keychain_password"
+
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+
+          printf '%s' "$DEVELOPER_ID_P12_BASE64" | base64 --decode > "$secrets_dir/developer-id.p12"
+          security import "$secrets_dir/developer-id.p12" -k "$keychain" -f pkcs12 \
+            -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$secrets_dir/developer-id.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
+          search=("$keychain")
+          while IFS= read -r line; do
+            line="${line//\"/}"
+            line="${line#"${line%%[![:space:]]*}"}"
+            [[ -n "$line" ]] && search+=("$line")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${search[@]}"
+
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | awk -v team="($APPLE_TEAM_ID)" '/"Developer ID Application: / && index($0, team) { print $2; exit }')"
+          if [[ -z "$identity" ]]; then
+            echo "::error::The .p12 holds no valid Developer ID Application identity for team $APPLE_TEAM_ID"
+            security find-identity -v -p codesigning "$keychain" | sed 's/^ *[0-9]*) [0-9A-F]* /  /'
+            exit 1
+          fi
+
+          printf '%s' "$NOTARY_API_KEY_P8_BASE64" | base64 --decode > "$secrets_dir/AuthKey.p8"
+          grep -q 'BEGIN PRIVATE KEY' "$secrets_dir/AuthKey.p8" || { echo "::error::NOTARY_API_KEY_P8_BASE64 does not decode to a .p8 key"; exit 1; }
+
+          {
+            echo "NUBRIX_SIGN_IDENTITY=$identity"
+            echo "NUBRIX_SIGN_KEYCHAIN=$keychain"
+            echo "NUBRIX_TEAM_ID=$APPLE_TEAM_ID"
+            echo "NOTARY_KEY_PATH=$secrets_dir/AuthKey.p8"
+          } >> "$GITHUB_ENV"
+
       - name: Package
         run: scripts/package-release.sh "$VERSION"
         env:
           NUBRIX_DERIVED_DATA: ${{ runner.temp }}/DerivedData-release
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+
+      - name: Remove signing keychain and notary key
+        if: always()
+        run: |
+          secrets_dir="$RUNNER_TEMP/nubrix-signing"
+          if [[ -f "$secrets_dir/signing.keychain-db" ]]; then
+            security delete-keychain "$secrets_dir/signing.keychain-db" || true
+          fi
+          rm -rf "$secrets_dir"
+
+      - name: Verify release zip
+        run: |
+          check="$RUNNER_TEMP/verify-zip"
+          rm -rf "$check"
+          mkdir -p "$check"
+          ditto -x -k "dist/Nubrix-$VERSION.zip" "$check"
+          app="$check/Nubrix.app"
+          scripts/verify-bundle.sh "$app"
+          details="$(codesign -dvv "$app" 2>&1)"
+          grep -E '^(Authority|TeamIdentifier|Timestamp|Signature)=' <<< "$details" || true
+          if [[ "$SIGNING_MODE" == "developer-id" ]]; then
+            xcrun stapler validate "$app"
+            assessment="$(spctl --assess --type execute --verbose=2 "$app" 2>&1)"
+            echo "$assessment"
+            grep -q 'source=Notarized Developer ID' <<< "$assessment"
+          else
+            grep -q '^Signature=adhoc' <<< "$details"
+          fi
 
       - name: Create draft release
         run: |
+          if [[ "$SIGNING_MODE" == "developer-id" ]]; then
+            signing_note="Signed with a Developer ID and notarized by Apple, so macOS opens it without a Gatekeeper prompt."
+          else
+            signing_note="Ad-hoc signed and not notarized. If you download the zip yourself, see [First launch](https://github.com/$GITHUB_REPOSITORY#first-launch-and-gatekeeper) in the README."
+          fi
           gh release create "$TAG" dist/Nubrix-*.zip dist/Nubrix-*.zip.sha256 \
-            --draft --verify-tag --title "Nubrix $VERSION" --generate-notes
+            --draft --verify-tag --title "Nubrix $VERSION" --notes "$signing_note" --generate-notes
 
       - name: Summary
         run: |
@@ -83,6 +194,8 @@ jobs:
             echo "## Nubrix $VERSION"
             echo
             echo "Draft release created for \`$TAG\`. Review and publish it, then copy the cask below into the tap."
+            echo
+            echo "Signing: \`$SIGNING_MODE\`"
             echo
             echo "SHA-256:"
             echo '```'

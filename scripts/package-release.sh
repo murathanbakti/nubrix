@@ -13,6 +13,10 @@ fail() {
 
 mkdir -p "$(dirname "$log")"
 
+if [ -n "${NOTARY_KEY_PATH:-}" ] && [ -z "${NUBRIX_SIGN_IDENTITY:-}" ]; then
+  fail "NOTARY_KEY_PATH is set but NUBRIX_SIGN_IDENTITY is not; only Developer ID builds can be notarized"
+fi
+
 if [ $# -ge 1 ]; then
   version="$1"
 else
@@ -65,9 +69,21 @@ for bin in "${binaries[@]}"; do
   done
 done
 
-zip="Nubrix-$version.zip"
 rm -rf "$dist"
 mkdir -p "$dist"
+
+signing="ad-hoc, not notarized"
+if [ -n "${NUBRIX_SIGN_IDENTITY:-}" ]; then
+  "$root/scripts/sign-release.sh" "$app"
+  "$root/scripts/verify-bundle.sh" "$app"
+  signing="Developer ID (${NUBRIX_TEAM_ID:-?}), not notarized"
+  if [ -n "${NOTARY_KEY_PATH:-}" ]; then
+    NUBRIX_NOTARY_LOG_DIR="$dist" "$root/scripts/notarize-release.sh" "$app"
+    signing="Developer ID (${NUBRIX_TEAM_ID:-?}), notarized and stapled"
+  fi
+fi
+
+zip="Nubrix-$version.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$dist/$zip"
 sha="$(shasum -a 256 "$dist/$zip" | awk '{ print $1 }')"
 printf '%s  %s\n' "$sha" "$zip" > "$dist/$zip.sha256"
@@ -76,6 +92,7 @@ printf '%s  %s\n' "$sha" "$zip" > "$dist/$zip.sha256"
 echo
 echo "Version  $version"
 echo "Archs    arm64 x86_64"
+echo "Signing  $signing"
 echo "Zip      $dist/$zip"
 echo "SHA-256  $sha"
 echo "Cask     $dist/nubrix.rb"

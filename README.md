@@ -74,7 +74,7 @@ Nubrix works on Macs with and without a notch. Without a notch it draws the bar 
 
 Releases are published on [GitHub Releases](https://github.com/murathanbakti/nubrix/releases) for each tag `vX.Y.Z`. The asset is `Nubrix-<version>.zip` (it contains `Nubrix.app`, a universal arm64 and x86_64 build) with a `Nubrix-<version>.zip.sha256` checksum, both built by GitHub Actions. The current version is 0.1.0.
 
-The app is ad-hoc signed with the hardened runtime and is **not notarized**: there is no paid Apple Developer account. macOS will therefore block the first launch; see [First launch and Gatekeeper](#first-launch-and-gatekeeper).
+Nubrix 0.1.0 is ad-hoc signed with the hardened runtime and is **not notarized**. The release workflow can sign with a Developer ID and have Apple notarize the build; each release's notes say which kind it is. Homebrew and the install script below avoid the Gatekeeper block either way; for a zip you download yourself, see [First launch and Gatekeeper](#first-launch-and-gatekeeper).
 
 ### Homebrew (recommended)
 
@@ -84,7 +84,9 @@ brew trust --tap murathanbakti/tap
 brew install --cask nubrix
 ```
 
-Homebrew 7 only installs from non-official taps you have explicitly trusted, which is what `brew trust` does. Homebrew no longer supports `--no-quarantine`, so the app is quarantined and the first launch is blocked by Gatekeeper.
+Homebrew 7 only installs from non-official taps you have explicitly trusted, which is what `brew trust` does.
+
+After installing, the cask runs `/usr/bin/xattr -dr com.apple.quarantine` on `Nubrix.app`, so macOS opens it without the "Nubrix was blocked" prompt, also after `brew upgrade`. Know what this costs: without the quarantine flag, Gatekeeper does not run Apple's malware check on this app at all. Your trust moves from Apple to the `murathanbakti/tap` tap (the cask file decides what is installed) and to the GitHub release it downloads, whose SHA-256 is pinned in the cask. Only this one app is affected; Gatekeeper stays on for everything else.
 
 ### Install script
 
@@ -114,15 +116,19 @@ This needs Xcode 26 or later. `scripts/install-local.sh [--open]` builds Release
 
 ## First launch and Gatekeeper
 
-For Homebrew installs, and for anything you downloaded with a browser, the first launch goes like this:
+Homebrew and install script users can skip this. It is for a `Nubrix-<version>.zip` you downloaded with a browser, while that version is not notarized:
 
-1. Open Nubrix (Spotlight or `/Applications`). macOS says it cannot verify that Nubrix is free of malware. Dismiss the dialog (Done).
-2. Open System Settings, Privacy & Security, and scroll down to the message "Nubrix was blocked to protect your Mac".
+1. Open Nubrix (Spotlight or `/Applications`). macOS says "Nubrix" was blocked or cannot be verified. Click **Done**. Do **not** click **Move to Trash**: that deletes the app, and you have to download or `brew reinstall --cask nubrix` again.
+2. Open Privacy & Security directly:
+   ```sh
+   open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
+   ```
+   or go to System Settings, Privacy & Security, and scroll down to the message "Nubrix was blocked to protect your Mac".
 3. Click "Open Anyway" and confirm with your admin password or Touch ID. Open Nubrix again and confirm.
 
 <!-- screenshot: docs/images/gatekeeper-open-anyway.png -->
 
-You do this once per install and once after each upgrade. On macOS 15 Sequoia and later, the older right-click then Open shortcut no longer bypasses this check; use Privacy & Security. You do not need to, and should not, turn Gatekeeper off (`spctl --master-disable`): it protects every other app on your Mac.
+You do this once per download. On macOS 15 Sequoia and later, the older right-click then Open shortcut no longer bypasses this check; use Privacy & Security. You do not need to, and should not, turn Gatekeeper off (`spctl --master-disable`): it protects every other app on your Mac.
 
 If you built or verified the app yourself and prefer the terminal, `xattr -d com.apple.quarantine /Applications/Nubrix.app` removes the quarantine flag for that one app. Only do this for a copy whose origin and checksum you have verified.
 
@@ -341,7 +347,9 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 ## Troubleshooting
 
-**macOS says Nubrix cannot be opened or is "damaged" or from an unidentified developer.** See [First launch and Gatekeeper](#first-launch-and-gatekeeper): Privacy & Security, "Open Anyway". Repeat after each upgrade.
+**macOS says Nubrix cannot be opened or is "damaged" or from an unidentified developer.** Click "Done", not "Move to Trash", then see [First launch and Gatekeeper](#first-launch-and-gatekeeper): Privacy & Security, "Open Anyway". With Homebrew this should not happen; run `brew reinstall --cask nubrix` to apply the cask's quarantine removal again.
+
+**I clicked "Move to Trash" and Nubrix is gone.** Run `brew reinstall --cask nubrix` (Homebrew still lists it as installed), or install again with the method you used before. Your settings and the hooks in `~/.config/nubrix` are kept.
 
 **The Keychain asks for access, or Camera, Calendar or Accessibility permissions are asked again after an update.** Release builds are ad-hoc signed, so the code identity changes with every version, and macOS ties Keychain access and permission grants to it. Click "Always Allow" for the Keychain item, and grant the permissions again if macOS asks. Your GitHub token is not lost.
 
@@ -363,13 +371,13 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 ## Updating
 
-Nubrix has no auto-updater. Update with the method you installed with, then repeat the Gatekeeper step and refresh the hooks:
+Nubrix has no auto-updater. Update with the method you installed with, then refresh the hooks:
 
 ```sh
 brew upgrade --cask nubrix
 ```
 
-or run the install script again (it installs the latest release), or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again (System Settings, Privacy & Security, "Open Anyway" if it was blocked).
+or run the install script again (it installs the latest release), or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again. Only a zip you downloaded with a browser needs the [First launch](#first-launch-and-gatekeeper) step again.
 
 ## Uninstall
 
