@@ -1,16 +1,18 @@
 # Supply chain: committed `mediaremote-adapter` binaries
 
-Nubrix reads system now-playing data through [ungive/mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD-3-Clause, see `THIRD_PARTY_LICENSES`). The built artifacts are committed in `mediaremote-adapter/` and were not built by this repository's tooling. Their upstream tag and commit were not recorded when they were added, so the provenance is unproven.
+Nubrix reads system now-playing data through [ungive/mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD-3-Clause, see `THIRD_PARTY_LICENSES`). The built artifacts are committed in `mediaremote-adapter/`. They are built from upstream tag `v0.7.2` (commit `dc3ff1740e2035a2490ec67d3b33322449af780a`) by `scripts/build-mediaremote-adapter.sh`, for arm64 and x86_64 with a macOS 14.0 deployment target.
+
+The binaries committed before 2026-11-02 had no recorded provenance and a macOS 15.0 deployment target. They were identified as `v0.7.2`: a rebuild of that tag has the same exported, imported and local symbols, the same strings and the same `__text` size (44,628 bytes on arm64) as the old framework. The test client differs only by the runtime availability check that a macOS 14 target adds.
 
 ## What is committed
 
 | File | Use | SHA-256 |
 |---|---|---|
-| `mediaremote-adapter/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter` | embedded in `Contents/Frameworks`, loaded by `/usr/bin/perl` | `91eb19837ca9f2779e476dc8e67d12bc28331dd557c87a19b0e45463c739c2fc` |
-| `mediaremote-adapter/MediaRemoteAdapterTestClient` | copied into `Contents/Resources`, run by `helpers/MediaChecker.swift` | `f177cc4a7d79ea5d70f330eac6266884527039196215738373ea813034285c2a` |
+| `mediaremote-adapter/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter` | embedded in `Contents/Frameworks`, loaded by `/usr/bin/perl` | `ac830b1ddb860875ac9dc52e97cc246f4c79ba422e971fed825aea1a7ce7ce42` |
+| `mediaremote-adapter/MediaRemoteAdapterTestClient` | copied into `Contents/Resources`, run by `helpers/MediaChecker.swift` | `dac9ee90c28e7dda39849beeae25437828e1599a35378a00469d2dc30cbdf8c1` |
 | `mediaremote-adapter/mediaremote-adapter.pl` | Perl loader used by `NowPlayingController.swift` and `MediaChecker.swift` | `9ac5ed4532ad78431a85dd30e353efeca84391c4b84c760de74399c09cc2f2ca` |
 
-Both binaries are ad-hoc signed (`com.vandenbe.MediaRemoteAdapter`, no Team ID). Because Release builds run with the hardened runtime, the app carries `com.apple.security.cs.disable-library-validation` (`Nubrix/Nubrix.release.entitlements`) so that dyld accepts this framework. This means the app will load any code-signed library placed at the paths it opens, so the integrity of this directory matters.
+Both binaries are ad-hoc signed (`com.vandenbe.MediaRemoteAdapter` and `MediaRemoteAdapterTestClient`, no Team ID). The app does not link the framework; it only embeds it for `/usr/bin/perl`. Linking it would run its load-time constructor in the app, which installs SIGINT and SIGTERM handlers that stop a stream the app never runs, so the app would ignore `kill` and `killall`. Because Release builds run with the hardened runtime, the app carries `com.apple.security.cs.disable-library-validation` (`Nubrix/Nubrix.release.entitlements`) so that dyld accepts this framework. This means the app will load any code-signed library placed at the paths it opens, so the integrity of this directory matters.
 
 ## Check the committed files
 
@@ -22,15 +24,15 @@ codesign -dv mediaremote-adapter/MediaRemoteAdapter.framework
 
 Compare the output with the table above. A mismatch means the files changed since this note was written.
 
-## Rebuild and compare
+## Rebuild
 
-1. Clone `https://github.com/ungive/mediaremote-adapter` and check out a release tag. Record the tag and commit hash here.
-2. Build with the upstream instructions (CMake, Xcode command line tools), for the same architectures the committed framework contains (`lipo -archs`).
-3. Sign ad hoc (`codesign -f -s - <bundle>`).
-4. Compare the Mach-O `__TEXT` and `__DATA` segments with the committed copy (`otool -l`, or `codesign -dvvv` for the cdhash). The signature and build paths differ, so a byte-for-byte match is not expected.
-5. If the rebuild matches, replace the committed files with the rebuilt ones in a reviewed commit, and update the hashes and the tag above.
+```sh
+scripts/build-mediaremote-adapter.sh
+git diff --stat mediaremote-adapter/
+```
+
+The script clones the pinned tag, checks that it resolves to the pinned commit, builds both binaries with `clang` using the source list and frameworks from upstream `CMakeLists.txt`, copies the Perl loader, signs ad hoc and prints the SHA-256 values. It fails if any source uses an API newer than the deployment target without an availability check. Update the table above after a rebuild, and review the upstream diff before moving the pin to a new tag.
 
 ## Open items
 
-- Record the upstream tag and commit that produced the current binaries.
 - Verify the SHA-256 of the framework and test client in a build phase, or build them in CI from the pinned tag.
