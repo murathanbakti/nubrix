@@ -102,7 +102,7 @@ final class TodayTileModel: ObservableObject {
         let end = calendar.date(byAdding: .day, value: 2, to: start) ?? start
         let ids = Array(CalendarManager.shared.selectedCalendarIDs)
         loadTask = Task { [service] in
-            let result = await service.events(from: start, to: end, calendars: ids, includeReminders: false)
+            let result = await service.events(from: start, to: end, calendars: ids)
             guard !Task.isCancelled else { return }
             if self.events != result { self.events = result }
         }

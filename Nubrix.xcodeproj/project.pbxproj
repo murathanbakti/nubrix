@@ -1254,7 +1254,6 @@
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Nubrix shows your upcoming events in the notch and lets you add events from its calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to display a live camera view";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "This app uses Reminders to display your scheduled reminder in the calendar";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1309,7 +1308,6 @@
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Nubrix shows your upcoming events in the notch and lets you add events from its calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to display a live camera view";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "This app uses Reminders to display your scheduled reminder in the calendar";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

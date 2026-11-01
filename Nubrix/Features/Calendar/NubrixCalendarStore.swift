@@ -1,6 +1,7 @@
 @preconcurrency import EventKit
 import AppKit
 import Combine
+import Defaults
 import SwiftUI
 
 enum NubrixCalendarStoreError: LocalizedError {
@@ -76,6 +77,13 @@ final class NubrixCalendarStore: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refreshAccess() }
             .store(in: &cancellables)
+        Defaults.publisher(.calendarSelectionState, options: [])
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.dirty = true
+                self?.reload()
+            }
+            .store(in: &cancellables)
     }
 
     func refreshAccess() {
@@ -124,6 +132,10 @@ final class NubrixCalendarStore: ObservableObject {
             return
         }
         let range = loadedRange
+        let shownIDs: Set<String>? = switch Defaults[.calendarSelectionState] {
+        case .all: nil
+        case .selected(let ids): ids
+        }
         dirty = false
         reloadTask = Task {
             let snapshot = await eventStore.perform { store -> Snapshot in
@@ -134,8 +146,13 @@ final class NubrixCalendarStore: ObservableObject {
                 let defaultID = calendars.contains { $0.id == preferred } ? preferred : calendars.first?.id
                 var events: [NubrixCalendarEvent]?
                 if let range {
-                    let predicate = store.predicateForEvents(withStart: range.start, end: range.end, calendars: nil)
-                    events = store.events(matching: predicate).map(Self.convert)
+                    let shown = shownIDs.map { ids in store.calendars(for: .event).filter { ids.contains($0.calendarIdentifier) } }
+                    if shown?.isEmpty == true {
+                        events = []
+                    } else {
+                        let predicate = store.predicateForEvents(withStart: range.start, end: range.end, calendars: shown)
+                        events = store.events(matching: predicate).map(Self.convert)
+                    }
                 }
                 return Snapshot(calendars: calendars, defaultCalendarID: defaultID, events: events)
             }

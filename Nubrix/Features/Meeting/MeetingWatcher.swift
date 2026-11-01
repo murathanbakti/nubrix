@@ -90,7 +90,7 @@ final class MeetingWatcher: ObservableObject {
         fetchTask?.cancel()
         let windowEnd = end.addingTimeInterval(Self.prefetchExtra)
         fetchTask = Task { [service] in
-            let events = await service.events(from: start, to: windowEnd, calendars: ids, includeReminders: false)
+            let events = await service.events(from: start, to: windowEnd, calendars: ids)
             guard !Task.isCancelled else { return }
             self.cachedEvents = events
             self.cacheWindow = (start, windowEnd)

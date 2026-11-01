@@ -23,7 +23,7 @@ struct MeetingSettingsSection: View {
         } header: {
             Text("Meetings")
         } footer: {
-            Text("Shows the next meeting in the closed notch with a Join button when it has a Zoom, Meet or Teams link.")
+            Text("Counts down to the next meeting in the closed notch. The meeting card on the Home tab has a Join button when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }
