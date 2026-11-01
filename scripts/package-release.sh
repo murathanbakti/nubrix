@@ -85,6 +85,8 @@ fi
 
 zip="Nubrix-$version.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$dist/$zip"
+dsyms="dSYMs-$version.zip"
+(cd "$derived/Build/Products/Release" && zip -qry "$dist/$dsyms" ./*.dSYM)
 sha="$(shasum -a 256 "$dist/$zip" | awk '{ print $1 }')"
 printf '%s  %s\n' "$sha" "$zip" > "$dist/$zip.sha256"
 "$root/scripts/render-cask.sh" "$version" "$sha" > "$dist/nubrix.rb"
@@ -94,5 +96,6 @@ echo "Version  $version"
 echo "Archs    arm64 x86_64"
 echo "Signing  $signing"
 echo "Zip      $dist/$zip"
+echo "dSYMs    $dist/$dsyms"
 echo "SHA-256  $sha"
 echo "Cask     $dist/nubrix.rb"
