@@ -416,10 +416,13 @@ struct AgentPermissionPayload: Equatable {
         self.source = source
     }
 
+    static let interactiveTools: Set<String> = ["AskUserQuestion", "ExitPlanMode"]
+
     init?(json: Data, waitHeader: String?, source: AgentSourceInfo, id: UUID = UUID()) {
         guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
               let sessionID = object["session_id"] as? String, !sessionID.isEmpty,
-              let toolName = object["tool_name"] as? String, !toolName.isEmpty
+              let toolName = object["tool_name"] as? String, !toolName.isEmpty,
+              !Self.interactiveTools.contains(toolName)
         else { return nil }
         let input = object["tool_input"] as? [String: Any]
         let cwd = object["cwd"] as? String

@@ -90,6 +90,9 @@ body="$(/usr/bin/head -c 65537)"
 [ "${#body}" -le 65536 ] || exit 0
 session="$(nubrix_json_string session_id "$body")"
 [ -n "$session" ] || exit 0
+case "$(nubrix_json_string tool_name "$body")" in
+  AskUserQuestion|ExitPlanMode) exit 0 ;;
+esac
 
 case "${CLAUDE_CODE_ENTRYPOINT:-}" in
   claude-desktop|claude-vscode|sdk-*) wait=110 ;;
