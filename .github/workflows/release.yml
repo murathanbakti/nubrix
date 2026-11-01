@@ -28,7 +28,6 @@ jobs:
       PROJECT_NAME: Nubrix
       XCODE_VERSION: "26.6"
       TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -77,6 +76,16 @@ jobs:
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
           if [[ -z "$DEVELOPER_ID_P12_BASE64" ]]; then
+            present=()
+            [[ -z "$DEVELOPER_ID_P12_PASSWORD" ]] || present+=("secret DEVELOPER_ID_P12_PASSWORD")
+            [[ -z "$NOTARY_API_KEY_P8_BASE64" ]] || present+=("secret NOTARY_API_KEY_P8_BASE64")
+            [[ -z "$NOTARY_API_KEY_ID" ]] || present+=("secret NOTARY_API_KEY_ID")
+            [[ -z "$NOTARY_API_ISSUER_ID" ]] || present+=("secret NOTARY_API_ISSUER_ID")
+            [[ -z "$APPLE_TEAM_ID" ]] || present+=("variable APPLE_TEAM_ID")
+            if (( ${#present[@]} )); then
+              echo "::error::DEVELOPER_ID_P12_BASE64 is empty but these are set: ${present[*]}. Add the .p12 for a Developer ID release, or remove them for an ad-hoc one"
+              exit 1
+            fi
             echo "::notice::No Developer ID secrets, building an ad-hoc signed release that is not notarized"
             echo "SIGNING_MODE=adhoc" >> "$GITHUB_ENV"
             exit 0
@@ -179,6 +188,8 @@ jobs:
           fi
 
       - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [[ "$SIGNING_MODE" == "developer-id" ]]; then
             signing_note="Signed with a Developer ID and notarized by Apple, so macOS opens it without a Gatekeeper prompt."
