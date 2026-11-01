@@ -8,7 +8,11 @@ Everything runs locally. There is no account, no cloud service, no telemetry and
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)](#requirements)
 [![Latest release](https://img.shields.io/github/v/release/murathanbakti/nubrix)](https://github.com/murathanbakti/nubrix/releases/latest)
 
-<!-- screenshot: docs/images/hero.png (TODO, see docs/images/README.md) -->
+<p align="center">
+  <img src="docs/images/hero.png" alt="The open Nubrix notch on the Home tab with the music player and the Claude plan usage card" width="100%">
+  <br>
+  <sub>All images are rendered mockups with sample data. See <a href="docs/images/README.md">docs/images</a>.</sub>
+</p>
 
 Contents: [Features](#features) · [Install](#install) · [First launch](#first-launch-and-gatekeeper) · [Permissions](#permissions) · [Claude Code setup](#claude-code-setup) · [notchctl](#notchctl) · [Settings](#settings) · [Privacy and security](#privacy-and-security) · [Troubleshooting](#troubleshooting) · [Updating](#updating) · [Uninstall](#uninstall) · [Contributing](#building-and-contributing) · [License and credits](#license)
 
@@ -21,7 +25,12 @@ Contents: [Features](#features) · [Install](#install) · [First launch](#first-
 - Approve or deny Claude Code permission requests from the notch (Allow needs a real mouse click and risky requests need a second click; see [Approving permissions from the notch](#approving-permissions-from-the-notch))
 - A done, failed or needs-you event shows a banner on the closed notch and an inbox entry
 
-<!-- screenshot: docs/images/claude-sessions.png, docs/images/permission-approval.png, docs/images/usage.png -->
+<p align="center">
+  <img src="docs/images/claude-sessions.png" alt="The Claude tab with four sessions: Needs you, Working with a PR chip, Done and Idle, each with branch, source, context bar and token count" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/permission-approval.png" alt="Two permission cards in the notch: a Bash command with Deny and Allow, and a risky recursive delete that needs Allow anyway" width="100%">
+</p>
 
 **Vitrin, a clipboard and screenshot showcase** (notch tab "Vitrin", global shortcut Control-Option-V)
 - Keeps copied images, text and links locally and shows them as cards, with a filter for All, Images, Screenshots, Text and Links
@@ -32,12 +41,18 @@ Contents: [Features](#features) · [Install](#install) · [First launch](#first-
 - Retention: history expires after a configurable period (default 30 days); pinned items never expire
 - Per-type capture toggles for images, text, links and screenshots
 
-<!-- screenshot: docs/images/vitrin.png -->
+<p align="center">
+  <img src="docs/images/vitrin.png" alt="The Vitrin tab with filter chips and cards for a screenshot, pinned JSON with its actions menu, a link, a Swift snippet and a color" width="100%">
+</p>
 
 **Developer insights** (inside Vitrin)
 - Detects JSON, code language (Swift, TypeScript/JavaScript, Python, Go, Rust, SQL, Shell, YAML, HTML, CSS), Base64, percent-encoded text, Unix timestamps, colors and UUIDs
 - Cards show a badge and a lightweight syntax-highlighted preview
 - Actions: copy pretty or minified JSON, copy decoded Base64 or URL text, copy ISO date, copy hex or rgb
+
+<p align="center">
+  <img src="docs/images/vitrin-panel.png" alt="The Vitrin showcase panel with search and rows of images, text and links, and the Space preview of a JSON item with its copy actions" width="100%">
+</p>
 
 **Dev tab, GitHub and notchctl**
 - `notchctl` is a bash and curl CLI that shows a banner in the closed notch, for example `gh run watch && notchctl notify "CI green"`
@@ -47,21 +62,36 @@ Contents: [Features](#features) · [Install](#install) · [First launch](#first-
 - Each Claude session row shows the PR of its branch as a small chip (`#123` with a CI mark); click it to open the PR
 - Read-only: Nubrix never writes to GitHub. See [GitHub integration](#github-integration)
 
-<!-- screenshot: docs/images/dev-tab.png -->
+<p align="center">
+  <img src="docs/images/dev-github.png" alt="The Dev tab on the GitHub switch with review requests, my PRs and recent Actions runs" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/dev-servers.png" alt="The Dev tab on the Servers switch with listening localhost ports, and on the Notifications switch with notchctl entries" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/closed-notch.png" alt="Closed-notch states: Claude working, session Done and Needs you banners, a notchctl banner, a GitHub review request, a screenshot banner and a meeting countdown" width="100%">
+</p>
 
 **Music, HUDs and shelf**
 - Live music activity with playback controls and a visualizer. Sources: system Now Playing, Apple Music, Spotify and YouTube Music. Optional synced lyrics (off by default)
 - Custom volume, display brightness and keyboard brightness HUDs in the notch (optional; needs Accessibility, see [Permissions](#permissions))
 - File shelf with drag and drop and quick share
 
-<!-- screenshot: docs/images/music.png -->
+<p align="center">
+  <img src="docs/images/music.png" alt="The closed-notch music activity with visualizer, the inline volume HUD, and the open player with a synced lyric line" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/shelf.png" alt="The shelf tab with an AirDrop quick-share zone and four files" width="100%">
+</p>
 
 **Calendar, meetings and mirror**
 - Calendar sheet that drops from the notch (header date pill or Control-Option-K) for events and reminders, with a day panel and quick add
 - Meeting countdown in the closed notch with a Join button when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link
 - Mirror: a camera preview that splits out of the notch (Control-Option-M)
 
-<!-- screenshot: docs/images/calendar.png -->
+<p align="center">
+  <img src="docs/images/calendar.png" alt="The calendar sheet with the November month grid and the day panel listing today's events" width="100%">
+</p>
 
 ## Requirements
 

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix music mockup</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Each tile is its own "screen top": a notch hangs from the tile's top edge. 1 SwiftUI pt = 1 stage px. */
+  .tile { position: absolute; overflow: hidden; }
+  .tile.sep-r { box-shadow: inset -1px 0 0 rgba(255, 255, 255, .06); }
+  
+  /* Closed notch with a live activity: HStack { art(h-12) , black gap(185-6) , visualizer(h-12) }, spacing 8 */
+  .mx-row { display: flex; align-items: center; gap: 8px; height: 32px; }
+  .mx-art20 { width: 20px; height: 20px; border-radius: 4px; overflow: hidden; flex: none; }
+  .mx-art20 svg { width: 100%; height: 100%; }
+  .mx-vis { width: 20px; height: 20px; flex: none; display: flex; align-items: center; justify-content: center; }
+
+  /* InlineHUD */
+  .mx-hud-l { width: 88px; display: flex; align-items: center; gap: 5px; flex: none; color: #fff; }
+  .mx-hud-l .ic { width: 20px; height: 15px; display: flex; align-items: center; }
+  .mx-hud-l .t { font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .mx-hud-r { width: 88px; padding-right: 4px; display: flex; align-items: center; gap: 8px; flex: none; }
+  .mx-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .24); overflow: hidden; }
+  .mx-bar > i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+  .mx-pct { font-size: 10px; font-weight: 500; color: var(--gray); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Lyrics line under the artist (LyricsLineView: .subheadline, gray) */
+  .mx-lyric { font-size: 11px; line-height: 14px; color: var(--gray); white-space: nowrap; }
+
+  /* OpenNotchHUD capsule in the header */
+  .mx-ohud {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px;
+    background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+  }
+  .mx-ohud .ic { width: 20px; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .mx-ohud .bar { width: 65px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .24); overflow: hidden; }
+  .mx-ohud .bar > i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+  .mx-ohud .pc { width: 35px; text-align: right; font-size: 12px; font-weight: 500; color: var(--gray); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<!-- Music: closed-notch live activity, inline volume HUD, and the open Home player with a synced lyric line and the open-notch HUD. -->
+<div class="scene" data-size="1400x546" style="--W:1400px;--H:546px">
+  <div class="desk"></div>
+
+  <!-- 1. Closed notch, music live activity -->
+  <div class="tile sep-r" style="left:0;top:0;width:560px;height:112px;--W:560px;--H:112px;--s:2">
+    <div class="stage">
+      <div class="notch closed" style="--nw:263px;--nh:32px">
+        <div class="notch-body">
+          <div class="mx-row">
+            <div class="mx-art20"><svg viewBox="0 0 128 128" data-art="c1"></svg></div>
+            <div style="width:179px;flex:none"></div>
+            <div class="mx-vis">
+              <svg width="16" height="14" viewBox="0 0 16 14" style="margin-left:0">
+                <defs><linearGradient id="vg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff86ab"/><stop offset="1" stop-color="#ff6f9c"/></linearGradient></defs>
+                <g fill="url(#vg)">
+                  <rect x="0" y="2.65" width="2" height="8.7" rx="1"/>
+                  <rect x="4" y="0" width="2" height="14" rx="1"/>
+                  <rect x="8" y="3.85" width="2" height="6.3" rx="1"/>
+                  <rect x="12" y="1.4" width="2" height="11.2" rx="1"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Closed notch, inline volume HUD -->
+  <div class="tile" style="left:560px;top:0;width:840px;height:112px;--W:840px;--H:112px;--s:2">
+    <div class="stage">
+      <div class="notch closed" style="--nw:385px;--nh:32px">
+        <div class="notch-body">
+          <div class="mx-row">
+            <div class="mx-hud-l">
+              <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M3.2 9.6c0-.6.4-1 1-1h2.6l4.6-4c.7-.6 1.7-.1 1.7.8v13.2c0 .9-1 1.4-1.7.8l-4.6-4H4.2c-.6 0-1-.4-1-1z" fill="currentColor"/><path d="M16.2 8.8a4.9 4.9 0 0 1 0 6.4M19 6a8.9 8.9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+              <span class="t">Volume</span>
+            </div>
+            <div style="width:165px;flex:none"></div>
+            <div class="mx-hud-r">
+              <div class="mx-bar"><i style="width:62%"></i></div>
+              <span class="mx-pct">62%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Open notch, Home tab: player with synced lyric line; header shows the volume HUD capsule -->
+  <div style="position:absolute;left:0;top:112px;width:1400px;height:6px;background:#090b15"></div>
+  <div class="tile" style="left:0;top:118px;width:1400px;height:428px;--W:1400px;--H:428px;--s:2">
+    <div class="stage">
+      <div class="notch open" style="--nw:640px;--nh:190px">
+        <div class="notch-body">
+          <div class="nx-header">
+            <div class="nx-left">
+              <div class="tabs">
+                <div class="tab sel"><i data-icon="house" data-size="15"></i></div>
+                <div class="tab"><i data-icon="tray" data-size="15"></i></div>
+                <div class="tab"><i data-icon="stack" data-size="15"></i></div>
+                <div class="tab"><i data-icon="sparkle" data-size="15"></i></div>
+                <div class="tab"><i data-icon="terminal" data-size="15"></i></div>
+              </div>
+            </div>
+            <div class="nx-gap"></div>
+            <div class="nx-right">
+              <div class="mx-ohud">
+                <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M3.2 9.6c0-.6.4-1 1-1h2.6l4.6-4c.7-.6 1.7-.1 1.7.8v13.2c0 .9-1 1.4-1.7.8l-4.6-4H4.2c-.6 0-1-.4-1-1z" fill="currentColor"/><path d="M16.2 8.8a4.9 4.9 0 0 1 0 6.4M19 6a8.9 8.9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                <div class="bar"><i style="width:62%"></i></div>
+                <span class="pc">62%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="nx-content">
+            <div class="home-row">
+              <div class="music" style="width:100%">
+                <div class="art-wrap">
+                  <div class="art-glow"><svg viewBox="0 0 128 128" data-art="g"></svg></div>
+                  <div class="art"><svg viewBox="0 0 128 128" data-art="o"></svg></div>
+                  <div class="app-badge"><i data-icon="note" data-size="17"></i></div>
+                </div>
+                <div class="controls" style="flex:1;width:auto">
+                  <div class="song-area">
+                    <div class="song-title">Night Drive</div>
+                    <div class="song-artist" style="color:#ff6f9c">Lumen Coast</div>
+                    <div class="mx-lyric">Taillights paint the road in gold</div>
+                    <div class="slider-block">
+                      <div class="slider-inner">
+                        <div class="progress-row"><div class="progress"><i style="width:37%"></i></div></div>
+                        <div class="times" style="color:#ff6f9c"><span>1:24</span><span>3:47</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="slots">
+                    <div class="hover-btn"><i data-icon="backward" data-size="16"></i></div>
+                    <div class="hover-btn large"><i data-icon="pause" data-size="26"></i></div>
+                    <div class="hover-btn"><i data-icon="forward" data-size="16"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="icons.js"></script>
+<script>
+  // Abstract "Night Drive" artwork (same as hero): dusk sky, striped sun, hills. No real album art.
+  function mxArt(p) {
+    return '' +
+    '<defs>' +
+      '<linearGradient id="' + p + 'sky" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#150a3a"/><stop offset=".45" stop-color="#5a1c86"/>' +
+        '<stop offset=".72" stop-color="#e0407c"/><stop offset="1" stop-color="#ff9a52"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="' + p + 'sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#ff4f8b"/></linearGradient>' +
+      '<mask id="' + p + 'slits"><rect width="128" height="128" fill="#fff"/>' +
+        '<rect x="0" y="70" width="128" height="1.6" fill="#000"/><rect x="0" y="77" width="128" height="2.4" fill="#000"/>' +
+        '<rect x="0" y="84" width="128" height="3.2" fill="#000"/><rect x="0" y="91" width="128" height="4" fill="#000"/></mask>' +
+    '</defs>' +
+    '<rect width="128" height="128" fill="url(#' + p + 'sky)"/>' +
+    '<g fill="#fff" opacity=".8"><circle cx="18" cy="16" r=".9"/><circle cx="44" cy="9" r=".7"/><circle cx="96" cy="14" r="1"/><circle cx="112" cy="30" r=".7"/><circle cx="28" cy="36" r=".6"/><circle cx="80" cy="26" r=".6"/></g>' +
+    '<circle cx="64" cy="76" r="30" fill="url(#' + p + 'sun)" mask="url(#' + p + 'slits)"/>' +
+    '<path d="M0 96 L24 84 L44 94 L70 80 L98 94 L128 86 V128 H0Z" fill="#1b0f33"/>' +
+    '<path d="M0 108 L128 100 V128 H0Z" fill="#0d0620"/>' +
+    '<path d="M60 128 L63 101 H65 L68 128Z" fill="#ff7aa8" opacity=".55"/>';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-art]'), function (el) {
+    el.innerHTML = mxArt(el.getAttribute('data-art') + '_');
+  });
+</script>
+</body>
+</html>

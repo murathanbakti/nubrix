@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix permission approval mockup</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  /* Two screens stacked, a darker band between them; each notch is flush with the top edge of its own screen. */
+  .scene { background: #151827; display: flex; flex-direction: column; gap: 16px; }
+  .tile { position: relative; width: 1400px; overflow: hidden; --W: 1400px; --s: 1.6; flex: none; }
+  .tile.a { height: 340px; --H: 340px; } .tile.b { height: 376px; --H: 376px; }
+</style>
+</head>
+<body>
+<!-- Closed notch with an approval card (AgentPermissionHeader + AgentPermissionCard). Top: normal Bash command. Bottom: risky command, second-click "Allow anyway" state. -->
+<div class="scene" data-size="1400x732" style="--W:1400px;--H:732px">
+  <div class="tile a"><div class="desk"></div><div class="stage">
+    <div class="menubar"><div class="left"><span class="dot"></span><span class="app">Finder</span></div><div class="right"><span>Mon&nbsp;&nbsp;09:41</span></div></div>
+    <div class="notch closed" style="--nw:640px">
+      <div class="notch-body">
+        <div class="perm-header">
+          <div class="perm-left"><span style="color:var(--orange)"><i data-icon="alertCircle" data-size="14"></i></span><span class="name">web-app · fix/cart-total</span></div>
+          <div class="nx-gap" style="width:195px"></div>
+          <div class="perm-right">Approve?</div>
+        </div>
+        <div class="perm-wrap">
+          <div class="pcard">
+            <div class="hrow"><span class="chip"><span class="ic"><i data-icon="terminalLine" data-size="9"></i></span>Terminal · Ghostty</span></div>
+            <div>
+              <span class="tool-pill">Bash</span>
+              <div class="tool-note">Claude's description: Run the unit tests once</div>
+            </div>
+            <div class="cmd"><div class="txt">npm run test -- --watch=false</div><div class="expand"><i data-icon="expand" data-size="9"></i></div></div>
+            <div class="brow"><span class="open">Open in Ghostty</span><span class="sp"></span><span class="abtn deny">Deny</span><span class="abtn allow">Allow</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="tile b"><div class="desk"></div><div class="stage">
+    <div class="menubar"><div class="left"><span class="dot"></span><span class="app">Finder</span></div><div class="right"><span>Mon&nbsp;&nbsp;09:41</span></div></div>
+    <div class="notch closed" style="--nw:640px">
+      <div class="notch-body">
+        <div class="perm-header">
+          <div class="perm-left"><span style="color:var(--orange)"><i data-icon="alertCircle" data-size="14"></i></span><span class="name">api-server · release/2.4</span></div>
+          <div class="nx-gap" style="width:195px"></div>
+          <div class="perm-right">Approve?</div>
+        </div>
+        <div class="perm-wrap">
+          <div class="pcard">
+            <div class="hrow"><span class="chip"><span class="ic"><i data-icon="terminalLine" data-size="9"></i></span>Terminal · Ghostty</span></div>
+            <div>
+              <span class="tool-pill">Bash</span>
+              <div class="tool-note">Claude's description: Clean the build output and rebuild</div>
+            </div>
+            <div class="cmd risky"><div class="txt">rm -rf ./dist &amp;&amp; npm run build</div><div class="expand"><i data-icon="expand" data-size="9"></i></div></div>
+            <div class="risk-row"><i data-icon="warn" data-size="10"></i><span>Recursive or forced delete</span></div>
+            <div class="brow"><span class="open">Open in Ghostty</span><span class="sp"></span><span class="abtn deny">Deny</span><span class="abtn allow-anyway">Allow anyway</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

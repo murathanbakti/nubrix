@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix closed notch states mockup</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  html, body { background: #151827; }
+  .scene { background: #151827; }
+  .grid { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; row-gap: 12px; }
+  /* One slice of the top of a screen: flat backdrop, the closed notch flush with the top edge, centered. */
+  .tile { position: relative; width: 1400px; height: 96px; overflow: hidden; --W: 1400px; --H: 96px; --s: 2.2; background: #2a3152; }
+  /* closed-notch rows: HStack(spacing 0) of left cluster, notch gap, right text. Text style .subheadline = 11pt on macOS. */
+  .row { height: 32px; display: flex; align-items: center; }
+  .row.live { gap: 8px; }                       /* HStack { } default spacing */
+  .L { display: flex; align-items: center; gap: 6px; flex: none; }
+  .L .t { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gap { flex: none; width: 195px; height: 32px; }     /* closedNotchSize.width + 10 */
+  .R { flex: none; text-align: right; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gl { display: flex; align-items: center; justify-content: center; flex: none; }
+  .cnt { font-family: var(--rounded); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; }
+  .wcnt { font-family: var(--rounded); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .thumb { width: 33.6px; height: 24px; margin-left: 6px; border-radius: 4px; overflow: hidden; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.25); position: relative; flex: none; }
+  .shot { display: flex; flex-direction: column; align-items: flex-end; }
+  .shot .a { font-size: 11px; font-weight: 600; color: #fff; line-height: 13px; }
+  .shot .b { font-size: 9px; font-weight: 500; color: #8e8e93; line-height: 11px; font-variant-numeric: tabular-nums; font-family: var(--mono); letter-spacing: -.2px; }
+</style>
+</head>
+<body>
+<!-- Closed notch states: live activities and banners. Widths follow ContentView / AgentViews / DevViews / ScreenshotBanner / MeetingViewParts. Dummy data only. -->
+<div class="scene" data-size="1400x744" style="--W:1400px;--H:744px">
+  <div class="grid" id="grid"></div>
+</div>
+<script src="icons.js"></script>
+<script>
+  var N = window.Nubrix;
+  function infoDisc(size, color) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" style="color:' + color + '"><mask id="mi"><rect width="24" height="24" fill="#fff"/><path d="M12 11v5.4" stroke="#000" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.5" r="1.4" fill="#000"/></mask><circle cx="12" cy="12" r="10.2" fill="currentColor" mask="url(#mi)"/></svg>';
+  }
+  // video.fill look-alike: rounded body plus a lens wedge
+  function video(size, color) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" style="color:' + color + '"><rect x="1.8" y="5.6" width="14.2" height="12.8" rx="3.4" fill="currentColor"/><path d="M17.6 10.4l4-2.7c.7-.5 1.2-.2 1.2.6v7.4c0 .8-.5 1.1-1.2.6l-4-2.7z" fill="currentColor"/></svg>';
+  }
+  var C = { orange: 'var(--orange)', green: 'var(--green)', red: 'var(--red)', claude: 'var(--claude)', blue: 'rgb(89,166,255)', cal: 'rgb(10,132,255)' };
+  function ic(name, size, color) { return '<span style="color:' + color + ';display:flex">' + N.icon(name, size) + '</span>'; }
+  function sp(size, color) { return '<span style="color:' + color + ';display:flex">' + N.spinner(size, 30) + '</span>'; }
+
+  var screenshotThumb =
+    '<svg width="33.6" height="24" viewBox="0 0 33.6 24" preserveAspectRatio="none"><defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a6cf7"/><stop offset="1" stop-color="#b44bd6"/></linearGradient></defs>' +
+    '<rect width="33.6" height="24" fill="url(#tg)"/><rect x="3" y="3" width="16" height="2.4" rx="1.2" fill="#fff" opacity=".85"/><rect x="3" y="8" width="27" height="1.6" rx=".8" fill="#fff" opacity=".45"/>' +
+    '<rect x="3" y="12" width="21" height="1.6" rx=".8" fill="#fff" opacity=".45"/><rect x="3" y="16.5" width="10" height="4" rx="1.6" fill="#fff" opacity=".9"/></svg>';
+
+  function sheet(w, inner) { return { w: w, html: inner }; }
+  function agentLive(state, n) {
+    var tint = state === 'needs' ? C.orange : C.claude;
+    var glyph = state === 'needs' ? ic('alertCircle', 16, tint) : sp(16, tint);
+    return sheet(263, '<div class="row live"><span class="gl" style="width:20px;height:20px">' + glyph + '</span><span style="width:179px;flex:none"></span>' +
+      '<span class="cnt" style="width:20px;height:20px;color:' + tint + '">' + n + '</span></div>');
+  }
+  function banner(w, left, leftMax, right, rightW, rightColor) {
+    return sheet(w, '<div class="row"><div class="L" style="max-width:' + leftMax + 'px;width:' + leftMax + 'px">' + left + '</div><div class="gap"></div>' +
+      '<div class="R" style="width:' + rightW + 'px;color:' + rightColor + '">' + right + '</div></div>');
+  }
+  function agentBanner(icon, project, note, tint) {
+    return banner(533, icon + '<span class="t">' + project + '</span>', 220, note, 90, tint);
+  }
+
+  var tiles = [
+    agentLive('working', 2),
+    agentBanner(ic('checkCircle', 14, C.green), 'web-app · fix/cart-total', 'Done', C.green),
+    agentBanner(ic('alertCircle', 14, C.orange), 'api-server · release/2.4', 'Needs you', C.orange),
+    banner(533, ic('checkCircle', 13, C.green) + '<span class="t">CI</span>', 140, 'Deploy finished', 170, C.green),
+    banner(533, infoDisc(13, C.blue) + '<span class="t">acme/web-app</span>', 140, 'Review requested #128', 170, C.blue),
+    sheet(383, '<div class="row"><div class="L" style="width:70px"><div class="thumb">' + screenshotThumb + '</div></div><div class="gap"></div>' +
+      '<div class="R" style="width:90px"><div class="shot"><span class="a">Screenshot</span><span class="b">2560×1440</span></div></div></div>'),
+    sheet(299, '<div class="row live"><span class="gl" style="width:38px;height:20px">' + video(16, C.cal) + '</span><span style="width:179px;flex:none"></span>' +
+      '<span class="wcnt" style="width:38px;height:20px">4m</span></div>')
+  ];
+
+  document.getElementById('grid').innerHTML = tiles.map(function (t) {
+    return '<div class="tile"><div class="stage">' +
+      '<div class="notch closed" style="--nw:' + t.w + 'px;--nh:32px"><div class="notch-body">' + t.html + '</div></div></div></div>';
+  }).join('');
+  N.hydrate(); N.shapeNotches();
+</script>
+</body>
+</html>

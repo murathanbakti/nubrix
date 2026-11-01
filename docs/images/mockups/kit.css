@@ -1,0 +1,231 @@
+/* Nubrix mockup kit. 1 SwiftUI point = 1 CSS px. Values read from the SwiftUI source:
+   NotchShape (top 19 / bottom 24 open, 6 / 14 closed), openNotchSize 640x190,
+   NubrixHeader (32pt header), TabSelectionView, AgentViews / AgentPanels, ClaudeUsageCard. */
+
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  --rounded: ".SF NS Rounded", ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* SwiftUI system colors, dark appearance */
+  --orange: #ff9f0a;
+  --green: #32d74b;
+  --red: #ff453a;
+  --gray: #98989d;
+  --claude: rgb(217, 120, 87);          /* AgentSessionState.working.tint */
+  --ctrl-fill: rgba(255, 255, 255, .16); /* secondarySystemFill capsule behind the selected tab */
+  --w62: rgb(158, 158, 158);             /* Color(white: 0.62) */
+  --w55: rgb(140, 140, 140);
+  --w60: rgb(153, 153, 153);
+  --w70: rgb(179, 179, 179);
+  --w72: rgb(184, 184, 184);
+  --w78: rgb(199, 199, 199);
+  --risk: rgb(255, 107, 102);            /* Color(red: 1, green: 0.42, blue: 0.4) */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #151827; }
+body {
+  font-family: var(--font);
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  font-size: 13px;
+}
+svg { display: block; overflow: visible; }
+.mono { font-family: var(--mono); }
+.rounded { font-family: var(--rounded); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- scene, stage, desktop ---------- */
+.scene { position: relative; width: var(--W); height: var(--H); overflow: hidden; }
+.desk {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #343d62 0%, #262c48 45%, #1a1f35 100%);
+}
+/* The stage lets a scene show the 1x UI scaled up while keeping every px value true to the source. */
+.stage {
+  position: absolute; left: 0; top: 0;
+  width: calc(var(--W) / var(--s)); height: calc(var(--H) / var(--s));
+  transform: scale(var(--s)); transform-origin: 0 0;
+}
+
+/* ---------- macOS-style menu bar ---------- */
+.menubar {
+  position: absolute; left: 0; right: 0; top: 0; height: 32px;
+  background: rgba(14, 16, 28, .38);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; font-size: 13px; color: rgba(255, 255, 255, .92);
+}
+.menubar .left, .menubar .right { display: flex; align-items: center; gap: 18px; }
+.menubar .app { font-weight: 700; }
+.menubar .dot { width: 14px; height: 14px; border-radius: 4px; background: rgba(255, 255, 255, .9); }
+.menubar .right { gap: 14px; font-weight: 500; }
+
+/* ---------- notch panel ---------- */
+.notch {
+  position: absolute; left: 50%; top: 0;
+  width: var(--nw, 640px);
+  height: var(--nh, auto);
+  margin-left: calc(var(--nw, 640px) / -2);
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, .7));
+}
+.notch-body {
+  position: relative; background: #000; height: 100%;
+  /* clip-path is set by icons.js from data-top / data-bottom (NotchShape) */
+}
+.notch.open .notch-body { padding: 0 31px 12px; }      /* 19 (top corner) + 12, bottom 12 */
+.notch.closed .notch-body { padding: 0 14px 0; }       /* closed bottom radius */
+.notch-body::before { /* the 1px black overlay under the top edge */
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: #000;
+}
+
+/* ---------- NubrixHeader ---------- */
+.nx-header { height: 32px; display: flex; align-items: center; position: relative; color: var(--gray); }
+.nx-left { flex: 1; display: flex; align-items: center; }
+.nx-gap { width: 185px; height: 32px; flex: none; }
+.nx-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+.tabs { display: flex; border-radius: 13px; overflow: hidden; }
+.tab {
+  height: 26px; padding: 0 8px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gray); position: relative;
+}
+.tab.sel { color: #fff; background: var(--ctrl-fill); }
+.tab .badge {
+  position: absolute; right: 7px; top: 5px; width: 6px; height: 6px; border-radius: 50%;
+  box-shadow: 0 0 0 1px #000;
+}
+.date-pill {
+  height: 26px; padding: 0 5px; border-radius: 13px;
+  background: rgba(255, 255, 255, .08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 500; color: #fff; white-space: nowrap;
+}
+.round-btn {
+  width: 30px; height: 30px; border-radius: 15px; background: #000; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.battery-pct { display: flex; align-items: center; gap: 8px; margin-left: 0; padding-left: 0; }
+.battery-pct .pct { font-size: 12px; color: #fff; }
+.battery { position: relative; width: 31px; height: 15px; }
+
+/* ---------- NotchLayout body ---------- */
+.nx-content { margin-top: 8px; height: 138px; position: relative; }
+
+/* ---------- Home: music ---------- */
+.home-row { display: flex; align-items: flex-start; gap: 12px; height: 138px; }
+.music { display: flex; gap: 8px; width: 426px; height: 138px; }
+.art-wrap { position: relative; width: 138px; height: 138px; padding: 5px; flex: none; }
+.art, .art-glow { width: 128px; height: 128px; border-radius: 13px; overflow: hidden; }
+.art-glow {
+  position: absolute; left: 5px; top: 5px;
+  transform: scale(1.3, 1.4) rotate(92deg); filter: blur(40px); opacity: .5;
+}
+.art { position: relative; }
+.art svg { width: 100%; height: 100%; }
+.app-badge {
+  position: absolute; width: 30px; height: 30px; border-radius: 7px;
+  right: -5px; bottom: -5px; /* bottom-trailing of the art + offset(10,10) */
+  background: linear-gradient(160deg, #6a7bff, #a24bd8);
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.controls { width: 280px; display: flex; flex-direction: column; gap: 8px; }
+.song-area { padding: 10px 0 0 5px; height: 90px; }
+.song-title { font-size: 13px; font-weight: 700; line-height: 16px; color: #fff; white-space: nowrap; }
+.song-artist { font-size: 13px; font-weight: 500; line-height: 16px; white-space: nowrap; }
+.slider-block { height: 36px; padding-top: 5px; margin-top: 4px; }
+.slider-inner { display: flex; flex-direction: column; gap: 8px; }
+.progress-row { height: 10px; display: flex; align-items: center; }
+.progress { width: 100%; height: 5px; border-radius: 3px; background: rgba(152, 152, 157, .3); overflow: hidden; }
+.progress > i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+.times { display: flex; justify-content: space-between; font-size: 10px; font-weight: 500; line-height: 12px; }
+.slots { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 0; }
+.hover-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #fff; }
+.hover-btn.large { width: 40px; height: 40px; }
+
+/* ---------- Claude usage card (ClaudeUsageCardContent) ---------- */
+.ucard {
+  width: 140px; height: 138px; padding: 7px 10px;
+  border-radius: 12px; background: rgba(255, 255, 255, .06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+  display: flex; flex-direction: column; gap: 5px; flex: none;
+}
+.ucard .uh { display: flex; align-items: center; gap: 5px; height: 14px; }
+.ucard .uh .t { font-size: 12px; font-weight: 600; color: #fff; }
+.meter { display: flex; flex-direction: column; gap: 2px; }
+.meter .mr { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+.meter .mt { font-size: 10px; font-weight: 500; color: var(--w62); line-height: 13px; }
+.meter .mp { font-family: var(--rounded); font-size: 13px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; line-height: 16px; }
+.meter .cap { font-size: 9.5px; color: var(--w55); line-height: 12px; white-space: nowrap; }
+.ubar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.ubar > i { display: block; height: 100%; border-radius: 2px; }
+
+/* ---------- Agents: session list ---------- */
+.agents { padding-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.usage-header { display: flex; align-items: center; gap: 10px; padding: 0 4px; height: 14px; }
+.usage-header .today { font-size: 11px; font-weight: 500; color: var(--w70); white-space: nowrap; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+.usage-header .sp { flex: 1; min-width: 8px; }
+.usage-header .hm { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--w70); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.usage-header .hms { display: flex; align-items: center; gap: 10px; }
+.usage-header .clear { font-size: 10px; color: var(--gray); white-space: nowrap; }
+.usage-header .info { color: var(--gray); }
+.slist { display: flex; flex-direction: column; gap: 4px; }
+.srow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, .06);
+}
+.srow .glyph { width: 16px; height: 16px; flex: none; }
+.srow .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.srow .l1 { display: flex; align-items: center; gap: 6px; }
+.srow .proj { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; }
+.srow .branch { font-family: var(--mono); font-size: 11px; color: var(--w60); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.srow .state { font-size: 11px; font-weight: 500; white-space: nowrap; flex: none; }
+.srow .detail { font-size: 11px; color: var(--gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow .right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.chips { display: flex; align-items: center; gap: 4px; }
+.chip {
+  display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 10px;
+  background: rgba(255, 255, 255, .09); font-size: 10px; font-weight: 500; color: var(--w72); white-space: nowrap;
+}
+.chip .ic { width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; color: var(--gray); }
+.chip.pr { gap: 3px; font-weight: 600; color: var(--w78); font-variant-numeric: tabular-nums; }
+.ctx { display: flex; align-items: center; gap: 5px; }
+.ctxbar { width: 46px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.ctxbar > i { display: block; height: 100%; border-radius: 2px; }
+.ctx .pct { font-size: 10px; font-weight: 500; color: var(--w72); font-variant-numeric: tabular-nums; }
+.ctx .tok { font-size: 10px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.srow .age { width: 26px; text-align: right; font-size: 11px; color: var(--gray); font-variant-numeric: tabular-nums; flex: none; }
+
+/* ---------- Permission (closed notch with approval card) ---------- */
+.perm-header { height: 32px; display: flex; align-items: center; position: relative; }
+.perm-left { display: flex; align-items: center; gap: 6px; width: 208px; }
+.perm-left .name { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.perm-right { flex: 1; text-align: right; font-size: 11px; font-weight: 500; color: var(--orange); white-space: nowrap; padding-right: 12px; }
+.perm-wrap { padding: 8px 12px 12px; }
+.pcard { padding: 10px; border-radius: 12px; background: rgba(255, 255, 255, .06); display: flex; flex-direction: column; gap: 8px; }
+.pcard .hrow { display: flex; align-items: center; gap: 8px; }
+.tool-pill {
+  display: inline-block; font-size: 11px; font-weight: 600; color: var(--orange);
+  padding: 1px 6px; border-radius: 10px; background: rgba(255, 159, 10, .18);
+}
+.tool-note { font-size: 10.5px; font-style: italic; color: var(--w55); margin-top: 3px; line-height: 13px; }
+.cmd { position: relative; border-radius: 8px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.cmd .txt { font-family: var(--mono); font-size: 11.5px; color: rgb(235, 235, 235); padding: 8px; line-height: 14px; white-space: pre-wrap; word-break: break-all; }
+.cmd.risky { background: rgba(255, 69, 58, .14); box-shadow: inset 0 0 0 1px rgba(255, 69, 58, .5); }
+.cmd.risky .txt { color: rgb(255, 158, 153); }
+.cmd .expand {
+  position: absolute; right: 4px; top: 4px; width: 17px; height: 17px; border-radius: 50%;
+  background: rgba(0, 0, 0, .5); color: var(--w70); display: flex; align-items: center; justify-content: center;
+}
+.risk-row { display: flex; align-items: flex-start; gap: 5px; color: var(--risk); font-size: 11px; font-weight: 500; line-height: 14px; }
+.risk-row svg { margin-top: 1px; }
+.brow { display: flex; align-items: center; gap: 8px; }
+.brow .open { font-size: 11px; color: rgb(166, 166, 166); }
+.brow .sp { flex: 1; }
+.abtn { font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 15px; line-height: 15px; white-space: nowrap; color: #fff; }
+.abtn.deny { background: rgba(255, 255, 255, .14); }
+.abtn.allow { background: rgb(51, 173, 97); }
+.abtn.allow-risk { background: rgba(255, 69, 58, .28); color: rgb(255, 140, 133); }
+.abtn.allow-anyway { background: rgb(217, 51, 51); }

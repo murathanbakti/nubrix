@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix Vitrin panel mockup</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+/* ---- Vitrin cards (VitrinCards.swift). 1pt = 1px. Accent = system blue, dark appearance. ---- */
+:root { --accent: #0a84ff; --accent-18: rgba(10, 132, 255, .18); }
+.vcard {
+  position: relative; flex: none; overflow: hidden; border-radius: 10px;
+  background: rgba(255, 255, 255, .06);
+  transition: none;
+}
+.vcard::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); z-index: 5; }
+.vcard.hover { background: rgba(255, 255, 255, .10); transform: scale(1.02); z-index: 3; }
+.vcard.hover::after { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+.vcard.sel::after { box-shadow: inset 0 0 0 2px var(--accent); }
+.vc-pinbtn {
+  position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; z-index: 6;
+  background: rgba(0, 0, 0, .6); color: #fff; display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+.vc-pindot {
+  width: 14px; height: 14px; border-radius: 50%; background: #ff9f0a; color: #fff;
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.vc-foot { display: flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 500; line-height: 12px; color: rgba(255, 255, 255, .5); white-space: nowrap; }
+.vc-foot .fi { width: 10px; height: 10px; display: flex; align-items: center; justify-content: center; }
+.vc-foot .tn { font-variant-numeric: tabular-nums; }
+.vc-foot .sp { flex: 1; min-width: 4px; }
+.vc-img { position: absolute; inset: 0; background: rgba(0, 0, 0, .25); overflow: hidden; }
+.vc-img .thumb { position: absolute; inset: 0; }
+.vc-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 32px; background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, .6)); }
+.vc-ifoot { position: absolute; left: 8px; right: 8px; bottom: 6px; }
+.vc-ifoot .vc-foot { color: rgba(255, 255, 255, .8); }
+.vc-img .vc-pindot { position: absolute; top: 6px; left: 6px; }
+.vc-text { height: 100%; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.vc-badges { display: flex; align-items: center; gap: 4px; height: 14px; flex: none; }
+.vc-badge {
+  height: 14px; padding: 0 6px; border-radius: 7px; background: var(--accent-18); color: var(--accent);
+  font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.vc-badge i.dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .4); flex: none; }
+.vc-code, .vc-plain {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; white-space: pre-wrap; text-align: left;
+}
+.vc-code, .vc-plain { flex: none; }
+.vc-code { font-family: var(--mono); font-size: 10.5px; line-height: 12.6px; color: rgba(255, 255, 255, .9); }
+.vc-plain { font-size: 11.5px; line-height: 14px; color: rgba(255, 255, 255, .9); word-break: break-all; }
+.vc-grow { flex: 1; min-height: 0; }
+.vc-swatch { height: 24px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); flex: none; }
+.vc-colortext { font-family: var(--mono); font-size: 10.5px; line-height: 13px; color: rgba(255, 255, 255, .8); white-space: nowrap; overflow: hidden; }
+.vc-linkic { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-18); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
+.vc-linkhead { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; flex: none; }
+.vc-host { font-size: 12px; font-weight: 600; line-height: 14.5px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+.vc-rest { font-size: 10.5px; line-height: 13px; color: rgba(255, 255, 255, .55); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-all; }
+.vc-linkcol { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; }
+/* syntax colors (ClipHighlighter) */
+.sx-c { color: rgb(115, 148, 120); } .sx-s { color: rgb(250, 158, 102); } .sx-n { color: rgb(133, 194, 255); } .sx-k { color: rgb(245, 120, 199); }
+/* chip bar (VitrinChipBar) */
+.vc-chips { display: flex; align-items: center; gap: 6px; padding: 0 6px; height: 20px; }
+.vc-chip { height: 20px; padding: 0 9px; border-radius: 10px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .75); font-size: 10.5px; font-weight: 500; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.vc-chip .n { font-weight: 400; opacity: .55; font-variant-numeric: tabular-nums; }
+.vc-chip.sel { background: #fff; color: #000; }
+/* scroller (VitrinCardScroller) */
+.vc-row { display: flex; padding: 0 6px; overflow: hidden; position: relative; }
+.vc-row.fade { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); }
+
+
+.band { position: absolute; left: 0; right: 0; background: #07080f; }
+.sec { position: absolute; left: 0; right: 0; height: 548px; overflow: hidden;
+  background: linear-gradient(180deg, #343d62 0%, #262c48 50%, #1a1f35 100%); }
+.vp { position: absolute; left: 10px; top: 14px; width: 880px; height: 520px; border-radius: 22px; background: #000; overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .55), 0 0 0 .5px rgba(0, 0, 0, .6); }
+.vp::after { content: ""; position: absolute; inset: 0; border-radius: 22px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); pointer-events: none; z-index: 50; }
+.vp-body { position: absolute; left: 16px; right: 16px; top: 11px; display: flex; flex-direction: column; gap: 12px; }
+.vp-search { height: 36px; border-radius: 10px; background: rgba(255, 255, 255, .08); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--gray); }
+.vp-search .ph { font-size: 14px; color: rgba(235, 235, 245, .3); white-space: pre; }
+.vp-sec { display: flex; flex-direction: column; gap: 8px; }
+.vp-sec .h { display: flex; align-items: center; gap: 6px; padding: 0 2px; height: 14px; color: rgba(255, 255, 255, .55); }
+.vp-sec .h .t { font-size: 11px; font-weight: 600; letter-spacing: .5px; line-height: 14px; }
+.vp-sec .h .c { font-size: 10.5px; opacity: .7; font-variant-numeric: tabular-nums; }
+.vp-prev { position: absolute; inset: 0; background: rgba(0, 0, 0, .97); border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.vp-hdr { display: flex; align-items: center; gap: 8px; height: 17px; color: var(--gray); font-size: 11px; white-space: pre; }
+.vp-hdr .vc-badge { height: 16.8px; padding: 0 7.2px; border-radius: 9px; font-size: 10.8px; gap: 4.8px; }
+.vp-hdr .sp { flex: 1; }
+.vp-code { flex: 1; min-height: 0; border-radius: 10px; background: rgba(255, 255, 255, .06); padding: 10px; overflow: hidden;
+  font-family: var(--mono); font-size: 12px; line-height: 14.4px; color: rgba(255, 255, 255, .92); white-space: pre; }
+.vp-actions { display: flex; gap: 8px; }
+.vp-act { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 15px; background: rgba(255, 255, 255, .12); }
+.vp-act .k { font-size: 10px; font-weight: 600; color: var(--gray); font-variant-numeric: tabular-nums; }
+.vp-act .t { font-size: 12px; font-weight: 500; color: #fff; line-height: 15px; }
+
+</style>
+</head>
+<body>
+<!-- Vitrin showcase panel (VitrinPanel, 880x520): top = browse state, bottom = the same panel with the Space preview open. Stacked so the 9-10pt card text stays legible at README width. -->
+<div class="scene" data-size="1200x1192" style="--W:1200px;--H:1192px;--s:1.333333">
+  <div class="stage" style="width:900px;height:894px">
+    <div class="sec" style="top:0">
+      <div class="vp">
+        <div class="vp-body">
+          <div class="vp-search"><i data-icon="search" data-size="14"></i><span class="ph">Search  (/ to focus)</span></div>
+          <div id="s-images" class="vp-sec"></div>
+          <div id="s-text" class="vp-sec"></div>
+          <div id="s-links" class="vp-sec"></div>
+        </div>
+      </div>
+    </div>
+    <div class="band" style="top:548px;height:20px"></div>
+    <div class="sec" style="top:568px;height:324px">
+      <div class="vp" style="height:296px">
+        <div class="vp-prev">
+          <div class="vp-hdr"><span id="hicon"></span><span class="vc-badge">JSON</span><span>com.microsoft.VSCode</span><span class="sp"></span><span>&#8592; &#8594; browse   &#9166; copy   Space / Esc close</span></div>
+          <div class="vp-code" id="pcode"></div>
+          <div class="vp-actions">
+            <div class="vp-act"><span class="k">&#8984;1</span><span class="t">Copy pretty JSON</span></div>
+            <div class="vp-act"><span class="k">&#8984;2</span><span class="t">Copy minified JSON</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="icons.js"></script>
+<script>
+/* ---- Vitrin mock lib: hand-drawn icons, CSS thumbnails, highlighter, card builders ---- */
+var VS = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"';
+var VICONS = {
+  photo: '<rect x="3" y="4.5" width="18" height="15" rx="3" ' + VS + ' stroke-width="2"/><circle cx="9" cy="10" r="1.7" fill="currentColor"/><path d="M4 17.2l5-4.6 3.4 3 3-2.6 5.2 4.2" ' + VS + ' stroke-width="2"/>',
+  viewfinder: '<path d="M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16" ' + VS + ' stroke-width="2"/><rect x="8" y="9.4" width="8" height="6" rx="1.6" ' + VS + ' stroke-width="1.8"/><circle cx="12" cy="12.4" r="1.3" fill="currentColor"/>',
+  textLeft: '<path d="M4 6h16M4 10.7h10.5M4 15.4h16M4 20h10.5" ' + VS + ' stroke-width="2.1"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" ' + VS + ' stroke-width="2.3"/>',
+  pin: '<path d="M12 16.5V22M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>',
+  pinSlash: '<path d="M12 16.5V22M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M3.5 3.5l17 17" stroke="#000" stroke-width="4.4" stroke-linecap="round"/><path d="M3.5 3.5l17 17" ' + VS + ' stroke-width="2.2"/>'
+};
+function vi(name, size) {
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24">' + VICONS[name] + '</svg>';
+}
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/* ClipHighlighter grammars (subset used here). Groups: comment, string, number, keyword. */
+var QUOTES = '"(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\'';
+function words(l) { return '\\b(?:' + l.split(' ').join('|') + ')\\b'; }
+var GRAMMAR = {
+  JSON: { c: '(?!)', s: '"(?:\\\\.|[^"\\\\\\n])*"', n: '-?\\b\\d+(?:\\.\\d+)?(?:[eE][+\\-]?\\d+)?\\b', k: words('true false null') },
+  Swift: { c: '//[^\\n]*|/\\*[\\s\\S]*?\\*/', s: '"(?:\\\\.|[^"\\\\\\n])*"', n: '\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b',
+    k: words('func let var if else guard return struct class enum extension protocol import in for while switch case default break continue self Self init nil true false try catch throw throws async await some any static private public') + '|@\\w+' },
+  Shell: { c: '#[^\\n]*', s: QUOTES, n: '\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b',
+    k: words('if then else elif fi for while do done case esac function in return export local source alias unset set echo cd sudo exit') + '|\\$\\{?\\w+\\}?' }
+};
+function hl(text, lang) {
+  var g = GRAMMAR[lang];
+  if (!g) return esc(text);
+  var re = new RegExp('(' + g.c + ')|(' + g.s + ')|(' + g.n + ')|(' + g.k + ')', 'gm');
+  var out = '', cur = 0, m, cls = ['sx-c', 'sx-s', 'sx-n', 'sx-k'];
+  while ((m = re.exec(text))) {
+    if (!m[0].length) { re.lastIndex++; continue; }
+    out += esc(text.slice(cur, m.index));
+    var k = 1; while (!m[k]) k++;
+    out += '<span class="' + cls[k - 1] + '">' + esc(m[0]) + '</span>';
+    cur = m.index + m[0].length;
+  }
+  return out + esc(text.slice(cur));
+}
+
+/* ---- CSS thumbnails (dummy screenshots / images). Layout is percentage based so it fits any card size. ---- */
+function bar(l, t, w, h, bg, extra) { return '<i style="position:absolute;left:' + l + '%;top:' + t + '%;width:' + w + '%;height:' + h + '%;background:' + bg + ';border-radius:' + (extra || 1.5) + 'px"></i>'; }
+function windowShell(bg, titleBg, inner, wallpaper) {
+  return '<div class="thumb" style="background:' + (wallpaper || 'linear-gradient(135deg,#5a67ff,#b863ff 60%,#ff8f6b)') + '">' +
+    '<div style="position:absolute;left:8%;top:11%;right:8%;bottom:-6%;border-radius:5px 5px 0 0;background:' + bg + ';box-shadow:0 2px 8px rgba(0,0,0,.45),inset 0 0 0 .5px rgba(255,255,255,.18);overflow:hidden">' +
+    '<div style="position:absolute;left:0;right:0;top:0;height:13%;background:' + titleBg + '">' +
+    '<i style="position:absolute;left:4%;top:34%;width:4px;height:4px;border-radius:50%;background:#ff5f57"></i>' +
+    '<i style="position:absolute;left:4%;margin-left:7px;top:34%;width:4px;height:4px;border-radius:50%;background:#febc2e"></i>' +
+    '<i style="position:absolute;left:4%;margin-left:14px;top:34%;width:4px;height:4px;border-radius:50%;background:#28c840"></i></div>' +
+    inner + '</div></div>';
+}
+var THUMB = {
+  editor: function () {
+    var side = bar(0, 13, 26, 100, '#1b1d2b') + bar(5, 22, 14, 4, '#5b6180') + bar(9, 32, 12, 4, '#4a506e') + bar(9, 42, 15, 4, '#7a6bff') + bar(9, 52, 10, 4, '#4a506e') + bar(5, 64, 13, 4, '#5b6180') + bar(9, 74, 11, 4, '#4a506e');
+    var main = bar(32, 24, 22, 4, '#f578c7') + bar(56, 24, 20, 4, '#85c2ff') + bar(32, 34, 12, 4, '#fa9e66') + bar(46, 34, 28, 4, '#c9cde6') +
+      bar(38, 44, 30, 4, '#c9cde6') + bar(38, 54, 18, 4, '#73947a') + bar(58, 54, 16, 4, '#fa9e66') + bar(32, 64, 10, 4, '#f578c7') + bar(44, 64, 32, 4, '#c9cde6') + bar(32, 74, 6, 4, '#85c2ff');
+    return windowShell('#232536', '#2d3045', side + main);
+  },
+  dash: function () {
+    var tiles = bar(5, 22, 28, 22, '#e7ebff', 2) + bar(36, 22, 28, 22, '#e7ebff', 2) + bar(67, 22, 28, 22, '#e7ebff', 2);
+    var chart = bar(8, 80, 6, 14, '#7c5cff') + bar(18, 70, 6, 24, '#7c5cff') + bar(28, 74, 6, 20, '#7c5cff') + bar(38, 60, 6, 34, '#7c5cff') + bar(48, 66, 6, 28, '#7c5cff') + bar(58, 52, 6, 42, '#7c5cff') + bar(68, 62, 6, 32, '#7c5cff') + bar(78, 56, 6, 38, '#7c5cff') + bar(88, 66, 6, 28, '#b9a8ff');
+    var heads = bar(7, 28, 12, 4, '#9aa3d4') + bar(38, 28, 12, 4, '#9aa3d4') + bar(69, 28, 12, 4, '#9aa3d4') + bar(7, 36, 16, 5, '#2a3166') + bar(38, 36, 14, 5, '#2a3166') + bar(69, 36, 18, 5, '#2a3166') + bar(5, 50, 40, 4, '#c3c9ec');
+    return windowShell('#f6f7fd', '#e4e7f6', tiles + heads + chart, 'linear-gradient(135deg,#1fb5a8,#4b7bff 60%,#7c5cff)');
+  },
+  term: function () {
+    var t = bar(5, 24, 30, 4, '#32d74b') + bar(37, 24, 36, 4, '#e6e6e6') + bar(5, 34, 52, 4, '#98989d') + bar(5, 44, 44, 4, '#98989d') + bar(5, 54, 58, 4, '#98989d') +
+      bar(5, 64, 24, 4, '#32d74b') + bar(31, 64, 20, 4, '#e6e6e6') + bar(5, 74, 3, 5, '#e6e6e6');
+    return windowShell('#12131a', '#242632', t, 'linear-gradient(135deg,#2a3b8f,#2b6fb3 55%,#27b3a4)');
+  },
+  imgA: function () { return '<div class="thumb" style="background:radial-gradient(60% 75% at 18% 22%,#ff9a62 0%,rgba(255,154,98,0) 70%),radial-gradient(70% 85% at 88% 18%,#7c5cff 0%,rgba(124,92,255,0) 72%),radial-gradient(85% 75% at 52% 105%,#22c7b8 0%,rgba(34,199,184,0) 72%),#1f2452"></div>'; },
+  imgB: function () { return '<div class="thumb" style="background:radial-gradient(circle at 68% 34%,rgba(255,255,255,.55) 0 7%,rgba(255,255,255,0) 8%),radial-gradient(70% 90% at 82% 85%,#ff5fa2 0%,rgba(255,95,162,0) 68%),radial-gradient(65% 75% at 12% 28%,#4a7dff 0%,rgba(74,125,255,0) 72%),#171641"></div>'; },
+  imgC: function () { return '<div class="thumb" style="background:radial-gradient(70% 60% at 25% 100%,#fde68a 0%,rgba(253,230,138,0) 70%),radial-gradient(80% 90% at 85% 15%,#22d3a6 0%,rgba(34,211,166,0) 70%),linear-gradient(160deg,#0b4f63,#0f766e)"></div>'; }
+};
+
+/* ---- card builders ---- */
+function foot(glyph, age, detail) {
+  return '<div class="vc-foot"><span class="fi">' + vi(glyph, 10) + '</span><span>' + age + '</span>' +
+    (detail ? '<span class="sp"></span><span class="tn">' + detail + '</span>' : '') + '</div>';
+}
+function pinDot() { return '<span class="vc-pindot">' + vi('pin', 7) + '</span>'; }
+function badge(label, dot) { return '<span class="vc-badge">' + (dot ? '<i class="dot" style="background:' + dot + '"></i>' : '') + label + '</span>'; }
+function cardShell(it, w, h, inner) {
+  var cls = 'vcard' + (it.hover ? ' hover' : '') + (it.sel ? ' sel' : '');
+  var pb = it.hover ? '<span class="vc-pinbtn">' + vi(it.pinned ? 'pinSlash' : 'pin', 9) + '</span>' : '';
+  return '<div class="' + cls + '" style="width:' + w + 'px;height:' + h + 'px">' + inner + pb + '</div>';
+}
+function card(it, w, h) {
+  var inner = '';
+  if (it.type === 'image') {
+    inner = '<div class="vc-img">' + THUMB[it.thumb]() + '<div class="vc-shade"></div>' +
+      (it.pinned ? pinDot() : '') +
+      '<div class="vc-ifoot">' + foot(it.shot ? 'viewfinder' : 'photo', it.age, it.hover ? it.dims : '') + '</div></div>';
+  } else if (it.type === 'link') {
+    inner = '<div class="vc-text"><div class="vc-linkhead">' + (it.pinned ? pinDot() : '') + '<span class="vc-linkic">' + vi('link', 10) + '</span></div>' +
+      '<div class="vc-linkcol"><div class="vc-host">' + it.host + '</div>' + (it.rest ? '<div class="vc-rest">' + it.rest + '</div>' : '') + '</div>' +
+      foot('link', it.age) + '</div>';
+  } else {
+    var badges = (it.pinned || it.badge) ? '<div class="vc-badges">' + (it.pinned ? pinDot() : '') + (it.badge ? badge(it.badge, it.dot) : '') + '</div>' : '';
+    var body;
+    if (it.color) {
+      body = '<div class="vc-swatch" style="background:' + it.color + '"></div><div class="vc-colortext">' + it.text + '</div>';
+    } else if (it.lang) {
+      body = '<div class="vc-code">' + hl(it.text, it.lang) + '</div>';
+    } else {
+      body = '<div class="vc-plain">' + esc(it.text) + '</div>';
+    }
+    inner = '<div class="vc-text">' + badges + body + '<div class="vc-grow"></div>' + foot('textLeft', it.age) + '</div>';
+  }
+  return cardShell(it, w, h, inner);
+}
+
+var JSON_FULL = [
+  '{', '  "order": 4821,', '  "org": "acme",', '  "status": "paid",', '  "currency": "EUR",', '  "total": 184.5,', '  "paid_at": 1793612460,',
+  '  "items": [',
+  '    { "sku": "ACM-KEYB-75", "qty": 2, "unit_price": 59.0 },',
+  '    { "sku": "ACM-CABLE-2M", "qty": 1, "unit_price": 66.5 }',
+  '  ]',
+  '}'
+].join('\n');
+var JSON_CARD = JSON_FULL.split('\n').slice(0, 6).join('\n');
+var SHELL = 'docker compose pull orders-api\ndocker compose up -d --build orders-api\ndocker compose logs -f --tail=100 orders-api';
+var B64 = 'eyJyZWdpb24iOiJldS13ZXN0LTEiLCJvcmciOiJhY21lIiwicmV0cmllcyI6M30=';
+var sections = {
+  images: ['Images', 'photo', [
+    { type: 'image', thumb: 'editor', shot: true, age: 'now' },
+    { type: 'image', thumb: 'imgA', age: '6m' },
+    { type: 'image', thumb: 'dash', shot: true, age: '21m' },
+    { type: 'image', thumb: 'imgB', age: '1h' },
+    { type: 'image', thumb: 'term', shot: true, age: 'Yesterday' }], 5],
+  text: ['Text', 'textLeft', [
+    { type: 'text', badge: 'JSON', lang: 'JSON', text: JSON_CARD, pinned: true, sel: true, age: '4m' },
+    { type: 'text', badge: 'Shell', lang: 'Shell', text: SHELL, age: '9m' },
+    { type: 'text', badge: 'Base64', text: B64, age: '17m' },
+    { type: 'text', badge: 'Nov 2, 2026 at 9:41 AM', text: '1793612460', age: '34m' },
+    { type: 'text', badge: 'UUID', text: 'C4A7D1E2-5B3F-4E8A-9D21-7F60B2A1E8C3', age: '1h' },
+    { type: 'text', badge: '#7C5CFF', dot: '#7C5CFF', color: '#7C5CFF', text: '#7C5CFF', age: '2h' }], 6],
+  links: ['Links', 'link', [
+    { type: 'link', host: 'docs.acme.dev', rest: '/api/rate-limits', age: '12m' },
+    { type: 'link', host: 'github.com', rest: '/acme/orders-api/pull/482', age: '48m' },
+    { type: 'link', host: 'status.acme.dev', rest: '', age: '2h' },
+    { type: 'link', host: 'dashboard.acme.dev', rest: '/orders?status=refunded', age: '3h' },
+    { type: 'link', host: 'metrics.acme.dev', rest: '/d/orders-latency', age: 'Yesterday' }], 5]
+};
+Object.keys(sections).forEach(function (k) {
+  var s = sections[k];
+  document.getElementById('s-' + k).innerHTML =
+    '<div class="h"><span style="display:flex">' + vi(s[1], 10) + '</span><span class="t">' + s[0].toUpperCase() + '</span><span class="c">' + s[3] + '</span></div>' +
+    '<div class="vc-row fade" style="height:120px;padding:4px;gap:12px">' + s[2].map(function (it) { return card(it, 180, 112); }).join('') + '</div>';
+});
+document.getElementById('hicon').innerHTML = vi('textLeft', 13);
+document.getElementById('hicon').style.display = 'flex';
+document.getElementById('pcode').innerHTML = hl(JSON_FULL, 'JSON');
+</script>
+</body>
+</html>

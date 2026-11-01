@@ -1,19 +1,34 @@
-# Screenshots
+# Images
 
-The README references these files in `<!-- screenshot: ... -->` comments. Add the PNGs here, then replace each comment in `README.md` with an image tag, for example `<img src="docs/images/vitrin.png" alt="Vitrin" width="720">`.
+The README images are rendered from HTML mockups in [`mockups/`](mockups), not captured from a running app. The mockups follow the SwiftUI source (sizes, fonts, colors, radii) and use sample data only: the `acme` organization, made-up branches, people, events and a fictional track. Nothing in them comes from a real account, clipboard, calendar or repository.
 
-Guidelines: capture on a Mac with a notch, in dark appearance, at 2x (Retina) and keep each file under 1 MB (run through ImageOptim or `pngquant`). Crop to the notch and the content below it, no desktop clutter, no real names, tokens, repository names or private commands. Use a neutral wallpaper.
-
-| File | What to capture | Suggested size |
+| File | Scene | Shows |
 |---|---|---|
-| `hero.png` | The open notch on the Home tab: music player, the Claude usage card and the calendar or meeting tile, on a plain wallpaper | 1600 x 900 |
-| `vitrin.png` | The Vitrin tab with a mix of cards: an image, a screenshot, JSON with its badge, a code snippet, a link and a colour swatch | 1400 x 600 |
-| `claude-sessions.png` | The Claude tab with 3 sessions in different states (Working, Needs you, Done), showing the source label, branch, context bar and a PR chip | 1400 x 600 |
-| `permission-approval.png` | A permission card for a Bash command with the monospaced command box and the Allow and Deny buttons; ideally a second shot of the risky "Allow anyway" state | 1400 x 600 |
-| `usage.png` | The Home tab Claude card with Session and Week rows (percentage, bar, reset time); tooltip optional | 1000 x 500 |
-| `music.png` | The music player in the open notch with artwork, visualizer and controls | 1200 x 500 |
-| `dev-tab.png` | The Dev tab on the GitHub switch (review requests, my PRs, Actions runs); optionally a second image with the Servers switch | 1600 x 600 |
-| `calendar.png` | The calendar sheet dropped from the notch with a few events | 1200 x 800 |
-| `gatekeeper-open-anyway.png` | System Settings, Privacy & Security, scrolled to the "Nubrix was blocked to protect your Mac" message with the "Open Anyway" button | 1400 x 900 |
+| `hero.png` | `hero.html` | The open notch on the Home tab: music player and the Claude plan usage card |
+| `claude-sessions.png` | `claude-sessions.html` | The Claude tab with Needs you, Working, Done and Idle sessions, source labels, branches, context bars and a PR chip |
+| `permission-approval.png` | `permission-approval.html` | A Bash permission card with Deny and Allow, and a risky command in the "Allow anyway" state |
+| `vitrin.png` | `vitrin.html` | The Vitrin tab with filter chips, cards and the actions menu of a JSON item |
+| `vitrin-panel.png` | `vitrin-panel.html` | The Vitrin showcase panel with search and rows, and the Space preview with developer-insight actions |
+| `dev-github.png` | `dev-github.html` | The Dev tab on the GitHub switch: review requests, my PRs and Actions runs |
+| `dev-servers.png` | `dev-servers.html` | The Dev tab on the Servers and Notifications switches |
+| `closed-notch.png` | `closed-notch.html` | Closed-notch states: Claude activity and banners, notchctl, GitHub, screenshot and meeting |
+| `music.png` | `music.html` | Closed-notch music activity, the inline volume HUD and the open player with a lyric line |
+| `shelf.png` | `shelf.html` | The shelf tab with the quick-share zone and files |
+| `calendar.png` | `calendar.html` | The calendar sheet with the month grid and the day panel |
 
-Optional extras: `mirror.png` (camera preview splitting out of the notch), `settings.png` (Settings, Vitrin tab) and a short screen recording of the notch approval flow (GIF under 5 MB).
+## Rendering
+
+`mockups/render.sh` renders every scene, or only the scenes you name, with headless Google Chrome at 2x and writes `docs/images/<scene>.png`:
+
+```sh
+docs/images/mockups/render.sh
+docs/images/mockups/render.sh hero vitrin
+```
+
+Each scene sets its size in a `data-size="WxH"` attribute on its root element. Shared styles are in `mockups/kit.css` and icons in `mockups/icons.js`; icons are hand-drawn or Lucide-style SVG, not SF Symbols. `render.sh` runs `optimize_png.py` for a lossless re-encode when Python 3 and numpy are available.
+
+When you change the UI, update the matching scene and re-render. Keep the text legible at the README width of about 830 px (about 9 px or larger after scaling) and each PNG under 1 MB. Use sample data only: no real names, emails, tokens, repositories, home paths or private commands.
+
+## Still to capture
+
+`gatekeeper-open-anyway.png` for the First launch section is a real screenshot of System Settings, Privacy & Security, with the "Open Anyway" button, not a mockup.

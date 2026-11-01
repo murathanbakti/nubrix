@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix Claude sessions mockup</title>
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<!-- Open notch, Claude tab. The panel is taller than the real 190pt notch so four rows fit without scrolling. -->
+<div class="scene" data-size="1400x600" style="--W:1400px;--H:600px;--s:2">
+  <div class="desk"></div>
+  <div class="stage">
+    <div class="notch open" style="--nw:640px;--nh:272px">
+      <div class="notch-body">
+        <div class="nx-header">
+          <div class="nx-left">
+            <div class="tabs">
+              <div class="tab"><i data-icon="house" data-size="15"></i></div>
+              <div class="tab"><i data-icon="tray" data-size="15"></i></div>
+              <div class="tab"><i data-icon="stack" data-size="15"></i></div>
+              <div class="tab sel"><i data-icon="sparkle" data-size="15"></i></div>
+              <div class="tab"><i data-icon="terminal" data-size="15"></i></div>
+            </div>
+          </div>
+          <div class="nx-gap"></div>
+          <div class="nx-right">
+            <div class="date-pill">Mon 2</div>
+            <div class="round-btn"><i data-icon="camera" data-size="16"></i></div>
+            <div class="round-btn"><i data-icon="gear" data-size="16"></i></div>
+            <div class="battery-pct">
+              <span class="pct">64%</span>
+              <div class="battery">
+                <svg width="31" height="15" viewBox="0 0 31 15">
+                  <rect x=".5" y=".5" width="27" height="14" rx="4.2" fill="none" stroke="#fff" stroke-opacity=".5"/>
+                  <path d="M29 5v5c1-.3 1.7-1.2 1.7-2.5S30 5.3 29 5z" fill="#fff" fill-opacity=".5"/>
+                  <rect x="2" y="2.9" width="15.4" height="9.25" rx="2.5" fill="#fff"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nx-content" style="height:auto">
+          <div class="agents">
+            <div class="usage-header">
+              <span class="today">Today · 1.2M tokens · ~$6.80</span>
+              <span class="sp"></span>
+              <span class="hms">
+                <span class="hm"><span class="ctxbar" style="width:28px"><i style="width:38%;background:var(--green)"></i></span><span>Session 38% · 03:30</span></span>
+                <span class="hm"><span class="ctxbar" style="width:28px"><i style="width:21%;background:var(--green)"></i></span><span>Week 21% · Sat 12:00</span></span>
+              </span>
+              <span class="info"><i data-icon="info" data-size="12"></i></span>
+            </div>
+            <div class="slist" id="rows"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="icons.js"></script>
+<script>
+  var TINT = { needs: 'var(--orange)', working: 'var(--claude)', failed: 'var(--red)', done: 'var(--green)', idle: 'var(--gray)' };
+  var TITLE = { needs: 'Needs you', working: 'Working', failed: 'Failed', done: 'Done', idle: 'Idle' };
+  function glyph(state) {
+    var c = TINT[state];
+    var inner = { needs: '<i data-icon="alertCircle" data-size="16"></i>', working: '<i data-icon="spinner" data-size="16" data-rot="30"></i>',
+      done: '<i data-icon="checkCircle" data-size="16"></i>', failed: '<i data-icon="xCircle" data-size="16"></i>', idle: '<i data-icon="moonZ" data-size="16"></i>' }[state];
+    return '<span class="glyph" style="color:' + c + '">' + inner + '</span>';
+  }
+  function ctxColor(p) { return p > 85 ? 'var(--red)' : p >= 60 ? 'var(--orange)' : 'var(--green)'; }
+  function source(label, icon) {
+    return '<span class="chip"><span class="ic"><i data-icon="' + icon + '" data-size="9"></i></span>' + label + '</span>';
+  }
+  var PR = '<span class="chip pr"><span>#128</span><span style="color:var(--green);display:flex"><i data-icon="checkCircle" data-size="10"></i></span></span>';
+  var sessions = [
+    { state: 'needs', project: 'api-server', branch: 'fix/rate-limiter', detail: 'Claude needs your permission to use Bash',
+      src: source('Terminal · Ghostty', 'terminalLine'), ctx: 71, tok: '412k', age: 'now' },
+    { state: 'working', project: 'web-app', branch: 'feature/checkout-redesign', detail: 'Refactoring CartSummary and updating the checkout tests',
+      pr: PR, src: source('VS Code', 'terminalLine'), ctx: 38, tok: '186k', age: 'now' },
+    { state: 'done', project: 'mobile-ios', branch: 'release/2.4', detail: 'Bumped the build number and regenerated the release notes',
+      src: source('Desktop', 'macwindow'), ctx: 24, tok: '96k', age: '14m' },
+    { state: 'idle', project: 'docs-site', branch: 'main', detail: 'Waiting for your next prompt',
+      src: source('Terminal · iTerm', 'terminalLine'), ctx: 12, tok: '31k', age: '1h' }
+  ];
+  document.getElementById('rows').innerHTML = sessions.map(function (s) {
+    return '<div class="srow">' + glyph(s.state) +
+      '<div class="mid"><div class="l1"><span class="proj">' + s.project + '</span><span class="branch">' + s.branch +
+      '</span><span class="state" style="color:' + TINT[s.state] + '">' + TITLE[s.state] + '</span></div>' +
+      '<div class="detail">' + s.detail + '</div></div>' +
+      '<div class="right"><div class="chips">' + (s.pr || '') + s.src + '</div>' +
+      '<div class="ctx"><span class="ctxbar"><i style="width:' + Math.max(3 / 46 * 100, s.ctx) + '%;background:' + ctxColor(s.ctx) + '"></i></span>' +
+      '<span class="pct">' + s.ctx + '%</span><span class="tok">' + s.tok + '</span></div></div>' +
+      '<span class="age">' + s.age + '</span></div>';
+  }).join('');
+</script>
+</body>
+</html>

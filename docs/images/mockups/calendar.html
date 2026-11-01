@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix calendar mockup</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  :root { --cal-red: rgb(255, 69, 59); --cal-meta: rgba(255, 255, 255, .5); --cal-fill: rgba(255, 255, 255, .06); --cal-stroke: rgba(255, 255, 255, .08); }
+  /* Attached sheet: NotchShape(top 20, bottom 26), content 620x356 placed below the notch height (32), side inset 20+16, bottom inset 16. */
+  .notch.sheet .notch-body { padding: 32px 36px 16px; }
+  .cal { width: 620px; height: 356px; display: flex; gap: 12px; align-items: flex-start; }
+  .cal-left { width: 300px; height: 356px; display: flex; flex-direction: column; gap: 6px; }
+  .cal-right { width: 308px; height: 356px; display: flex; flex-direction: column; gap: 8px; }
+
+  .mh { height: 26px; display: flex; align-items: center; gap: 4px; }
+  .mh .mt { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 4px; color: #fff; white-space: nowrap; }
+  .mh .sp { flex: 1; min-width: 4px; }
+  .cpill { height: 22px; min-width: 24px; padding: 0 10px; border-radius: 11px; background: rgba(255, 255, 255, .08); color: #fff; font-size: 11px; font-weight: 500; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+  .cpill.ic { padding: 0; width: 24px; }
+  .wd { height: 14px; display: flex; }
+  .wd span { flex: 1; text-align: center; font-size: 10px; font-weight: 500; color: rgba(255, 255, 255, .4); line-height: 14px; }
+  .wd span.on { font-weight: 700; color: #fff; }
+  .grid { flex: 1; display: flex; flex-direction: column; }
+  .grow { flex: 1; display: flex; }
+  .cell { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .cell .n { width: 27px; height: 27px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: rgba(255, 255, 255, .95); position: relative; }
+  .cell.out .n { color: rgba(255, 255, 255, .28); }
+  .cell.today .n { background: var(--cal-red); font-weight: 600; color: #fff; }
+  .cell.sel .n { font-weight: 600; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .95); }
+  .cell .dots { height: 4px; display: flex; gap: 2.5px; }
+  .cell.out .dots { opacity: .45; }
+  .cell .dots i { width: 4px; height: 4px; border-radius: 50%; display: block; }
+
+  .goto { display: flex; align-items: center; gap: 6px; }
+  .field { flex: 1; height: 28px; padding: 0 9px; border-radius: 10px; background: var(--cal-fill); box-shadow: inset 0 0 0 1px var(--cal-stroke); display: flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(255, 255, 255, .3); white-space: nowrap; overflow: hidden; }
+  .field svg { color: var(--cal-meta); flex: none; }
+  .dh { display: flex; align-items: center; gap: 6px; }
+  .dh .tt { flex: 1; min-width: 0; }
+  .dh .ti { font-size: 16px; font-weight: 600; color: #fff; line-height: 19px; white-space: nowrap; }
+  .dh .su { font-size: 11px; color: var(--cal-meta); line-height: 13px; margin-top: 1px; white-space: nowrap; }
+  .newbtn { height: 22px; padding: 0 10px; border-radius: 11px; background: rgba(255, 69, 59, .9); color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .evs { display: flex; flex-direction: column; gap: 4px; }
+  .ev { display: flex; align-items: stretch; gap: 8px; padding: 7px 9px; border-radius: 10px; background: var(--cal-fill); box-shadow: inset 0 0 0 1px var(--cal-stroke); }
+  .ev .bar { width: 3px; border-radius: 1.5px; flex: none; }
+  .ev .tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .ev .ti { font-size: 12.5px; font-weight: 600; color: #fff; line-height: 15px; white-space: nowrap; }
+  .ev .su { font-size: 11px; color: var(--cal-meta); line-height: 13px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<!-- Calendar sheet attached to the notch. November 2026, today = Mon 2 Nov. Dummy events only. -->
+<div class="scene" data-size="1400x756" style="--W:1400px;--H:756px;--s:1.8">
+  <div class="desk"></div>
+  <div class="stage">
+    <div class="notch open sheet" id="sheet" style="--nw:692px;--nh:404px">
+      <div class="notch-body">
+        <div class="cal">
+          <div class="cal-left">
+            <div class="mh">
+              <div class="mt">November 2026
+                <svg width="8" height="8" viewBox="0 0 10 10" style="color:var(--cal-meta)"><path d="M1.4 3 5 6.8 8.6 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="sp"></div>
+              <div class="cpill">Today</div>
+              <div class="cpill ic"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M6.6 1.4 3 5l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="cpill ic"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.4 1.4 7 5 3.4 8.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            </div>
+            <div class="wd"><span class="on">Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+            <div class="grid" id="grid"></div>
+          </div>
+
+          <div class="cal-right">
+            <div class="goto">
+              <div class="field">
+                <svg width="11" height="11" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.3" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M15.4 15.4 20.5 20.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+                <span>Go to date: 3/15/2027, tomorrow, +10, mon</span>
+              </div>
+              <div class="cpill ic"><svg width="9" height="9" viewBox="0 0 10 10"><path d="M1.6 1.6l6.8 6.8M8.4 1.6 1.6 8.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            </div>
+            <div class="dh">
+              <div class="tt">
+                <div class="ti">2 November 2026, Monday</div>
+                <div class="su">Today · 5 events</div>
+              </div>
+              <div class="cpill ic"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V15M13 4h7v7M20 4l-9 9"/></svg></div>
+              <div class="newbtn"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 1.2v7.6M1.2 5h7.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Event</div>
+            </div>
+            <div class="evs">
+              <div class="ev"><div class="bar" style="background:#0a84ff"></div><div class="tx"><div class="ti">Standup</div><div class="su">09:30 – 09:45</div></div></div>
+              <div class="ev"><div class="bar" style="background:#bf5af2"></div><div class="tx"><div class="ti">Design review</div><div class="su">11:00 – 12:00<span>·</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="M15.5 10.4 21 7v10l-5.5-3.4"/></svg><span>meet.example.com/design-review</span></div></div></div>
+              <div class="ev"><div class="bar" style="background:#30d158"></div><div class="tx"><div class="ti">Lunch with team</div><div class="su">13:00 – 14:00<span>·</span><span>Canteen</span></div></div></div>
+              <div class="ev"><div class="bar" style="background:#ff9f0a"></div><div class="tx"><div class="ti">Release 2.4 cutoff</div><div class="su">16:00 – 16:30</div></div></div>
+              <div class="ev"><div class="bar" style="background:#ffd60a"></div><div class="tx"><div class="ti">Renew TLS certs</div><div class="su">17:00<span>·</span><span>Reminders</span></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="icons.js"></script>
+<script>
+  var B = '#0a84ff', P = '#bf5af2', G = '#30d158', O = '#ff9f0a', Y = '#ffd60a';
+  // Monday-first grid for November 2026 (Nov 1 is a Sunday): starts Mon 26 Oct, 6 rows.
+  var days = [
+    [26,1,[]],[27,1,[B]],[28,1,[G]],[29,1,[]],[30,1,[B,P]],[31,1,[]],[1,0,[]],
+    [2,0,[B,P,G]],[3,0,[B]],[4,0,[B,O]],[5,0,[P]],[6,0,[B,G]],[7,0,[]],[8,0,[]],
+    [9,0,[B]],[10,0,[B,P]],[11,0,[G]],[12,0,[B,O,P]],[13,0,[B]],[14,0,[]],[15,0,[]],
+    [16,0,[B]],[17,0,[B,G]],[18,0,[]],[19,0,[P,B]],[20,0,[B,O]],[21,0,[]],[22,0,[]],
+    [23,0,[B]],[24,0,[B,P]],[25,0,[]],[26,0,[G,B]],[27,0,[O]],[28,0,[]],[29,0,[]],
+    [30,0,[B]],[1,1,[B,P]],[2,1,[B]],[3,1,[]],[4,1,[G]],[5,1,[]],[6,1,[]]
+  ];
+  var html = '';
+  for (var r = 0; r < 6; r++) {
+    html += '<div class="grow">';
+    for (var c = 0; c < 7; c++) {
+      var d = days[r * 7 + c], cls = 'cell' + (d[1] ? ' out' : '') + (r === 1 && c === 0 ? ' today sel' : '');
+      html += '<div class="' + cls + '"><div class="n">' + d[0] + '</div><div class="dots">' +
+        d[2].map(function (x) { return '<i style="background:' + x + '"></i>'; }).join('') + '</div></div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('grid').innerHTML = html;
+
+  // NotchShape for the attached sheet: top radius 20, bottom radius 26 (NotchExtensionMetrics).
+  function sheetShape() {
+    var n = document.getElementById('sheet'), b = n.querySelector('.notch-body');
+    var w = n.offsetWidth, h = n.offsetHeight, T = 20, B2 = 26;
+    b.style.clipPath = "path('M0,0 Q" + T + ",0 " + T + "," + T + " L" + T + "," + (h - B2) +
+      " Q" + T + "," + h + " " + (T + B2) + "," + h + " L" + (w - T - B2) + "," + h +
+      " Q" + (w - T) + "," + h + " " + (w - T) + "," + (h - B2) + " L" + (w - T) + "," + T +
+      " Q" + (w - T) + ",0 " + w + ",0 Z')";
+  }
+  window.addEventListener('load', function () { setTimeout(sheetShape, 0); });
+  sheetShape();
+</script>
+</body>
+</html>
