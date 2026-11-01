@@ -136,5 +136,5 @@ cat <<TXT
 Notes:
 - Drop the nubrix-permission entry to keep Claude Code's own permission dialogs only.
 - "permissions.deny" is merged with your existing list; it stops Claude from editing the sealed scripts and from reading or editing the endpoint file.
-- Re-run $self after updating Nubrix to refresh the copies. Optional CLI: ln -sf "$bin/notchctl" ~/.local/bin/notchctl
+- Re-run "bash $self" after updating Nubrix to refresh the copies. Optional CLI: ln -sf "$bin/notchctl" ~/.local/bin/notchctl
 TXT

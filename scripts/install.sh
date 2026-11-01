@@ -115,7 +115,7 @@ signature check done above. Set NUBRIX_SHA256 to pin the expected hash.
 Optional next step, Claude Code hooks (prints a snippet for ~/.claude/settings.json,
 never edits it):
 
-  "$target/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh"
+  bash "$target/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh"
 
 Then open Nubrix:  open "$target"
 TXT

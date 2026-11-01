@@ -152,9 +152,9 @@ The hook kit is bundled in the app at `/Applications/Nubrix.app/Contents/Resourc
 
 - Homebrew or install script:
   ```sh
-  /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
+  bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
   ```
-  (adjust the path if you used `NUBRIX_INSTALL_DIR`). When run from the app bundle it first verifies the app's code signature.
+  (adjust the path if you used `NUBRIX_INSTALL_DIR`). Run it through `bash`: macOS keeps the quarantine flag on files inside a Homebrew-installed app and can refuse to execute them directly. When run from the app bundle it first verifies the app's code signature.
 - From source: `scripts/install-hooks.sh` (already run by `scripts/install-local.sh`).
 
 The installer copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` (directories mode 0700, files 0500) and can be run again at any time. It then prints a `~/.claude/settings.json` snippet: hooks for all events, the `statusLine` command and `permissions.deny` rules. **It never edits `~/.claude/settings.json`**: you paste or merge the snippet yourself. Re-run the installer after every Nubrix update to refresh the copies. It warns if your settings still point into a source checkout.
@@ -347,7 +347,7 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 **The Home card or Claude tab says "Claude sign-in needed: claude auth login".** The Claude Code CLI is signed out. Run `claude auth login` in a terminal. The card updates on the next refresh (open the notch on Home or the Claude tab). "Plan usage needs a Claude subscription" means an API-key login or an account without plan limits; "Claude Code not found" means `claude` is not in one of the fixed locations listed under [Usage, context and cost](#usage-context-and-cost); "Update Claude Code to see plan usage" means your CLI version has no free local `/usage` command.
 
-**No Claude sessions show up, or the info button lists problems.** Re-run the hook installer (`/Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh`, or `scripts/install-hooks.sh` from a source checkout) and compare `~/.claude/settings.json` with the snippet it prints: the commands must point at `~/.config/nubrix/bin/...` and exist. Nubrix must be running. Claude Code reads hooks at session start, so start a new session after changing settings.
+**No Claude sessions show up, or the info button lists problems.** Re-run the hook installer (`bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh`, or `scripts/install-hooks.sh` from a source checkout) and compare `~/.claude/settings.json` with the snippet it prints: the commands must point at `~/.config/nubrix/bin/...` and exist. Nubrix must be running. Claude Code reads hooks at session start, so start a new session after changing settings.
 
 **Approvals do not appear in the notch.** They need the `nubrix-permission` entry under `PermissionRequest` in your settings (not part of the plugin), the toggle in Settings, Notifications, and a running Nubrix. Claude's own questions and plan approvals are intentionally not shown there; answer those in Claude. If no notch can show the card (for example the notch is hidden for a fullscreen app, see Settings, Media, "Full screen behavior"), Claude Code asks in its own dialog.
 

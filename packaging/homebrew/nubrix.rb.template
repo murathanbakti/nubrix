@@ -31,7 +31,7 @@ cask "nubrix" do
     and click "Open Anyway". This is needed once; macOS may ask again after an upgrade.
 
     Optional Claude Code hooks (session status in the notch):
-      #{appdir}/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
+      bash "#{appdir}/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh"
     The script prints a snippet to add to ~/.claude/settings.json and never edits that file.
     Run it again after every upgrade to refresh the installed copies.
 

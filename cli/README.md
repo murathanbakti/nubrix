@@ -9,7 +9,7 @@ Send notifications to the Nubrix notch from any shell script. Needs only `bash` 
 
 ```sh
 # Homebrew or install script
-/Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
+bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
 
 # from a source checkout
 scripts/install-hooks.sh
