@@ -4,7 +4,7 @@ import KeyboardShortcuts
 import SwiftUI
 
 extension KeyboardShortcuts.Name {
-    static let toggleCalendar = Self("toggleCalendar", default: .init(.k, modifiers: [.control, .option]))
+    static let toggleCalendar = Self("toggleCalendar", initial: .init(.k, modifiers: [.control, .option]))
 }
 
 enum NubrixCalendarSheetMetrics {

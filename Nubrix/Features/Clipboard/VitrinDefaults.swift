@@ -32,5 +32,5 @@ enum VitrinDefaultsValues {
 }
 
 extension KeyboardShortcuts.Name {
-    static let toggleVitrin = Self("toggleVitrin", default: .init(.v, modifiers: [.control, .option]))
+    static let toggleVitrin = Self("toggleVitrin", initial: .init(.v, modifiers: [.control, .option]))
 }

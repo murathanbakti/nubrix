@@ -7,5 +7,5 @@ extension Defaults.Keys {
 }
 
 extension KeyboardShortcuts.Name {
-    static let toggleMirror = Self("toggleMirror", default: .init(.m, modifiers: [.control, .option]))
+    static let toggleMirror = Self("toggleMirror", initial: .init(.m, modifiers: [.control, .option]))
 }
