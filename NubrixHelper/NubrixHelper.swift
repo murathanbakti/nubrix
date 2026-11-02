@@ -149,9 +149,10 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
     private let systemNotificationQueue = DispatchQueue(label: "dev.nubrix.helper.systemNotifications", qos: .utility)
 
     @objc func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void) {
-        let allowed = Set(allowedApps.prefix(200))
+        let allowed = Set(allowedApps.prefix(200).filter { !$0.isEmpty && $0.utf8.count <= 255 })
+        let safeCursor = cursor < 0 ? -1 : cursor
         systemNotificationQueue.async {
-            reply(self.systemNotificationReader.fetch(after: cursor, allowed: allowed).encoded())
+            reply(self.systemNotificationReader.fetch(after: safeCursor, allowed: allowed).encoded())
         }
     }
 

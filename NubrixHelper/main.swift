@@ -6,13 +6,34 @@
 //
 
 import Foundation
+import Security
+
+private func ownTeamIdentifier() -> String? {
+    var code: SecCode?
+    guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return nil }
+    var staticCode: SecStaticCode?
+    guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode else { return nil }
+    var info: CFDictionary?
+    guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+          let dictionary = info as? [String: Any],
+          let team = dictionary[kSecCodeInfoTeamIdentifier as String] as? String,
+          team.count == 10,
+          team.allSatisfy({ $0.isASCII && ($0.isUppercase || $0.isNumber) })
+    else { return nil }
+    return team
+}
+
+private let clientRequirement: String = {
+    guard let team = ownTeamIdentifier() else { return "identifier \"dev.nubrix.app\"" }
+    return "anchor apple generic and identifier \"dev.nubrix.app\" and certificate leaf[subject.OU] = \"\(team)\""
+}()
 
 class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     
     /// This method is where the NSXPCListener configures, accepts, and resumes a new incoming NSXPCConnection.
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
         
-        newConnection.setCodeSigningRequirement("identifier \"dev.nubrix.app\"")
+        newConnection.setCodeSigningRequirement(clientRequirement)
 
         // Configure the connection.
         // First, set the interface that the exported object implements.

@@ -1,7 +1,22 @@
 #!/bin/bash
 PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
 export LC_ALL=C
-dev="${NUBRIX_DEV:-}"
+dev=""
+if [ "${NUBRIX_DEV:-}" = 1 ]; then
+  nubrix_src="${BASH_SOURCE[0]:-$0}"
+  case "$nubrix_src" in */*) ;; *) nubrix_src="./$nubrix_src" ;; esac
+  nubrix_hops=0
+  while [ -L "$nubrix_src" ] && [ "$nubrix_hops" -lt 8 ]; do
+    nubrix_link="$(/usr/bin/readlink "$nubrix_src" 2>/dev/null)" || break
+    case "$nubrix_link" in /*) nubrix_src="$nubrix_link" ;; *) nubrix_src="${nubrix_src%/*}/$nubrix_link" ;; esac
+    nubrix_hops=$((nubrix_hops + 1))
+  done
+  nubrix_src_dir="$(cd "${nubrix_src%/*}" 2>/dev/null && pwd -P)"
+  nubrix_sealed_dir="$(cd "$HOME/.config/nubrix/bin" 2>/dev/null && pwd -P)"
+  if [ -n "$nubrix_src_dir" ] && [ "$nubrix_src_dir" != "$nubrix_sealed_dir" ] && [ ! -L "$nubrix_src" ]; then
+    dev=1
+  fi
+fi
 if [ "$dev" = 1 ]; then
   endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix-run/agent-endpoint}"
 else
@@ -82,11 +97,24 @@ nubrix_hmac() {
   } | /usr/bin/openssl dgst -sha256 | /usr/bin/sed 's/^.*= *//'
 }
 
+nubrix_listener_pid() {
+  local out lp wd result=""
+  out="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/nubrix-lsof.XXXXXX" 2>/dev/null)" || return 1
+  /usr/sbin/lsof -nP -a -p "$pid" -iTCP@127.0.0.1:"$port" -sTCP:LISTEN -t >"$out" 2>/dev/null </dev/null &
+  lp=$!
+  ( /bin/sleep 1; kill -9 "$lp" ) >/dev/null 2>&1 </dev/null &
+  wd=$!
+  if wait "$lp" 2>/dev/null; then result="$(<"$out")"; fi
+  kill "$wd" 2>/dev/null
+  wait "$wd" 2>/dev/null
+  /bin/rm -f "$out"
+  printf '%s' "$result"
+}
+
 nubrix_load_endpoint || exit 0
 
 if [ "$dev" != 1 ]; then
-  listener="$(/usr/sbin/lsof -nP -a -p "$pid" -iTCP@127.0.0.1:"$port" -sTCP:LISTEN -t 2>/dev/null)"
-  [ "$listener" = "$pid" ] || exit 0
+  [ "$(nubrix_listener_pid)" = "$pid" ] || exit 0
 fi
 
 body="$(/usr/bin/head -c 65537)"

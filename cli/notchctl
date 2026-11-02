@@ -1,6 +1,21 @@
 #!/bin/bash
 PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
-dev="${NUBRIX_DEV:-}"
+dev=""
+if [ "${NUBRIX_DEV:-}" = 1 ]; then
+  nubrix_src="${BASH_SOURCE[0]:-$0}"
+  case "$nubrix_src" in */*) ;; *) nubrix_src="./$nubrix_src" ;; esac
+  nubrix_hops=0
+  while [ -L "$nubrix_src" ] && [ "$nubrix_hops" -lt 8 ]; do
+    nubrix_link="$(/usr/bin/readlink "$nubrix_src" 2>/dev/null)" || break
+    case "$nubrix_link" in /*) nubrix_src="$nubrix_link" ;; *) nubrix_src="${nubrix_src%/*}/$nubrix_link" ;; esac
+    nubrix_hops=$((nubrix_hops + 1))
+  done
+  nubrix_src_dir="$(cd "${nubrix_src%/*}" 2>/dev/null && pwd -P)"
+  nubrix_sealed_dir="$(cd "$HOME/.config/nubrix/bin" 2>/dev/null && pwd -P)"
+  if [ -n "$nubrix_src_dir" ] && [ "$nubrix_src_dir" != "$nubrix_sealed_dir" ] && [ ! -L "$nubrix_src" ]; then
+    dev=1
+  fi
+fi
 if [ "$dev" = 1 ]; then
   endpoint="${NUBRIX_ENDPOINT_FILE:-$HOME/.config/nubrix-run/agent-endpoint}"
 else
@@ -24,7 +39,7 @@ Options for notify:
   --duration N    Seconds to show the banner, 1-30 (default 4).
 
 Environment:
-  NUBRIX_DEV=1           Tests only: honour NUBRIX_ENDPOINT_FILE (default ~/.config/nubrix-run/agent-endpoint),
+  NUBRIX_DEV=1           Tests only, ignored when run from ~/.config/nubrix/bin: honour NUBRIX_ENDPOINT_FILE (default ~/.config/nubrix-run/agent-endpoint),
                          skip the owner, mode and process checks, accept a file without a process id.
 USAGE
 }
