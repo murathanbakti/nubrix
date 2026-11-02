@@ -83,8 +83,8 @@ Nubrix started as a fork of the project named in the README's Credits section an
 ## Releases (maintainer)
 
 1. Bump `MARKETING_VERSION` in the Xcode project (app and helper targets) and update docs if needed. Merge to `main`.
-2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. The release workflow (`.github/workflows/release.yml`) builds a universal app via `scripts/package-release.sh` and creates a draft GitHub release with `Nubrix-<version>.zip` and `Nubrix-<version>.zip.sha256`. It also renders the Homebrew cask as `nubrix.rb`.
+2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`. To rerun a release by hand, use Run workflow with the tag selected under "Use workflow from"; runs from a branch stop.
+3. The release workflow (`.github/workflows/release.yml`) runs two jobs. `build` compiles the universal app with `scripts/package-release.sh --build-only`, including the Swift packages, with a read-only token and no signing secrets. `release` takes that app, signs and notarizes it with `scripts/package-release.sh --app`, and creates a draft GitHub release with `Nubrix-<version>.zip` and `Nubrix-<version>.zip.sha256`. It never compiles or runs third-party code. It also renders the Homebrew cask as `nubrix.rb`.
 4. Check the draft, then publish it.
 5. Update the cask in [murathanbakti/homebrew-tap](https://github.com/murathanbakti/homebrew-tap) with the workflow's rendered `nubrix.rb` (`Casks/nubrix.rb`) and push.
 
@@ -101,7 +101,13 @@ Without signing secrets the workflow builds an ad-hoc signed release that is not
 | `NOTARY_API_ISSUER_ID` | secret | the issuer ID shown above the App Store Connect key list |
 | `APPLE_TEAM_ID` | variable | the 10 character team ID that owns the certificate |
 
-`scripts/setup-release-signing.sh` sets these up without Keychain Access: `csr` makes a private key and a certificate signing request in `~/.nubrix-signing` (never in the repository); upload it as a Developer ID Application certificate on developer.apple.com, create an App Store Connect API key with the Developer role, then `upload` builds the `.p12` with a random password, checks that macOS can import it, and sets the secrets and `APPLE_TEAM_ID` on the repository of the `origin` remote after asking. Keep a copy of `~/.nubrix-signing` in a password manager or on an encrypted disk, then delete it.
+The `release` job uses the GitHub environment `release`, which only `v*` tags can deploy to, so the secrets belong there rather than at the repository level. `scripts/setup-release-signing.sh` sets everything up without Keychain Access:
+
+1. `csr` makes a private key and a certificate signing request in `~/.nubrix-signing` (never in the repository). Upload it as a Developer ID Application certificate on developer.apple.com, and create an App Store Connect API key with the Developer role.
+2. `environment` creates the `release` environment with its `v*` tag rule.
+3. `upload --env release` builds the `.p12` with a random password, checks that macOS can import it, sets the secrets and `APPLE_TEAM_ID` on that environment of the `origin` remote's repository after asking, and deletes copies stored at the repository level.
+
+The private key is imported on the runner as non-extractable, into a temporary keychain that is deleted at the end of the job. Keep a copy of `~/.nubrix-signing` in a password manager or on an encrypted disk, then delete it.
 
 If `DEVELOPER_ID_P12_BASE64` is set, all other entries are required and the workflow stops when one is missing. Locally, `NUBRIX_SIGN_IDENTITY=- scripts/sign-release.sh <app>` runs the same re-signing ad hoc as a dry run.
 

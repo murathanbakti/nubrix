@@ -5,33 +5,36 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing tag to release, for example v0.1.0"
-        required: true
-        type: string
 
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
+env:
+  PROJECT_NAME: Nubrix
+  XCODE_VERSION: "26.6"
+  TAG: ${{ github.ref_name }}
+
 jobs:
-  release:
-    name: Package and draft release
+  build:
+    name: Build without secrets
     runs-on: macos-latest
     permissions:
-      contents: write
-    env:
-      PROJECT_NAME: Nubrix
-      XCODE_VERSION: "26.6"
-      TAG: ${{ inputs.tag || github.ref_name }}
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
+      - name: Require a tag
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::Run this workflow from a vX.Y.Z tag (Use workflow from → Tags), not from the branch '$GITHUB_REF_NAME'"
+          exit 1
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/tags/${{ inputs.tag || github.ref_name }}
           persist-credentials: false
 
       - name: Select Xcode
@@ -53,6 +56,7 @@ jobs:
         run: xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile -project "$PROJECT_NAME.xcodeproj"
 
       - name: Check tag against MARKETING_VERSION
+        id: version
         run: |
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Tag '$TAG' is not of the form vX.Y.Z"
@@ -65,6 +69,66 @@ jobs:
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: scripts/package-release.sh --build-only "$VERSION"
+        env:
+          NUBRIX_DERIVED_DATA: ${{ runner.temp }}/DerivedData-release
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nubrix-unsigned
+          path: dist/Nubrix-${{ steps.version.outputs.version }}-unsigned.zip
+          if-no-files-found: error
+          retention-days: 3
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nubrix-dsyms
+          path: dist/dSYMs-*.zip
+          if-no-files-found: error
+
+  release:
+    name: Sign, notarize and draft release
+    needs: build
+    runs-on: macos-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          XCODE_PATH="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [[ ! -d "$XCODE_PATH" ]]; then
+            XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "::error::No Xcode 26 found on this runner"
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nubrix-unsigned
+          path: ${{ runner.temp }}/unsigned
+
+      - name: Unpack the built app
+        run: |
+          app_dir="$RUNNER_TEMP/app"
+          rm -rf "$app_dir"
+          mkdir -p "$app_dir"
+          ditto -x -k "$RUNNER_TEMP/unsigned/Nubrix-$VERSION-unsigned.zip" "$app_dir"
+          [[ -d "$app_dir/Nubrix.app" ]] || { echo "::error::The build artifact holds no Nubrix.app"; exit 1; }
+          echo "BUILT_APP=$app_dir/Nubrix.app" >> "$GITHUB_ENV"
 
       - name: Choose signing mode
         env:
@@ -123,7 +187,7 @@ jobs:
 
           printf '%s' "$DEVELOPER_ID_P12_BASE64" | base64 --decode > "$secrets_dir/developer-id.p12"
           security import "$secrets_dir/developer-id.p12" -k "$keychain" -f pkcs12 \
-            -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+            -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign -x
           rm -f "$secrets_dir/developer-id.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
           search=("$keychain")
@@ -152,10 +216,9 @@ jobs:
             echo "NOTARY_KEY_PATH=$secrets_dir/AuthKey.p8"
           } >> "$GITHUB_ENV"
 
-      - name: Package
-        run: scripts/package-release.sh "$VERSION"
+      - name: Sign, notarize and package
+        run: scripts/package-release.sh --app "$BUILT_APP" "$VERSION"
         env:
-          NUBRIX_DERIVED_DATA: ${{ runner.temp }}/DerivedData-release
           NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
           NOTARY_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
 
@@ -223,10 +286,4 @@ jobs:
         with:
           name: nubrix-cask
           path: dist/nubrix.rb
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: nubrix-dsyms
-          path: dist/dSYMs-*.zip
           if-no-files-found: error
