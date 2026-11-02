@@ -12,8 +12,8 @@ enum OnboardingStep {
     case welcome
     case cameraPermission
     case calendarPermission
-    case remindersPermission
     case accessibilityPermission
+    case notificationsFromApps
     case musicPermission
     case finished
 }
@@ -68,40 +68,18 @@ struct OnboardingView: View {
                         Task {
                                 await requestCalendarPermission()
                                 withAnimation(.easeInOut(duration: 0.6)) {
-                                    step = .remindersPermission
+                                    step = .accessibilityPermission
                                 }
                         }
                     },
                     onSkip: {
                             withAnimation(.easeInOut(duration: 0.6)) {
-                                step = .remindersPermission
+                                step = .accessibilityPermission
                             }
                     }
                 )
                 .transition(.opacity)
 
-                case .remindersPermission:
-                    PermissionRequestView(
-                        icon: Image(systemName: "checklist"),
-                        title: "Enable Reminders Access",
-                        description: "Nubrix can show your scheduled reminders alongside your calendar events. Access to Reminders is needed to display your reminders.",
-                        privacyNote: "Your reminders data is only used to show your reminders and is never shared.",
-                        onAllow: {
-                            Task {
-                                await requestRemindersPermission()
-                                withAnimation(.easeInOut(duration: 0.6)) {
-                                    step = .accessibilityPermission
-                                }
-                            }
-                        },
-                        onSkip: {
-                            withAnimation(.easeInOut(duration: 0.6)) {
-                                step = .accessibilityPermission
-                            }
-                        }
-                    )
-                    .transition(.opacity)
-                
             case .accessibilityPermission:
                 PermissionRequestView(
                     icon: Image(systemName: "hand.raised.fill"),
@@ -112,8 +90,29 @@ struct OnboardingView: View {
                         Task {
                             await requestAccessibilityPermission()
                             withAnimation(.easeInOut(duration: 0.6)) {
-                                step = .musicPermission
+                                step = .notificationsFromApps
                             }
+                        }
+                    },
+                    onSkip: {
+                        withAnimation(.easeInOut(duration: 0.6)) {
+                            step = .notificationsFromApps
+                        }
+                    }
+                )
+                .transition(.opacity)
+                
+            case .notificationsFromApps:
+                PermissionRequestView(
+                    icon: Image(systemName: "bell.badge"),
+                    title: "Notifications in the Notch",
+                    description: "Optionally see new notifications from WhatsApp, Slack, Mail and other apps in the notch. This needs Full Disk Access, which you give in System Settings. Nubrix shows you how.",
+                    privacyNote: "Only the apps you choose are read. Nothing is stored or sent anywhere.",
+                    allowTitle: "Set Up",
+                    onAllow: {
+                        FullDiskAccessGuide.begin()
+                        withAnimation(.easeInOut(duration: 0.6)) {
+                            step = .musicPermission
                         }
                     },
                     onSkip: {
@@ -123,7 +122,7 @@ struct OnboardingView: View {
                     }
                 )
                 .transition(.opacity)
-                
+
             case .musicPermission:
                 MusicControllerSelectionView(
                     onContinue: {
@@ -152,10 +151,6 @@ struct OnboardingView: View {
         _ = try? await calendarService.requestAccess(to: .event)
     }
 
-    func requestRemindersPermission() async {
-        _ = try? await calendarService.requestAccess(to: .reminder)
-    }
-    
     func requestAccessibilityPermission() async {
         _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
     }

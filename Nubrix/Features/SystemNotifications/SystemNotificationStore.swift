@@ -15,6 +15,7 @@ final class SystemNotificationStore: ObservableObject {
     private var locked = false
     private var cursor: Int64 = -1
     private var generation = 0
+    private var fastRecheck = false
     private var loop: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
@@ -49,6 +50,20 @@ final class SystemNotificationStore: ObservableObject {
         } else {
             status = .off
             dismissBanner()
+        }
+    }
+
+    func checkNow() async -> SystemNotificationStatus {
+        guard started, isEnabled else { return status }
+        await poll()
+        return status
+    }
+
+    func setFastRecheck(_ on: Bool) {
+        guard fastRecheck != on else { return }
+        fastRecheck = on
+        if on, isEnabled, [.noAccess, .notFound, .unsupported].contains(status) {
+            restartLoop()
         }
     }
 
@@ -107,7 +122,7 @@ final class SystemNotificationStore: ObservableObject {
                 if Task.isCancelled { return }
                 let interval: Double
                 switch self.status {
-                case .noAccess, .notFound, .unsupported: interval = 10
+                case .noAccess, .notFound, .unsupported: interval = self.fastRecheck ? 1.5 : 10
                 default: interval = 2
                 }
                 try? await Task.sleep(for: .seconds(interval))

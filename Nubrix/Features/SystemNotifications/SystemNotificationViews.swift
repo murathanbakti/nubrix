@@ -90,14 +90,20 @@ struct SystemNotificationSettingsSection: View {
         } header: {
             Text("Other apps")
         } footer: {
-            Text("Nubrix reads the macOS notification database to show new notifications from the apps you tick. This needs Full Disk Access for Nubrix (System Settings, Privacy & Security, Full Disk Access). Only apps you tick are read; nothing is stored, logged or sent anywhere, and notifications that arrived before you turned this on are not shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
+            Text("Only the apps you tick are read. Nothing is stored, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }
         .onChange(of: enabled) { _, on in
-            if !on { inbox.markRead(.system) }
+            if !on {
+                inbox.markRead(.system)
+                FullDiskAccessGuide.close()
+            }
             store.settingChanged()
-            if on { store.refreshApps() }
+            if on {
+                store.refreshApps()
+                FullDiskAccessGuide.begin()
+            }
         }
         .onAppear {
             if enabled { store.refreshApps() }
@@ -108,19 +114,27 @@ struct SystemNotificationSettingsSection: View {
     private var statusRow: some View {
         switch store.status {
         case .ready:
-            Label("Ready", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.secondary)
-        case .noAccess:
-            HStack {
-                Label("Full Disk Access needed", systemImage: "lock.fill")
-                    .foregroundStyle(.orange)
-                Spacer()
-                Button("Open Privacy & Security") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+            Label {
+                Text("Ready. New notifications from the apps you tick appear in the notch.")
+            } icon: {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             }
+            if rows.isEmpty {
+                Text("Apps appear here after they post a notification. Click Refresh to update the list.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .noAccess:
+            HStack(spacing: 10) {
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(.orange)
+                Text("Nubrix needs Full Disk Access to read notifications.")
+                Spacer()
+                Button("Grant Access…") { FullDiskAccessGuide.begin() }
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(10)
+            .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         case .unsupported:
             Label("Not supported on this macOS version", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.secondary)

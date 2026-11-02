@@ -12,6 +12,7 @@ struct PermissionRequestView: View {
     let title: String
     let description: String
     let privacyNote: String?
+    var allowTitle: String = "Allow Access"
     let onAllow: () -> Void
     let onSkip: () -> Void
 
@@ -48,7 +49,7 @@ struct PermissionRequestView: View {
             HStack {
                 Button("Not Now") { onSkip() }
                     .buttonStyle(.bordered)
-                Button("Allow Access") { onAllow() }
+                Button(allowTitle) { onAllow() }
                     .buttonStyle(.borderedProminent)
             }
             .padding(.top, 10)

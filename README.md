@@ -5,6 +5,7 @@ Nubrix is a notch bar for macOS built for developers. It is based on [boring.not
 - **Claude Code in the notch:** live status of every session, plan usage, and permission requests you can approve from the notch
 - **Vitrin:** a clipboard and screenshot showcase that never stores text that looks like a secret
 - **Developer tools:** `notchctl` banners from any script, a localhost port watcher, and read-only GitHub PR and CI status
+- **Notifications from other apps** (optional): new WhatsApp, Slack or Mail notifications as a banner in the notch
 
 Everything runs locally. There is no account, no cloud service, no telemetry and no auto-updater. The few optional network uses are listed under [Privacy and security](#privacy-and-security).
 
@@ -29,11 +30,13 @@ Contents: [Quick start](#quick-start) · [Features](#features) · [Install](#ins
    brew install --cask nubrix
    open -a Nubrix
    ```
+   The first launch walks you through the optional permissions. Everything can be skipped and turned on later in Settings.
 2. For Claude Code session status, install the hook scripts. The installer prints a snippet; merge it into `~/.claude/settings.json` yourself (it never edits that file):
    ```sh
    bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
    ```
 3. Start a new Claude Code session. It appears in the notch's "Claude" tab.
+4. Optional: to see WhatsApp, Slack or Mail notifications in the notch, turn on Settings, Notifications, Other apps. Nubrix opens the right page in System Settings and shows you what to drag where.
 
 Other install methods are under [Install](#install); the hook setup is explained step by step under [Claude Code setup](#claude-code-setup).
 
@@ -112,7 +115,8 @@ Other install methods are under [Install](#install); the hook setup is explained
 
 **Notifications from other apps** (optional, off by default)
 - New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; click it to open the app
-- Needs Full Disk Access, because macOS has no public way to read other apps' notifications (see [Permissions](#permissions)). Only the apps you tick are read, and nothing is stored
+- Needs Full Disk Access, because macOS has no public way to read other apps' notifications. When you turn it on, a small guide opens next to System Settings: drag the Nubrix icon into the list, turn on its switch, and the guide confirms as soon as access works
+- Only the apps you tick are read, and nothing is stored. Notifications from the app you are using are skipped, and the message text can be hidden
 - Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch
 
 <p align="center">
@@ -197,7 +201,7 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin |
 | Pasteboard access | On recent macOS versions macOS may ask whether Nubrix may read what other apps copy. Vitrin cannot capture anything while access is denied | When Vitrin starts capturing |
 | Keychain | Stores the optional GitHub token | When you save a token |
-| Full Disk Access | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only | Only if you turn on Settings, Notifications, Other apps |
+| Full Disk Access* | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only. Nubrix shows a guide for granting it | Only if you turn on Settings, Notifications, Other apps |
 
 Nubrix's own banners are drawn in the notch; it does not post to the macOS notification centre. Full Disk Access is only needed for notifications from other apps; everything else works without it. There is no Screen Recording permission.
 
@@ -352,7 +356,7 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 **The notch is not visible.** Check Settings, General: "Show on all displays" and "Automatically switch displays" decide which display shows it. On a Mac without a notch the bar is a strip at the top centre; its height is set there too. Settings, Media, "Full screen behavior" can hide it while an app is fullscreen. If you turned off the menu bar icon ("Show menu bar icon"), the Settings window may be hard to reach, so check that first.
 
-**Notifications from other apps do not appear.** Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. "Full Disk Access needed" means Nubrix is not on (or was dropped from) the list in System Settings, Privacy & Security, Full Disk Access; ad-hoc signed updates can drop it, so add Nubrix again and wait a few seconds. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
+**Notifications from other apps do not appear.** Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant Access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. Ad-hoc signed updates can drop the grant: remove Nubrix from the list with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
 
 **The volume and brightness HUDs did not change.** "Replace system HUD" needs Accessibility access for Nubrix's helper (System Settings, Privacy & Security, Accessibility). If access is missing at launch, Nubrix turns the option off.
 
@@ -374,7 +378,7 @@ or run the install script again, or `git pull && scripts/install-local.sh` for a
    brew uninstall --cask nubrix
    ```
    `brew uninstall --cask --zap nubrix` also removes `~/.config/nubrix`, `~/.config/nubrix-run`, the app container and preferences. Without Homebrew, delete `/Applications/Nubrix.app` and those same folders by hand.
-3. Optional: delete the Keychain item `dev.nubrix.github` (Keychain Access) and revoke the GitHub token on github.com.
+3. Optional: delete the Keychain item `dev.nubrix.github` (Keychain Access) and revoke the GitHub token on github.com, and remove Nubrix from System Settings, Privacy & Security, Full Disk Access if you had given it.
 
 ## Building and contributing
 

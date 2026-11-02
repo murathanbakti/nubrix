@@ -149,3 +149,17 @@ Left for publishing:
   previously frontmost app is re-activated. The calendar owns Esc (cancels a
   form or the go-to field first, closes only when nothing is left to cancel).
 - The old in-notch calendar tab and the coordinator overlay API were removed.
+
+## Notifications from other apps (done, being tried on device)
+
+- `NubrixHelper/SystemNotificationReader.swift` reads the macOS notification
+  database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`)
+  read-only; new rows are found by `rec_id` and `delivered_date`, only ticked
+  apps leave the helper, strings are sanitized and truncated.
+- `Nubrix/Features/SystemNotifications/`: polling store (2 s, skipped when the
+  file is unchanged, paused while asleep or locked), closed-notch banner, inbox
+  source `system`, settings section and the Full Disk Access guide panel with a
+  draggable app icon and live detection. Optional onboarding step.
+- Off by default; needs Full Disk Access for Nubrix. Content stays in memory.
+- Later: a list of recent notifications in the open notch; Dock badge counts
+  as a no-permission fallback.
