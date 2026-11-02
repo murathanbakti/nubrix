@@ -101,6 +101,8 @@ Without signing secrets the workflow builds an ad-hoc signed release that is not
 | `NOTARY_API_ISSUER_ID` | secret | the issuer ID shown above the App Store Connect key list |
 | `APPLE_TEAM_ID` | variable | the 10 character team ID that owns the certificate |
 
+`scripts/setup-release-signing.sh` sets these up without Keychain Access: `csr` makes a private key and a certificate signing request in `~/.nubrix-signing` (never in the repository); upload it as a Developer ID Application certificate on developer.apple.com, create an App Store Connect API key with the Developer role, then `upload` builds the `.p12` with a random password, checks that macOS can import it, and sets the secrets and `APPLE_TEAM_ID` on the repository of the `origin` remote after asking. Keep a copy of `~/.nubrix-signing` in a password manager or on an encrypted disk, then delete it.
+
 If `DEVELOPER_ID_P12_BASE64` is set, all other entries are required and the workflow stops when one is missing. Locally, `NUBRIX_SIGN_IDENTITY=- scripts/sign-release.sh <app>` runs the same re-signing ad hoc as a dry run.
 
 There is no auto-updater; users update with `brew upgrade --cask nubrix` or by running the install script again.
