@@ -37,6 +37,10 @@ History is a SQLite database with image files beside it, stored in the app conta
 
 Kept in the macOS Keychain only and sent only to `api.github.com`. Nubrix only sends read requests; Settings asks you to create the token read-only and limited to the repositories you choose, which GitHub then enforces.
 
+## Mirror
+
+Mirror uses the camera only for a live preview layer in the notch panel. There is no video or photo output, so no frame is recorded, saved or sent. The camera starts when the panel opens and stops when it closes. Nubrix asks for camera access only when you click "Turn On Camera" in the Mirror panel, never at launch or in onboarding.
+
 ## Notifications from other apps
 
 Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access lets Nubrix read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".

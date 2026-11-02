@@ -42,6 +42,7 @@ final class NotchExtensionHost: ObservableObject {
     private var panel: NotchExtensionPanel?
     private var panelModel: NotchExtensionPanelModel?
     private var transition: NotchExtensionTransition?
+    var keepsOpenOnOutsideClick = false
     private var generation = 0
     private var monitors: [Any] = []
     private var observers: [NSObjectProtocol] = []
@@ -289,6 +290,7 @@ final class NotchExtensionHost: ObservableObject {
         panel = nil
         panelModel = nil
         transition = nil
+        keepsOpenOnOutsideClick = false
         removeMonitors()
         restorePreviousApp()
         let finished = session
@@ -381,14 +383,20 @@ final class NotchExtensionHost: ObservableObject {
     private func installMonitors() {
         removeMonitors()
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] _ in
-            Task { @MainActor in self?.dismiss() }
+            Task { @MainActor in
+                guard let self, !self.keepsOpenOnOutsideClick else { return }
+                self.dismiss()
+            }
         }) {
             monitors.append(global)
         }
         if let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] event in
             guard let self else { return event }
             if let window = event.window, window !== self.panel, !(window is NubrixSkyLightPanel) {
-                Task { @MainActor in self.dismiss() }
+                Task { @MainActor in
+                    guard !self.keepsOpenOnOutsideClick else { return }
+                    self.dismiss()
+                }
             }
             return event
         }) {

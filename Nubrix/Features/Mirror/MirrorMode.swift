@@ -51,6 +51,13 @@ final class MirrorMode {
         )
     }
 
+    func requestCameraAccess() {
+        guard Defaults[.showMirror], isActive else { return }
+        let host = host
+        host.keepsOpenOnOutsideClick = true
+        camera.requestAccess { host.keepsOpenOnOutsideClick = false }
+    }
+
     func exit(animated: Bool = true) {
         host.dismiss(id: Self.extensionID, animated: animated)
     }
@@ -75,6 +82,7 @@ struct MirrorPanelView: View {
                 NotchExtensionHost.shared.resize(to: MirrorMetrics.size(large: large))
             },
             onClose: { dismiss() },
+            onRequestAccess: { MirrorMode.shared.requestCameraAccess() },
             onOpenSettings: {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
                     NSWorkspace.shared.open(url)

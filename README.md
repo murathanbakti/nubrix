@@ -44,7 +44,7 @@ brew install --cask nubrix
 open -a Nubrix
 ```
 
-The first launch offers the optional permissions. You can skip all of them and turn any on later in Settings.
+The first launch offers a few optional permissions: calendar, Accessibility and notifications from other apps. You can skip all of them and turn any on later in Settings. The camera is never asked for up front; Mirror asks the first time you open it.
 
 Without Homebrew, use the install script, which verifies the checksum and code signature before it installs:
 
@@ -276,7 +276,7 @@ Details: [docs/nubrix/PRIVACY-AND-SECURITY.md](docs/nubrix/PRIVACY-AND-SECURITY.
 
 ## Permissions
 
-Nubrix asks for a permission only when you use a feature that needs it. The first launch offers some up front, and you can skip them all:
+Nubrix asks for a permission only when you use a feature that needs it. The first launch offers calendar, Accessibility and Full Disk Access up front, and you can skip them all. The camera is asked only when you first open Mirror and click "Turn On Camera":
 
 - Calendars for the calendar and meetings
 - Camera for Mirror

@@ -67,14 +67,28 @@ final class MirrorCamera: ObservableObject {
         case .authorized:
             run(current)
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                Task { @MainActor [weak self] in
-                    guard let self, self.generation == current else { return }
-                    if granted { self.run(current) } else { self.state = .denied }
-                }
-            }
-        default:
+            state = .needsPermission
+        case .denied, .restricted:
             state = .denied
+        @unknown default:
+            state = .denied
+        }
+    }
+
+    func requestAccess(completion: @escaping @MainActor @Sendable () -> Void) {
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined else {
+            start()
+            completion()
+            return
+        }
+        let current = generation
+        state = .starting
+        AVCaptureDevice.requestAccess(for: .video) { granted in
+            Task { @MainActor [weak self] in
+                completion()
+                guard let self, self.generation == current else { return }
+                if granted { self.run(current) } else { self.state = .denied }
+            }
         }
     }
 

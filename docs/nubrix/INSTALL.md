@@ -46,6 +46,7 @@ If your Mac has an Apple Development or Developer ID Application certificate (an
 
 ## Next steps
 
+- On first launch Nubrix offers calendar, Accessibility and notifications from other apps; every step can be skipped. The camera is asked only when you first open Mirror. See [Permissions](PERMISSIONS-AND-SETTINGS.md#permissions).
 - Connect Claude Code: [Claude Code setup](../../README.md#claude-code-setup).
 - A release that is not notarized (0.1.0) and was downloaded with a browser: [First launch and Gatekeeper](../../README.md#first-launch-and-gatekeeper).
 - [Updating](../../README.md#updating) and [Uninstall](../../README.md#uninstall).

@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MirrorCameraState: Equatable {
     case starting
+    case needsPermission
     case running
     case denied
     case unavailable
@@ -23,6 +24,7 @@ struct MirrorChromeView<Preview: View>: View {
     let onFlip: () -> Void
     let onToggleSize: () -> Void
     let onClose: () -> Void
+    let onRequestAccess: () -> Void
     let onOpenSettings: () -> Void
 
     var body: some View {
@@ -64,6 +66,29 @@ struct MirrorChromeView<Preview: View>: View {
     private var statusView: some View {
         VStack(spacing: 8) {
             switch state {
+            case .needsPermission:
+                Image(systemName: "web.camera")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.white.opacity(0.7))
+                Text("Mirror uses your camera")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("The picture is shown only here in the notch. Nothing is recorded, saved or sent.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 300)
+                Button(action: onRequestAccess) {
+                    Text("Turn On Camera")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.white))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             case .denied:
                 Image(systemName: "video.slash")
                     .font(.system(size: 28))
@@ -71,6 +96,12 @@ struct MirrorChromeView<Preview: View>: View {
                 Text("Camera access is off")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
+                Text("Allow Nubrix in System Settings, Privacy & Security, Camera.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 300)
                 Button(action: onOpenSettings) {
                     Text("Open Privacy Settings")
                         .font(.system(size: 12, weight: .medium))

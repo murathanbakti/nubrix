@@ -9,7 +9,7 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 | Permission | Why | When | Turn off in Settings |
 |---|---|---|---|
 | Calendars (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | When you click Allow in onboarding, Settings, Calendar or the calendar sheet | Calendar, "Calendar" (also stops the meeting countdown) |
-| Camera* | Mirror preview | When you open Mirror | Appearance, "Enable mirror" |
+| Camera | Mirror preview. Nubrix only shows the live picture in the panel; it records, saves and sends nothing | The first time you open Mirror (the notch button or Control-Option-M), the panel explains why and asks when you click "Turn On Camera". If access is off, the panel has a button to System Settings, Privacy & Security, Camera. Nothing is asked while "Enable mirror" is off, and onboarding does not ask | Appearance, "Enable mirror" |
 | Accessibility* | Intercept volume and brightness keys to replace the system HUDs. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" | HUDs, "Replace system HUD" |
 | Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal or iTerm. These four are the only apps Nubrix is allowed to script | When you pick those sources in Settings, Media, or first click a Terminal or iTerm session | Media, "Media control"; Notifications, "Open the session when you click it" |
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin | Vitrin, "Capture screenshots" or "Enable Vitrin" |
