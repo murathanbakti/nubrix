@@ -53,7 +53,6 @@ class NubrixCoordinator: ObservableObject {
     @Published var currentView: NotchViews = .home {
         didSet { normalizeCurrentView() }
     }
-    @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
     private var expandingViewDispatch: DispatchWorkItem?
     private var hudEnableTask: Task<Void, Never>?
@@ -175,8 +174,6 @@ class NubrixCoordinator: ObservableObject {
         normalizeCurrentView()
 
         Task { @MainActor in
-            helloAnimationRunning = firstLaunch
-
             if Defaults[.hudReplacement] {
                 let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
                 if !authorized {

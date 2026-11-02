@@ -176,13 +176,4 @@ class NubrixViewModel: NSObject, ObservableObject {
             coordinator.currentView = .home
         }
     }
-
-    func closeHello() {
-        Task { @MainActor in
-            withAnimation(animationLibrary.animation) {
-                coordinator.helloAnimationRunning = false
-                close()
-            }
-        }
-    }
 }

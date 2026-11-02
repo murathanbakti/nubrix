@@ -54,6 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var closeNotchTask: Task<Void, Never>?
     private var previousScreens: [NSScreen]?
     private var onboardingWindowController: NSWindowController?
+    private var onboardingCloseObserver: NSObjectProtocol?
     private var screenLockedObserver: Any?
     private var screenUnlockedObserver: Any?
     private var isScreenLocked: Bool = false
@@ -589,7 +590,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if onboardingWindowController == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 400, height: 600),
-                styleMask: [.titled, .fullSizeContentView],
+                styleMask: [.titled, .closable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
             )
@@ -612,13 +613,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 ))
             window.isRestorable = false
+            window.isReleasedWhenClosed = false
             window.identifier = NSUserInterfaceItemIdentifier("OnboardingWindow")
 
             onboardingWindowController = NSWindowController(window: window)
+
+            onboardingCloseObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    NubrixCoordinator.shared.firstLaunch = false
+                    if let observer = self?.onboardingCloseObserver {
+                        NotificationCenter.default.removeObserver(observer)
+                    }
+                    self?.onboardingCloseObserver = nil
+                    self?.onboardingWindowController = nil
+                }
+            }
         }
 
 //        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         onboardingWindowController?.window?.makeKeyAndOrderFront(nil)
         onboardingWindowController?.window?.orderFrontRegardless()
     }

@@ -377,9 +377,7 @@ struct NotchHomeView: View {
 
     var body: some View {
         Group {
-            if !coordinator.firstLaunch {
-                mainContent
-            }
+            mainContent
         }
         // simplified: use a straightforward opacity transition
         .transition(.opacity)
