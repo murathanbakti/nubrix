@@ -282,7 +282,7 @@ struct SystemNotificationRow: View {
             bar(text, "Open \(record.appName)") { reply.openApp() }
         case .previewsHidden:
             HStack(spacing: 8) {
-                Text("Previews are hidden and Nubrix couldn't confirm which chat this goes to, so nothing was sent. Text copied.")
+                Text("Notification Center hides message previews, so Nubrix can't tell which chat to reply to. Text copied.")
                     .font(.system(size: 11))
                     .foregroundStyle(.gray)
                     .lineLimit(2)

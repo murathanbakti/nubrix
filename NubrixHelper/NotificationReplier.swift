@@ -161,9 +161,6 @@ private struct NotificationMatch {
     let element: AXUIElement
     let actions: [String]
     let subrole: String
-    var hidden = false
-    var hiddenCandidates = 0
-    var hiddenUUID = ""
 }
 
 private enum LocateResult {
@@ -570,56 +567,6 @@ private final class ReplySession {
             return result
         }
 
-        if previewsHidden, !job.isExpired {
-            func hiddenLog(_ exists: Bool, _ count: Int, _ candidates: Int, _ reply: Bool, _ decision: String, _ reason: String) {
-                replyLog.info("hidden dbExists=\(exists, privacy: .public) dbCount=\(count, privacy: .public) appCandidates=\(candidates, privacy: .public) replyAction=\(reply, privacy: .public) recheck=false decision=\(decision, privacy: .public) reason=\(reason, privacy: .public)")
-            }
-            let reader = SystemNotificationReader()
-            let exists = request.recID.flatMap { reader.exists(recID: $0) }
-            let recordUUID = request.recID.flatMap { reader.recordUUID(recID: $0) }
-            let count = request.bundleID.isEmpty ? nil : reader.recordCount(bundleID: request.bundleID)
-            let appUUIDs = request.bundleID.isEmpty ? nil : reader.recordUUIDs(bundleID: request.bundleID)
-            let recordString = recordUUID?.uuidString.lowercased()
-            let appStrings = Set((appUUIDs ?? []).map { $0.uuidString.lowercased() })
-            var matched: [Int] = []
-            var appCandidateCount = 0
-            for index in candidates {
-                let identifier = (string(nodes[index].element, kAXIdentifierAttribute) ?? "").lowercased()
-                let isUUID = UUID(uuidString: identifier) != nil
-                let eqRecord = recordString != nil && identifier == recordString
-                let eqApp = isUUID && appStrings.contains(identifier)
-                if eqApp { appCandidateCount += 1 }
-                if eqRecord { matched.append(index) }
-                replyLog.info("hidden cand=\(index, privacy: .public) idIsUUID=\(isUUID, privacy: .public) idEqRecord=\(eqRecord, privacy: .public) idEqAppRecord=\(eqApp, privacy: .public)")
-            }
-            let unique = deduped(matched)
-            let chosenIndex = unique.count == 1 ? unique[0] : nil
-            let replyAvailable = chosenIndex.map { nodes[$0].customActions.contains(where: isReplyAction) } ?? false
-            let chosenStack = chosenIndex.map { isStack($0) } ?? false
-            let reason: String
-            if request.recID == nil || request.bundleID.isEmpty {
-                reason = "noIdentity"
-            } else if exists == nil || count == nil || recordUUID == nil {
-                reason = "dbUnknown"
-            } else if exists != true {
-                reason = "dbGone"
-            } else if unique.count != 1 {
-                reason = unique.isEmpty ? "noIdMatch" : "multipleIdMatches"
-            } else if !replyAvailable {
-                reason = "noReplyAction"
-            } else if chosenStack, count != 1 {
-                reason = "stackMultipleRecords"
-            } else {
-                reason = "ok"
-            }
-            if reason == "ok", let chosenIndex, let recordString {
-                hiddenLog(true, count ?? -1, appCandidateCount, true, "send", reason)
-                let node = nodes[chosenIndex]
-                return finish(.found(NotificationMatch(element: node.element, actions: node.customActions, subrole: node.subrole, hidden: true, hiddenCandidates: appCandidateCount, hiddenUUID: recordString)), "found hidden")
-            }
-            hiddenLog(exists == true, count ?? -1, appCandidateCount, replyAvailable, "refuse", reason)
-        }
-
         guard !baseMatches.isEmpty else { return finish(.missing, "missing") }
         guard accepted.count == 1, let chosen = accepted.first else { return finish(.blocked, "blocked reason=\(accepted.isEmpty ? "rejected" : "duplicate")") }
 
@@ -665,21 +612,6 @@ private final class ReplySession {
         guard !job.isExpired else {
             _ = AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, "" as CFString)
             return .failed
-        }
-
-        if match.hidden {
-            let reader = SystemNotificationReader()
-            let exists = request.recID.flatMap { reader.exists(recID: $0) }
-            let current = request.recID.flatMap { reader.recordUUID(recID: $0) }?.uuidString.lowercased()
-            let identifier = (string(match.element, kAXIdentifierAttribute) ?? "").lowercased()
-            let count = request.bundleID.isEmpty ? nil : reader.recordCount(bundleID: request.bundleID)
-            let stack = match.subrole.contains("Stack")
-            let ok = exists == true && current == match.hiddenUUID && identifier == match.hiddenUUID && (!stack || count == 1)
-            replyLog.info("hidden dbExists=\(exists == true, privacy: .public) dbCount=\(count ?? -1, privacy: .public) appCandidates=\(match.hiddenCandidates, privacy: .public) replyAction=true recheck=true decision=\(ok ? "send" : "refuse", privacy: .public) reason=\(ok ? "ok" : "recheckChanged", privacy: .public)")
-            guard ok else {
-                _ = AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, "" as CFString)
-                return .previewsHidden
-            }
         }
 
         guard job.beginSubmit() else {

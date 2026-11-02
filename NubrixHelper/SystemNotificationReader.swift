@@ -170,58 +170,6 @@ final class SystemNotificationReader {
         return Int(sqlite3_column_int64(statement, 0))
     }
 
-    private static func uuid(from statement: OpaquePointer, column: Int32) -> UUID? {
-        switch sqlite3_column_type(statement, column) {
-        case SQLITE_BLOB:
-            guard sqlite3_column_bytes(statement, column) == 16, let raw = sqlite3_column_blob(statement, column) else { return nil }
-            let bytes = raw.assumingMemoryBound(to: UInt8.self)
-            return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
-        case SQLITE_TEXT:
-            guard let text = sqlite3_column_text(statement, column) else { return nil }
-            return UUID(uuidString: String(cString: text))
-        default:
-            return nil
-        }
-    }
-
-    func recordUUID(recID: Int64) -> UUID? {
-        guard let path = Self.databasePath() else { return nil }
-        if case .failure = Self.stamp(path: path) { return nil }
-        guard case .handle(let db) = Self.open(path: path) else { return nil }
-        defer { sqlite3_close(db) }
-        sqlite3_busy_timeout(db, 200)
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT uuid FROM record WHERE rec_id = ?1", -1, &statement, nil) == SQLITE_OK, let statement else { return nil }
-        defer { sqlite3_finalize(statement) }
-        sqlite3_bind_int64(statement, 1, recID)
-        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
-        return Self.uuid(from: statement, column: 0)
-    }
-
-    func recordUUIDs(bundleID: String) -> [UUID]? {
-        guard let path = Self.databasePath() else { return nil }
-        if case .failure = Self.stamp(path: path) { return nil }
-        guard case .handle(let db) = Self.open(path: path) else { return nil }
-        defer { sqlite3_close(db) }
-        sqlite3_busy_timeout(db, 200)
-        var statement: OpaquePointer?
-        let sql = "SELECT r.uuid FROM record r JOIN app a ON a.app_id = r.app_id WHERE a.identifier = ?1"
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else { return nil }
-        defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, bundleID, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
-        var found: [UUID] = []
-        while true {
-            let step = sqlite3_step(statement)
-            if step == SQLITE_ROW {
-                if let value = Self.uuid(from: statement, column: 0) { found.append(value) }
-            } else if step == SQLITE_DONE {
-                return found
-            } else {
-                return nil
-            }
-        }
-    }
-
     private static func failed(_ cursor: Int64) -> SystemNotificationResult {
         empty("failed", cursor)
     }
