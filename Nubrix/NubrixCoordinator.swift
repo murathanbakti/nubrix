@@ -50,7 +50,9 @@ struct ExpandedItem {
 class NubrixCoordinator: ObservableObject {
     static let shared = NubrixCoordinator()
 
-    @Published var currentView: NotchViews = .home
+    @Published var currentView: NotchViews = .home {
+        didSet { normalizeCurrentView() }
+    }
     @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
     private var expandingViewDispatch: DispatchWorkItem?
@@ -100,6 +102,13 @@ class NubrixCoordinator: ObservableObject {
     @Published var optionKeyPressed: Bool = true
     private var accessibilityObserver: Any?
     private var hudReplacementCancellable: AnyCancellable?
+    private var tabLayoutCancellable: AnyCancellable?
+
+    private func normalizeCurrentView() {
+        let layout = NotchTabLayout.shared
+        if layout.isVisible(currentView) { return }
+        currentView = layout.firstVisible
+    }
 
     private init() {
         // Perform migration from name-based to UUID-based storage
@@ -160,6 +169,10 @@ class NubrixCoordinator: ObservableObject {
                     }
                 }
             }
+
+        tabLayoutCancellable = NotchTabLayout.shared.didChange
+            .sink { [weak self] in self?.normalizeCurrentView() }
+        normalizeCurrentView()
 
         Task { @MainActor in
             helloAnimationRunning = firstLaunch

@@ -26,6 +26,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Appearance") {
                     Label("Appearance", systemImage: "eye")
                 }
+                NavigationLink(value: "Tabs") {
+                    Label("Tabs", systemImage: "rectangle.split.3x1")
+                }
                 NavigationLink(value: "Media") {
                     Label("Media", systemImage: "play.laptopcomputer")
                 }
@@ -74,6 +77,8 @@ struct SettingsView: View {
                     GeneralSettings()
                 case "Appearance":
                     Appearance()
+                case "Tabs":
+                    NotchTabSettings()
                 case "Media":
                     Media()
                 case "Calendar":

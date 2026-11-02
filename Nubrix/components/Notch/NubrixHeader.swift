@@ -14,10 +14,17 @@ struct NubrixHeader: View {
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var layout = NotchTabLayout.shared
+
+    private var showsTabBar: Bool {
+        let shelf = (!tvm.isEmpty || coordinator.alwaysShowTabs) && layout.isVisible(.shelf)
+        let claude = !agents.sessions.isEmpty && layout.isVisible(.agents)
+        return shelf || claude || layout.isVisible(.vitrin) || layout.isVisible(.dev) || layout.isVisible(.notifications)
+    }
     var body: some View {
         HStack(spacing: 0) {
             HStack {
-                if ((!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.nubrixShelf]) || !agents.sessions.isEmpty || Defaults[.vitrinEnabled] || Defaults[.devEnabled] || Defaults[.systemNotificationsEnabled] {
+                if showsTabBar {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()
