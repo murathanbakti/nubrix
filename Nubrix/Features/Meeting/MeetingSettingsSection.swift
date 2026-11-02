@@ -2,14 +2,18 @@ import Defaults
 import SwiftUI
 
 struct MeetingSettingsSection: View {
-    @Default(.meetingCountdownEnabled) private var enabled
+    @Default(.showCalendar) private var calendarOn
+    @Default(.meetingCountdownEnabled) private var countdownOn
     @Default(.meetingLeadMinutes) private var lead
+
+    private var enabled: Bool { calendarOn && countdownOn }
 
     var body: some View {
         Section {
             Defaults.Toggle(key: .meetingCountdownEnabled) {
                 Text("Meeting countdown")
             }
+            .disabled(!calendarOn)
             Picker("Start countdown", selection: leadBinding) {
                 ForEach(MeetingLeadOption.minutes, id: \.self) { minutes in
                     Text("\(minutes) min before").tag(minutes)
@@ -23,7 +27,7 @@ struct MeetingSettingsSection: View {
         } header: {
             Text("Meetings")
         } footer: {
-            Text("Counts down to the next meeting in the closed notch. The meeting card on the Home tab has a Join button when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link.")
+            Text((calendarOn ? "" : "Turn on Calendar in Settings to use the countdown. ") + "Counts down to the next meeting in the closed notch. The meeting card on the Home tab has a Join button when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import SwiftUI
 
 enum DevSection: String, CaseIterable, Identifiable {
@@ -230,6 +231,9 @@ struct GitHubSection: View {
 
     var body: some View {
         switch store.connection {
+        case .disabled:
+            prompt(icon: "power", title: "GitHub is off",
+                   detail: "Turn it on in Settings to see pull requests and runs.", button: "Open GitHub settings")
         case .noToken:
             prompt(icon: "arrow.triangle.branch", title: "Connect GitHub",
                    detail: "Pull requests, reviews and Actions runs from a read-only token.", button: "Connect GitHub")
@@ -320,10 +324,11 @@ struct GitHubSection: View {
 struct DevSectionBar: View {
     @Binding var selection: DevSection
     @ObservedObject var github: GitHubStore
+    @Default(.githubEnabled) private var githubEnabled
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(DevSection.allCases) { section in
+            ForEach(DevSection.allCases.filter { $0 != .github || githubEnabled }) { section in
                 Button {
                     selection = section
                 } label: {

@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 
 enum AgentRoute {
@@ -27,7 +28,18 @@ enum AgentRoute {
 
     enum Admission: Equatable {
         case reject
+        case refuse(String)
         case accept(maxBody: Int)
+    }
+
+    struct Policy: Equatable {
+        var claude: Bool
+        var approvals: Bool
+        var dev: Bool
+
+        static var current: Policy {
+            Policy(claude: Defaults[.claudeEnabled], approvals: Defaults[.claudeNotchApprovals], dev: Defaults[.devEnabled])
+        }
     }
 
     private static func normalizedPath(_ raw: String) -> String {
@@ -45,13 +57,24 @@ enum AgentRoute {
         }
     }
 
-    static func admit(_ head: HTTPHead, token: String, port: UInt16) -> Admission {
-        guard let limit = maxBody(method: head.method, path: normalizedPath(head.path)) else { return .reject }
+    static func admit(_ head: HTTPHead, token: String, port: UInt16, policy: Policy = .current) -> Admission {
+        let path = normalizedPath(head.path)
+        guard let limit = maxBody(method: head.method, path: path) else { return .reject }
         guard head.headers["origin"] == nil else { return .reject }
         guard head.duplicates.isDisjoint(with: singletonHeaders) else { return .reject }
         let host = (head.headers["host"] ?? "").lowercased()
         guard host == "127.0.0.1:\(port)" || host == "localhost:\(port)" else { return .reject }
         guard constantTimeEquals(head.headers["authorization"] ?? "", "Bearer \(token)") else { return .reject }
+        switch path {
+        case hookPath, statusPath:
+            guard policy.claude else { return .reject }
+        case permissionPath:
+            guard policy.claude, policy.approvals else { return .reject }
+        case notifyPath:
+            guard policy.dev else { return .refuse("503 Service Unavailable") }
+        default:
+            break
+        }
         return .accept(maxBody: limit)
     }
 

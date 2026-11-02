@@ -112,7 +112,6 @@ struct AlbumArtView: View {
 struct MusicControlsView: View {
     @ObservedObject var musicManager = MusicManager.shared
         @EnvironmentObject var vm: NubrixViewModel
-        @ObservedObject var webcamManager = WebcamManager.shared
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
 
@@ -180,12 +179,6 @@ struct MusicControlsView: View {
         )
         let padded = slotConfig.padded(to: sanitizedLimit, filler: .none)
         let result = Array(padded.prefix(sanitizedLimit))
-        // If calendar and camera are both visible alongside music, hide the edge slots
-        let shouldHideEdges = Defaults[.showCalendar] && Defaults[.showMirror] && webcamManager.cameraAvailable && vm.isCameraExpanded
-        if shouldHideEdges && result.count >= 5 {
-            return Array(result.dropFirst().dropLast())
-        }
-
         return result
     }
 
@@ -372,13 +365,14 @@ struct VolumeControlView: View {
 
 struct NotchHomeView: View {
     @EnvironmentObject var vm: NubrixViewModel
-    @ObservedObject var webcamManager = WebcamManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @ObservedObject var meeting = MeetingWatcher.shared
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var plan = ClaudePlanUsageStore.shared
     @Default(.homeShowClaudeUsage) private var showClaudeUsage
+    @Default(.mediaControlEnabled) private var mediaEnabled
+    @Default(.claudeEnabled) private var claudeEnabled
     let albumArtNamespace: Namespace.ID
 
     var body: some View {
@@ -395,12 +389,8 @@ struct NotchHomeView: View {
         }
     }
 
-    private var shouldShowCamera: Bool {
-        Defaults[.showMirror] && webcamManager.cameraAvailable && vm.isCameraExpanded
-    }
-
     private var showsClaudeCard: Bool {
-        showClaudeUsage && !meeting.isCountdownActive && !shouldShowCamera && agents.usageSummary(now: Date()) != nil
+        claudeEnabled && showClaudeUsage && !meeting.isCountdownActive && agents.usageSummary(now: Date()) != nil
     }
 
     private var mainContent: some View {
@@ -412,9 +402,11 @@ struct NotchHomeView: View {
 
     private var homeRow: some View {
         HStack(alignment: .top, spacing: 12) {
-            MusicPlayerView(albumArtNamespace: albumArtNamespace)
+            if mediaEnabled {
+                MusicPlayerView(albumArtNamespace: albumArtNamespace)
+            }
 
-            if meeting.isCountdownActive && !shouldShowCamera {
+            if meeting.isCountdownActive {
                 MeetingCardView()
                     .transition(.opacity)
             }
@@ -424,14 +416,6 @@ struct NotchHomeView: View {
                     coordinator.currentView = .agents
                 }
                 .transition(.opacity)
-            }
-
-            if shouldShowCamera {
-                CameraPreviewView(webcamManager: webcamManager)
-                    .scaledToFit()
-                    .opacity(vm.notchState == .closed ? 0 : 1)
-                    .blur(radius: vm.notchState == .closed ? 20 : 0)
-                    .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.76, blendDuration: 0), value: shouldShowCamera)
             }
         }
         .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))

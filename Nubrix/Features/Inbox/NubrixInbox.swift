@@ -1,3 +1,4 @@
+import Combine
 import Defaults
 import SwiftUI
 
@@ -21,9 +22,9 @@ extension InboxSource {
 
     var isEnabled: Bool {
         switch self {
-        case .claude: return Defaults[.inboxClaudeEnabled]
-        case .notchctl: return Defaults[.inboxNotchctlEnabled]
-        case .github: return Defaults[.inboxGithubEnabled]
+        case .claude: return Defaults[.claudeEnabled] && Defaults[.inboxClaudeEnabled]
+        case .notchctl: return Defaults[.devEnabled] && Defaults[.inboxNotchctlEnabled]
+        case .github: return Defaults[.githubEnabled] && Defaults[.inboxGithubEnabled]
         case .system: return Defaults[.systemNotificationsEnabled]
         }
     }
@@ -45,7 +46,20 @@ final class NubrixInbox: ObservableObject {
 
     @Published private(set) var ledger = InboxLedger()
 
-    private init() {}
+    private var sourceCancellable: AnyCancellable?
+
+    private init() {
+        sourceCancellable = Defaults.publisher(
+            keys: .claudeEnabled, .devEnabled, .githubEnabled, .systemNotificationsEnabled,
+            .inboxClaudeEnabled, .inboxNotchctlEnabled, .inboxGithubEnabled,
+            options: []
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] in
+            guard let self else { return }
+            for source in InboxSource.allCases where !source.isEnabled { self.markRead(source) }
+        }
+    }
 
     private func update(_ change: (inout InboxLedger) -> Bool) {
         var copy = ledger

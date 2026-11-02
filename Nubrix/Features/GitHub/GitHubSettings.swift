@@ -6,6 +6,7 @@ struct GitHubSettings: View {
     @ObservedObject var store = GitHubStore.shared
     @Default(.githubExcludedRepos) var excluded
     @Default(.githubExtraRepos) var extras
+    @Default(.githubEnabled) var enabled
     @State private var tokenText = ""
     @State private var working = false
     @State private var error: String?
@@ -25,13 +26,25 @@ struct GitHubSettings: View {
 
     var body: some View {
         Form {
-            connectionSection
-            tokenHelpSection
-            if store.hasToken {
-                repositoriesSection
+            Section {
+                Defaults.Toggle(key: .githubEnabled) {
+                    Text("GitHub integration")
+                }
+            } footer: {
+                Text("When off, Nubrix does not read the token or contact api.github.com. The token stays in the Keychain.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
-            notificationsSection
-            pollingSection
+            Group {
+                connectionSection
+                tokenHelpSection
+                if store.hasToken {
+                    repositoriesSection
+                }
+                notificationsSection
+                pollingSection
+            }
+            .disabled(!enabled)
         }
         .formStyle(.grouped)
         .navigationTitle("GitHub")
@@ -85,6 +98,7 @@ struct GitHubSettings: View {
         case .rateLimited(let until): return "Rate limited until \(GitHubFormat.time(until))"
         case .failing(let message): return message
         case .noToken: return ""
+        case .disabled: return "Off"
         }
     }
 

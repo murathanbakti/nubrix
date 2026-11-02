@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import KeyboardShortcuts
 import SwiftUI
@@ -27,6 +28,7 @@ enum NubrixCalendarSheet {
     static var isActive: Bool { NotchExtensionHost.shared.isPresenting(extensionID) }
 
     static func toggle(screenUUID: String? = nil) {
+        guard Defaults[.showCalendar] else { return }
         let notchHeight = getClosedNotchSize(screenUUID: screenUUID ?? NubrixCoordinator.shared.selectedScreenUUID).height
         NotchExtensionHost.shared.toggle(
             id: extensionID,
@@ -39,6 +41,7 @@ enum NubrixCalendarSheet {
     }
 
     static func toggleUnderMouse() {
+        guard Defaults[.showCalendar] else { return }
         var uuid: String?
         if Defaults[.showOnAllDisplays] {
             let mouse = NSEvent.mouseLocation
@@ -64,13 +67,26 @@ struct NubrixCalendarSheetContent: View {
 
 @MainActor
 enum NubrixCalendarService {
+    private static var observers = Set<AnyCancellable>()
+
     static func start() {
+        observers.removeAll()
         KeyboardShortcuts.onKeyDown(for: .toggleCalendar) {
             Task { @MainActor in NubrixCalendarSheet.toggleUnderMouse() }
         }
+        Defaults.publisher(.showCalendar, options: [])
+            .receive(on: RunLoop.main)
+            .sink { change in
+                guard !change.newValue else { return }
+                MainActor.assumeIsolated { NubrixCalendarSheet.dismiss(animated: false) }
+            }
+            .store(in: &observers)
+        MeetingWatcher.shared.start()
     }
 
     static func stop() {
+        observers.removeAll()
+        MeetingWatcher.shared.stop()
         NubrixCalendarSheet.dismiss(animated: false)
     }
 }

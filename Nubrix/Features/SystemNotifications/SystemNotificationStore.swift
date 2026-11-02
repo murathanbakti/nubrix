@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import SwiftUI
 
@@ -23,7 +24,14 @@ final class SystemNotificationStore: ObservableObject {
     private var names: [String: String] = [:]
     private var icons: [String: NSImage?] = [:]
 
-    private init() {}
+    private var applied: Bool?
+    private var enabledCancellable: AnyCancellable?
+
+    private init() {
+        enabledCancellable = Defaults.publisher(.systemNotificationsEnabled, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.settingChanged() }
+    }
 
     deinit {
         for (center, token) in observers { center.removeObserver(token) }
@@ -40,7 +48,8 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func settingChanged() {
-        guard started else { return }
+        guard started, applied != isEnabled else { return }
+        applied = isEnabled
         loop?.cancel()
         loop = nil
         cursor = -1
@@ -73,6 +82,7 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func refreshApps() {
+        guard isEnabled else { return }
         Task { [weak self] in
             let result = await XPCHelperClient.shared.fetchSystemNotificationApps()
             guard let self, result.status == .ok else { return }

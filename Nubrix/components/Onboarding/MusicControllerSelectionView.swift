@@ -56,17 +56,27 @@ struct MusicControllerSelectionView: View {
 
 //            Spacer()
 
-            Button("Continue", action: {
-                self.mediaController = self.selectedMediaController
-                NotificationCenter.default.post(
-                    name: Notification.Name.mediaControllerChanged,
-                    object: nil
-                )
-                onContinue()
-            })
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding(.bottom, 24)
+            VStack(spacing: 10) {
+                Button("Continue", action: {
+                    Defaults[.mediaControlEnabled] = true
+                    self.mediaController = self.selectedMediaController
+                    NotificationCenter.default.post(
+                        name: Notification.Name.mediaControllerChanged,
+                        object: nil
+                    )
+                    onContinue()
+                })
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                Button("Not Now", action: {
+                    Defaults[.mediaControlEnabled] = false
+                    onContinue()
+                })
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(

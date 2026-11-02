@@ -18,6 +18,7 @@ final class ScreenshotBannerStore: ObservableObject {
     private init() {}
 
     func show(_ item: ClipItem) {
+        guard Defaults[.vitrinEnabled] else { return }
         AgentSessionStore.shared.dismissBanner()
         DevNotificationStore.shared.dismissBanner()
         bannerTask?.cancel()

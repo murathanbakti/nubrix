@@ -67,7 +67,7 @@ final class ScreenshotAccess: ObservableObject {
         return folder != nil
     }
 
-    private func release() {
+    func release() {
         scopedURL?.stopAccessingSecurityScopedResource()
         scopedURL = nil
         folder = nil

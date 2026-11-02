@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 
 enum AgentSessionOpener {
     private static let terminalBundleID = "com.apple.Terminal"
@@ -9,12 +10,17 @@ enum AgentSessionOpener {
         "iTerm.app": iTermBundleID,
     ]
 
+    static var isAllowed: Bool {
+        Defaults[.claudeEnabled] && Defaults[.claudeOpenSession]
+    }
+
     static func canOpen(_ source: AgentSourceInfo) -> Bool {
-        source.activationBundleID != nil || termBundles[source.terminal] != nil
+        isAllowed && (source.activationBundleID != nil || termBundles[source.terminal] != nil)
     }
 
     @MainActor
     static func open(_ source: AgentSourceInfo) {
+        guard isAllowed else { return }
         let bundleID = source.activationBundleID ?? termBundles[source.terminal]
 
         if !source.hostSessionID.isEmpty,

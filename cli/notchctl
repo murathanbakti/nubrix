@@ -170,6 +170,7 @@ cmd_notify() {
     000) fail "could not reach Nubrix (is it running?)" ;;
     401|404) fail "Nubrix rejected the request (stale token or endpoint; restart Nubrix or retry)" ;;
     400|422) fail "Nubrix rejected the notification (message max 500 characters, title max 80)" ;;
+    503) fail "the Dev tab is turned off in Nubrix Settings, Dev" ;;
     *) fail "unexpected response from Nubrix (HTTP $status)" ;;
   esac
 }

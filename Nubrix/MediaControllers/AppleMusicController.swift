@@ -29,6 +29,7 @@ class AppleMusicController: MediaControllerProtocol {
     }
 
     private var notificationTask: Task<Void, Never>?
+    private var stopped = false
     
     // MARK: - Initialization
     init() {
@@ -54,6 +55,12 @@ class AppleMusicController: MediaControllerProtocol {
     
     deinit {
         notificationTask?.cancel()
+    }
+
+    func stop() {
+        stopped = true
+        notificationTask?.cancel()
+        notificationTask = nil
     }
     
     // MARK: - Protocol Implementation
@@ -129,6 +136,7 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
+        guard !stopped else { return }
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
         guard descriptor.numberOfItems >= 11 else { return }
         var updatedState = self.playbackState

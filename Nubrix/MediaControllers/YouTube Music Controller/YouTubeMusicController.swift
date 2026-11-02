@@ -52,6 +52,7 @@ final class YouTubeMusicController: MediaControllerProtocol {
     private var updateTimer: Timer?
     private var appStateObserver: Task<Void, Never>?
     private var reconnectDelay: TimeInterval = 1.0
+    private var stopped = false
     
     // MARK: - Initialization
     init(configuration: YouTubeMusicConfiguration = .default) {
@@ -104,6 +105,7 @@ final class YouTubeMusicController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
+        guard !stopped else { return }
         guard isActive() else {
             resetPlaybackState()
             return
@@ -141,6 +143,18 @@ final class YouTubeMusicController: MediaControllerProtocol {
         }
     }
     
+    func stop() {
+        stopped = true
+        stopPeriodicUpdates()
+        appStateObserver?.cancel()
+        appStateObserver = nil
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
+        let client = webSocketClient
+        webSocketClient = nil
+        Task { await client?.disconnect() }
+    }
+
     // MARK: - Private Methods
     private func setupAppStateObserver() {
         appStateObserver = Task { [weak self] in
@@ -197,7 +211,7 @@ final class YouTubeMusicController: MediaControllerProtocol {
     }
     
     private func initializeIfAppActive() async {
-        guard isActive() else { return }
+        guard !stopped, isActive() else { return }
         
         do {
             let token = try await authManager.authenticate()
@@ -304,12 +318,15 @@ final class YouTubeMusicController: MediaControllerProtocol {
     
     private func handleWebSocketDisconnect() async {
         webSocketClient = nil
+        guard !stopped else { return }
         await startPeriodicUpdates() // Fallback to polling
         await scheduleReconnect()
     }
     
     private func scheduleReconnect() async {
+        guard !stopped else { return }
         try? await Task.sleep(for: .seconds(reconnectDelay))
+        guard !stopped else { return }
         reconnectDelay = min(reconnectDelay * 2, configuration.reconnectDelay.upperBound)
         
         if isActive() {
@@ -318,7 +335,7 @@ final class YouTubeMusicController: MediaControllerProtocol {
     }
     
     private func startPeriodicUpdates() async {
-        guard isActive() && webSocketClient == nil else { return }
+        guard !stopped, isActive() && webSocketClient == nil else { return }
         
         stopPeriodicUpdates()
         

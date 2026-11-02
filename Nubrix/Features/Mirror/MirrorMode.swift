@@ -25,6 +25,7 @@ final class MirrorMode {
     }
 
     func toggleUnderMouse() {
+        guard Defaults[.showMirror] else { return }
         if isActive {
             exit()
             return
@@ -38,6 +39,7 @@ final class MirrorMode {
     }
 
     func present(screenUUID: String? = nil) {
+        guard Defaults[.showMirror] else { return }
         let camera = camera
         host.present(
             id: Self.extensionID,

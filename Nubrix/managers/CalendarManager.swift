@@ -25,16 +25,34 @@ class CalendarManager: ObservableObject {
     private var selectedCalendars: [CalendarModel] = []
     private let calendarService = CalendarService.shared
     private var storeChanges: AnyCancellable?
+    private var settingObserver: AnyCancellable?
 
     private init() {
         self.currentWeekStartDate = CalendarManager.startOfDay(Date())
-        setupEventStoreChangedObserver()
-        Task {
-            await reloadCalendarLists()
+        calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+        settingObserver = Defaults.publisher(.showCalendar)
+            .map(\.newValue)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] enabled in
+                MainActor.assumeIsolated { self?.setActive(enabled) }
+            }
+    }
+
+    private func setActive(_ enabled: Bool) {
+        if enabled {
+            setupEventStoreChangedObserver()
+            Task { await reloadCalendarLists() }
+        } else {
+            storeChanges = nil
+            events = []
+            allCalendars = []
+            eventCalendars = []
         }
     }
 
     private func setupEventStoreChangedObserver() {
+        guard storeChanges == nil else { return }
         storeChanges = SharedEventStore.shared.changes.sink { [weak self] in
             Task { @MainActor in
                 await self?.reloadCalendarLists()
@@ -44,10 +62,20 @@ class CalendarManager: ObservableObject {
 
     @MainActor
     func reloadCalendarLists() async {
+        guard Defaults[.showCalendar] else { return }
         let all = await calendarService.calendars()
         if eventCalendars != all { eventCalendars = all }
         if allCalendars != all { allCalendars = all }
         updateSelectedCalendars()
+    }
+
+    func refreshAuthorizationStatus() async {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        calendarAuthorizationStatus = status
+        if status == .fullAccess, Defaults[.showCalendar] {
+            await reloadCalendarLists()
+            await updateEvents()
+        }
     }
 
     func checkCalendarAuthorization() async {
@@ -65,6 +93,7 @@ class CalendarManager: ObservableObject {
             }
             self.calendarAuthorizationStatus = granted ? .fullAccess : .denied
             if granted {
+                MeetingWatcher.shared.refresh()
                 await reloadCalendarLists()
                 events = await calendarService.events(
                     from: currentWeekStartDate,

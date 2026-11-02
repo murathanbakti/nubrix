@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import SwiftUI
 
@@ -18,15 +19,26 @@ final class AgentPermissionStore: ObservableObject {
     private var suppressionReasons: Set<String> = []
     private var surfaces: [String: Bool] = [:]
     private var observers: [NSObjectProtocol] = []
+    private var policyCancellable: AnyCancellable?
 
     private init() {
         installObservers()
+        policyCancellable = Defaults.publisher(keys: .claudeNotchApprovals, .claudeEnabled, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                guard let self, !Self.isAllowed else { return }
+                self.withdrawAll()
+            }
     }
 
-    var current: AgentPermissionPrompt? { isSuppressed ? nil : queue.first }
+    private static var isAllowed: Bool {
+        Defaults[.claudeEnabled] && Defaults[.claudeNotchApprovals]
+    }
+
+    var current: AgentPermissionPrompt? { isSuppressed || !Self.isAllowed ? nil : queue.first }
 
     var canPresent: Bool {
-        Defaults[.claudeNotchApprovals] && !isSuppressed && surfaces.values.contains(true)
+        Self.isAllowed && !isSuppressed && surfaces.values.contains(true)
     }
 
     func setPresentable(_ presentable: Bool, surface: String) {

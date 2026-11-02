@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import SwiftUI
 
 enum AgentMeter {
@@ -332,6 +333,7 @@ struct AgentPermissionCard: View {
     var onDeny: () -> Void = {}
     var onOpen: () -> Void = {}
 
+    @Default(.claudeOpenSession) private var openSession
     @State private var confirming = false
     @State private var confirmArmed = true
     @State private var expanded = false
@@ -541,12 +543,14 @@ struct AgentPermissionCard: View {
 
     private var buttonRow: some View {
         HStack(spacing: 8) {
-            Button(action: onOpen) {
-                Text(openLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color(white: 0.65))
+            if openSession {
+                Button(action: onOpen) {
+                    Text(openLabel)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(white: 0.65))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             Spacer()
             if !ready, dwellElapsed {
                 Text("Move the pointer here to enable Allow")

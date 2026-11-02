@@ -1,3 +1,5 @@
+import Combine
+import Defaults
 import Foundation
 import Network
 
@@ -37,6 +39,7 @@ final class AgentEventServer: @unchecked Sendable {
     private var pendingHeads = 0
     private let tokenBytes: [UInt8]?
     private let token: String
+    private var policyCancellable: AnyCancellable?
 
     private init() {
         var bytes = [UInt8](repeating: 0, count: 32)
@@ -47,6 +50,17 @@ final class AgentEventServer: @unchecked Sendable {
             tokenBytes = nil
             token = ""
         }
+    }
+
+    static var shouldRun: Bool { Defaults[.claudeEnabled] || Defaults[.devEnabled] }
+
+    func applyPolicy() {
+        if policyCancellable == nil {
+            policyCancellable = Defaults.publisher(keys: .claudeEnabled, .devEnabled, options: [])
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] in self?.applyPolicy() }
+        }
+        if Self.shouldRun { start() } else { stop() }
     }
 
     static var configDirectory: URL {
@@ -63,7 +77,7 @@ final class AgentEventServer: @unchecked Sendable {
 
     func start() {
         queue.async { [self] in
-            guard listener == nil else { return }
+            guard listener == nil, Self.shouldRun else { return }
             guard tokenBytes != nil else {
                 NSLog("Nubrix agent server not started: no random token")
                 return
@@ -218,6 +232,8 @@ final class AgentEventServer: @unchecked Sendable {
                     switch AgentRoute.admit(parsed, token: self.token, port: port) {
                     case .reject:
                         return self.respond(connection, status: "404 Not Found")
+                    case .refuse(let status):
+                        return self.respond(connection, status: status)
                     case .accept(let maxBody):
                         guard parsed.contentLength <= maxBody else {
                             return self.respond(connection, status: "413 Payload Too Large")

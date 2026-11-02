@@ -17,6 +17,7 @@ final class MeetingWatcher: ObservableObject {
     private static let prefetchExtra: TimeInterval = 30 * 60
 
     private let service = CalendarService.shared
+    private var settingsObservers = Set<AnyCancellable>()
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
     private var fetchTask: Task<Void, Never>?
@@ -28,14 +29,66 @@ final class MeetingWatcher: ObservableObject {
     private var cacheCalendarIDs: [String] = []
     private var cacheDirty = true
     private var publishedMinute: Int?
+    private var isActive = false
 
-    private init() {
+    private init() {}
+
+    private static var shouldRun: Bool {
+        Defaults[.showCalendar] && Defaults[.meetingCountdownEnabled]
+    }
+
+    func start() {
+        settingsObservers.removeAll()
+        Defaults.publisher(keys: .showCalendar, .meetingCountdownEnabled, options: [])
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.sync() }
+            }
+            .store(in: &settingsObservers)
+        Defaults.publisher(keys: .meetingLeadMinutes, .meetingBannerAtOneMinute, options: [])
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.isActive else { return }
+                    self.cacheDirty = true
+                    self.refresh()
+                }
+            }
+            .store(in: &settingsObservers)
+        sync()
+    }
+
+    func stop() {
+        settingsObservers.removeAll()
+        deactivate()
+    }
+
+    private func sync() {
+        if Self.shouldRun {
+            activate()
+        } else {
+            deactivate()
+        }
+    }
+
+    private func activate() {
+        guard !isActive else { return }
+        isActive = true
         SharedEventStore.shared.changes
             .sink { [weak self] in
                 MainActor.assumeIsolated {
                     self?.cacheDirty = true
                     self?.refresh()
                 }
+            }
+            .store(in: &cancellables)
+        CalendarManager.shared.$selectedCalendarIDs
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.cacheDirty = true
+                self?.refresh()
             }
             .store(in: &cancellables)
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
@@ -45,32 +98,38 @@ final class MeetingWatcher: ObservableObject {
                 self?.refresh()
             }
             .store(in: &cancellables)
-        Publishers.Merge3(
-            Defaults.publisher(.meetingCountdownEnabled, options: []).map { _ in () }.eraseToAnyPublisher(),
-            Defaults.publisher(.meetingLeadMinutes, options: []).map { _ in () }.eraseToAnyPublisher(),
-            Defaults.publisher(.meetingBannerAtOneMinute, options: []).map { _ in () }.eraseToAnyPublisher()
-        )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] in
-            self?.cacheDirty = true
-            self?.refresh()
-        }
-        .store(in: &cancellables)
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refresh()
             }
             .store(in: &cancellables)
+        cacheDirty = true
         refresh()
     }
 
+    private func deactivate() {
+        let wasActive = isActive
+        isActive = false
+        cancellables.removeAll()
+        fetchTask?.cancel()
+        fetchTask = nil
+        stopTimer()
+        clear()
+        cachedEvents = []
+        cacheWindow = nil
+        cacheCalendarIDs = []
+        cacheDirty = true
+        publishedMinute = nil
+        fired.removeAll()
+        if wasActive { dismissed.removeAll() }
+    }
+
     func refresh() {
+        guard isActive else { return }
         let current = Date()
-        guard Defaults[.meetingCountdownEnabled] else {
-            fetchTask?.cancel()
-            clear()
-            stopTimer()
+        guard Self.shouldRun else {
+            deactivate()
             return
         }
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
@@ -91,7 +150,7 @@ final class MeetingWatcher: ObservableObject {
         let windowEnd = end.addingTimeInterval(Self.prefetchExtra)
         fetchTask = Task { [service] in
             let events = await service.events(from: start, to: windowEnd, calendars: ids)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.isActive else { return }
             self.cachedEvents = events
             self.cacheWindow = (start, windowEnd)
             self.cacheCalendarIDs = ids

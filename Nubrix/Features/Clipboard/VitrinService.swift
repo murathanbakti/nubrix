@@ -8,11 +8,9 @@ enum VitrinService {
     private static var observers = Set<AnyCancellable>()
 
     static func start() {
-        ClipStore.shared.start()
-        syncMonitor()
-        ScreenshotAccess.shared.restore()
-        ScreenshotWatcher.shared.refresh()
         observers.removeAll()
+        syncMonitor()
+        ScreenshotWatcher.shared.refresh()
         Publishers.MergeMany([
             Defaults.publisher(.vitrinEnabled, options: []).map { _ in () }.eraseToAnyPublisher(),
             Defaults.publisher(.vitrinCaptureImages, options: []).map { _ in () }.eraseToAnyPublisher(),
@@ -40,10 +38,16 @@ enum VitrinService {
 
     private static func syncMonitor() {
         if Defaults[.vitrinEnabled] {
+            ClipStore.shared.start()
+            if !ScreenshotAccess.shared.hasAccess { ScreenshotAccess.shared.restore() }
             ClipboardMonitor.shared.start()
         } else {
             ClipboardMonitor.shared.stop()
+            ScreenshotWatcher.shared.stop()
+            ScreenshotBannerStore.shared.dismissBanner()
             VitrinPanelController.shared.close()
+            ScreenshotAccess.shared.release()
+            ClipStore.shared.shutdown()
         }
     }
 
@@ -52,7 +56,7 @@ enum VitrinService {
         ScreenshotWatcher.shared.stop()
         ScreenshotBannerStore.shared.dismissBanner()
         ClipboardMonitor.shared.stop()
-        ClipStore.shared.stop()
+        ClipStore.shared.shutdown()
         VitrinPanelController.shared.close()
     }
 }

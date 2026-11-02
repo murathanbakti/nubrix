@@ -607,9 +607,20 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
 
     @Default(.enableLyrics) var enableLyrics
+    @Default(.mediaControlEnabled) var mediaEnabled
 
     var body: some View {
         Form {
+            Section {
+                Defaults.Toggle(key: .mediaControlEnabled) {
+                    Text("Media control")
+                }
+            } footer: {
+                Text("Shows what is playing and controls Apple Music, Spotify, YouTube Music or the system player. When off, Nubrix does not read playback or send commands to music apps.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
             Section {
                 Picker("Music Source", selection: $mediaController) {
                     ForEach(availableMediaControllers) { controller in
@@ -645,18 +656,22 @@ struct Media: View {
                     .font(.caption)
                 }
             }
+            .disabled(!mediaEnabled)
             
             Section {
                 Toggle(
                     "Show music live activity",
                     isOn: $coordinator.musicLiveActivityEnabled.animation()
                 )
+                .disabled(!mediaEnabled)
                 Toggle("Show sneak peek on playback changes", isOn: $enableSneakPeek)
+                    .disabled(!mediaEnabled)
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles) {
                     ForEach(SneakPeekStyle.allCases) { style in
                         Text(style.rawValue).tag(style)
                     }
                 }
+                .disabled(!mediaEnabled)
                 HStack {
                     Stepper(value: $waitInterval, in: 0...10, step: 1) {
                         HStack {
@@ -667,6 +682,7 @@ struct Media: View {
                         }
                     }
                 }
+                .disabled(!mediaEnabled)
                 Picker(
                     selection: $hideNotchOption,
                     label:
@@ -699,6 +715,7 @@ struct Media: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .disabled(!mediaEnabled)
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Media")
@@ -722,33 +739,30 @@ struct CalendarSettings: View {
 
     var body: some View {
         Form {
-            Defaults.Toggle(key: .showCalendar) {
-                Text("Show calendar")
+            Section {
+                Defaults.Toggle(key: .showCalendar) {
+                    Text("Calendar")
+                }
+            } footer: {
+                Text("Shows your events in the notch, the calendar sheet and the meeting countdown. When off, Nubrix does not read your calendars.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
-            Defaults.Toggle(key: .hideAllDayEvents) {
-                Text("Hide all-day events")
+            Section {
+                Defaults.Toggle(key: .hideAllDayEvents) {
+                    Text("Hide all-day events")
+                }
+                Defaults.Toggle(key: .autoScrollToNextEvent) {
+                    Text("Auto-scroll to next event")
+                }
+                Defaults.Toggle(key: .showFullEventTitles) {
+                    Text("Always show full event titles")
+                }
             }
-            Defaults.Toggle(key: .autoScrollToNextEvent) {
-                Text("Auto-scroll to next event")
-            }
-            Defaults.Toggle(key: .showFullEventTitles) {
-                Text("Always show full event titles")
-            }
+            .disabled(!showCalendar)
             Section(header: Text("Calendars")) {
-                if calendarManager.calendarAuthorizationStatus != .fullAccess {
-                    Text("Calendar access is denied. Please enable it in System Settings.")
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                    Button("Open Calendar Settings") {
-                        if let settingsURL = URL(
-                            string:
-                                "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
-                        ) {
-                            NSWorkspace.shared.open(settingsURL)
-                        }
-                    }
-                } else {
+                switch calendarManager.calendarAuthorizationStatus {
+                case .fullAccess:
                     List {
                         ForEach(calendarManager.eventCalendars, id: \.id) { calendar in
                             Toggle(
@@ -765,17 +779,36 @@ struct CalendarSettings: View {
                                 Text(calendar.title)
                             }
                             .accentColor(lighterColor(from: calendar.color))
-                            .disabled(!showCalendar)
+                        }
+                    }
+                case .notDetermined:
+                    Text("Nubrix has not asked for calendar access yet.")
+                        .foregroundStyle(.secondary)
+                    Button("Allow Calendar Access") {
+                        Task { await calendarManager.checkCalendarAuthorization() }
+                    }
+                default:
+                    Text("Calendar access is denied. Please enable it in System Settings.")
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    Button("Open Calendar Settings") {
+                        if let settingsURL = URL(
+                            string:
+                                "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+                        ) {
+                            NSWorkspace.shared.open(settingsURL)
                         }
                     }
                 }
             }
+            .disabled(!showCalendar)
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Calendar")
         .onAppear {
             Task {
-                await calendarManager.checkCalendarAuthorization()
+                await calendarManager.refreshAuthorizationStatus()
             }
         }
     }
@@ -1131,6 +1164,7 @@ struct Appearance: View {
     @State private var selectedListVisualizer: CustomVisualizer? = nil
     @State private var isPresented: Bool = false
     @State private var name: String = ""
+    @State private var hasCamera = true
     @State private var url: String = ""
     @State private var speed: CGFloat = 1.0
     var body: some View {
@@ -1341,7 +1375,7 @@ struct Appearance: View {
                 Defaults.Toggle(key: .showMirror) {
                     Text("Enable mirror")
                 }
-                    .disabled(!checkVideoInput())
+                    .disabled(!hasCamera)
                 Picker("Mirror shape", selection: $mirrorShape) {
                     Text("Circle")
                         .tag(MirrorShapeEnum.circle)
@@ -1359,14 +1393,7 @@ struct Appearance: View {
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Appearance")
-    }
-
-    func checkVideoInput() -> Bool {
-        if AVCaptureDevice.default(for: .video) != nil {
-            return true
-        }
-
-        return false
+        .onAppear { hasCamera = AVCaptureDevice.default(for: .video) != nil }
     }
 }
 

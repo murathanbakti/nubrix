@@ -30,6 +30,7 @@ class SpotifyController: MediaControllerProtocol {
     var supportsFavorite: Bool { false }
 
     private var notificationTask: Task<Void, Never>?
+    private var stopped = false
     
     // Constant for time between command and update
     private let commandUpdateDelay: Duration = .milliseconds(25)
@@ -61,6 +62,14 @@ class SpotifyController: MediaControllerProtocol {
     deinit {
         notificationTask?.cancel()
         artworkFetchTask?.cancel()
+    }
+
+    func stop() {
+        stopped = true
+        notificationTask?.cancel()
+        notificationTask = nil
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
     }
     
     // MARK: - Protocol Implementation
@@ -97,6 +106,7 @@ class SpotifyController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
+        guard !stopped else { return }
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
         guard descriptor.numberOfItems >= 10 else { return }
         

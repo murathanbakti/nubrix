@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import Foundation
 import SwiftUI
@@ -31,6 +32,7 @@ final class AgentSessionStore: ObservableObject {
     private let ledgerQueue = DispatchQueue(label: "nubrix.claude-usage-ledger", qos: .utility)
     private var ledgerSaveTask: Task<Void, Never>?
     private var terminationObserver: NSObjectProtocol?
+    private var enabledCancellable: AnyCancellable?
 
     private convenience init() {
         self.init(ledgerURL: ClaudeUsageLedgerFile.defaultURL)
@@ -59,12 +61,45 @@ final class AgentSessionStore: ObservableObject {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.flushLedger(wait: true) }
         }
+        if Defaults[.claudeEnabled] { startSweep() }
+        enabledCancellable = Defaults.publisher(.claudeEnabled, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] change in
+                guard let self else { return }
+                if change.newValue { self.activate() } else { self.deactivate() }
+            }
+    }
+
+    private func startSweep() {
+        guard sweepTask == nil else { return }
         sweepTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
                 self?.sweep()
             }
         }
+    }
+
+    func activate() {
+        startSweep()
+    }
+
+    func deactivate() {
+        sweepTask?.cancel()
+        sweepTask = nil
+        bannerTask?.cancel()
+        bannerTask = nil
+        flushLedger(wait: false)
+        AgentPermissionStore.shared.withdrawAll()
+        sessions = []
+        statusSeen = [:]
+        rateLimits = nil
+        rateLimitsUpdatedAt = .distantPast
+        lastHookEventAt = nil
+        lastStatusAt = nil
+        lastPermissionRequestAt = nil
+        banner = nil
+        NubrixInbox.shared.markRead(.claude)
     }
 
     var sortedSessions: [AgentSession] {
@@ -82,6 +117,7 @@ final class AgentSessionStore: ObservableObject {
     }
 
     func apply(_ event: AgentHookEvent) {
+        guard Defaults[.claudeEnabled] else { return }
         let now = Date()
         lastHookEventAt = now
         if event.name == "Stop" { ClaudePlanUsageStore.shared.noteStop() }
@@ -140,6 +176,7 @@ final class AgentSessionStore: ObservableObject {
     }
 
     func apply(_ update: AgentStatusUpdate) {
+        guard Defaults[.claudeEnabled] else { return }
         let now = Date()
         lastStatusAt = now
         if let limits = update.rateLimits, now >= rateLimitsUpdatedAt {
@@ -225,11 +262,13 @@ final class AgentSessionStore: ObservableObject {
     }
 
     func usageSummary(now: Date) -> ClaudeUsageSummary? {
-        ClaudeUsageResolver.summary(ledger: ledger, limits: rateLimits, limitsUpdatedAt: rateLimitsUpdatedAt,
+        guard Defaults[.claudeEnabled] else { return nil }
+        return ClaudeUsageResolver.summary(ledger: ledger, limits: rateLimits, limitsUpdatedAt: rateLimitsUpdatedAt,
                                     plan: ClaudePlanUsageStore.shared.current, now: now)
     }
 
     func showPlanUsageBanner(_ alert: ClaudePlanAlert) {
+        guard Defaults[.claudeEnabled] else { return }
         let name = alert.isSession ? ClaudeUsageText.session(Locale.current) : ClaudeUsageText.week(Locale.current)
         show(AgentBanner(sessionID: "plan-usage", project: "Claude",
                          state: alert.threshold >= 95 ? .failed : .needsAttention,
@@ -261,7 +300,7 @@ final class AgentSessionStore: ObservableObject {
     }
 
     private func show(_ next: AgentBanner) {
-        guard AgentPermissionStore.shared.current == nil else { return }
+        guard Defaults[.claudeEnabled], AgentPermissionStore.shared.current == nil else { return }
         DevNotificationStore.shared.dismissBanner()
         ScreenshotBannerStore.shared.dismissBanner()
         bannerTask?.cancel()

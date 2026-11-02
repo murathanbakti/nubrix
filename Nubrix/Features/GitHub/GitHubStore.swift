@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import IOKit.ps
 import Network
@@ -10,6 +11,7 @@ struct GitHubSessionRef: Equatable, Sendable {
 }
 
 enum GitHubConnection: Equatable {
+    case disabled
     case noToken
     case connecting
     case connected
@@ -55,16 +57,20 @@ final class GitHubStore: ObservableObject {
     private var refreshing = false
     private var lastRefreshStart = Date.distantPast
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    private var enabledCancellable: AnyCancellable?
+    private var tokenTask: Task<Void, Never>?
 
     init(baseURL: URL = URL(string: "https://api.github.com")!, tokens: GitHubTokenStoring = GitHubTokenStore()) {
         self.baseURL = baseURL
         self.tokens = tokens
         client = GitHubClient(baseURL: baseURL)
-        connection = Defaults[.githubTokenSaved] ? .connecting : .noToken
+        connection = !Defaults[.githubEnabled] ? .disabled : (Defaults[.githubTokenSaved] ? .connecting : .noToken)
         login = Defaults[.githubLogin]
     }
 
-    var hasToken: Bool { connection != .noToken }
+    var isEnabled: Bool { Defaults[.githubEnabled] }
+    var hasToken: Bool { connection == .disabled ? Defaults[.githubTokenSaved] : connection != .noToken }
+    private var isActive: Bool { isEnabled && connection != .disabled && connection != .noToken }
     var isPaused: Bool { sleeping || locked || offline }
 
     var hasRunInProgress: Bool { runs.contains { $0.state == .running } }
@@ -90,26 +96,62 @@ final class GitHubStore: ObservableObject {
         sessionSource = sessions
         guard !started else { return }
         started = true
-        registerObservers()
+        enabledCancellable = Defaults.publisher(.githubEnabled, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] change in
+                if change.newValue { self?.activate() } else { self?.deactivate() }
+            }
+        if isEnabled { activate() } else { replace(connection: .disabled) }
+    }
+
+    private func activate() {
+        guard isEnabled else { return }
+        registerObserversIfNeeded()
         guard Defaults[.githubTokenSaved] else {
-            connection = .noToken
+            replace(connection: .noToken)
             return
         }
-        connection = .connecting
+        replace(connection: .connecting)
+        loadToken()
+    }
+
+    private func deactivate() {
+        loop?.cancel()
+        loop = nil
+        tokenTask?.cancel()
+        tokenTask = nil
+        Task { await client.setToken(nil) }
+        snapshot = nil
+        reposFetchedAt = nil
+        lastRefresh = nil
+        consecutiveFailures = 0
+        unregisterObservers()
+        replace(connection: .disabled, mine: [], reviews: [], runs: [], repos: [])
+        GitHubNotifier.clearAll()
+    }
+
+    private func loadToken() {
+        tokenTask?.cancel()
         let tokens = self.tokens
-        Task {
+        tokenTask = Task {
             let token = await Task.detached { tokens.read() }.value
+            guard !Task.isCancelled, isEnabled else { return }
             guard let token else {
                 Defaults[.githubTokenSaved] = false
-                connection = .noToken
+                replace(connection: .noToken)
                 return
             }
             await client.setToken(token)
+            guard !Task.isCancelled, isEnabled else {
+                await client.setToken(nil)
+                return
+            }
             restartLoop()
         }
     }
 
     func connect(token raw: String) async -> String? {
+        guard isEnabled else { return "GitHub integration is turned off." }
         let token = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard Self.isFineGrainedToken(token) else {
             return "Paste a fine-grained token. It starts with github_pat_."
@@ -148,18 +190,18 @@ final class GitHubStore: ObservableObject {
         snapshot = nil
         reposFetchedAt = nil
         lastRefresh = nil
-        replace(connection: .noToken, login: "", mine: [], reviews: [], runs: [], repos: [])
+        replace(connection: isEnabled ? .noToken : .disabled, login: "", mine: [], reviews: [], runs: [], repos: [])
         GitHubNotifier.clearAll()
     }
 
     func setSectionVisible(_ visible: Bool) {
         guard visible != sectionVisible else { return }
         sectionVisible = visible
-        if visible, hasToken { restartLoop() }
+        if visible, isActive { restartLoop() }
     }
 
     func refreshNow() {
-        guard hasToken else { return }
+        guard isActive else { return }
         Task { await client.resetBackoff() }
         restartLoop(ignoringGap: true)
     }
@@ -172,8 +214,8 @@ final class GitHubStore: ObservableObject {
         if isPaused {
             loop?.cancel()
             loop = nil
-            if offline == true, hasToken, connection == .connected { replace(connection: .failing("Offline")) }
-        } else if before, hasToken {
+            if offline == true, isActive, connection == .connected { replace(connection: .failing("Offline")) }
+        } else if before, isActive {
             consecutiveFailures = 0
             restartLoop()
         }
@@ -223,14 +265,14 @@ final class GitHubStore: ObservableObject {
 
     private func restartLoop(ignoringGap: Bool = false) {
         loop?.cancel()
-        guard hasToken, !isPaused else { return }
+        guard isActive, !isPaused else { return }
         loop = Task { [weak self] in
             if !ignoringGap, let self {
                 let wait = Self.minimumGap - Date().timeIntervalSince(self.lastRefreshStart)
                 if wait > 0 { try? await Task.sleep(for: .seconds(wait), tolerance: .seconds(1)) }
             }
             while !Task.isCancelled {
-                guard let self else { return }
+                guard let self, self.isEnabled else { return }
                 await self.refresh()
                 if Task.isCancelled { return }
                 if self.connection == .unauthorized { return }
@@ -262,7 +304,7 @@ final class GitHubStore: ObservableObject {
     }
 
     private func refresh() async {
-        guard hasToken, !refreshing, !isPaused else { return }
+        guard isActive, !refreshing, !isPaused else { return }
         if let until = await client.backoffUntil() {
             replace(connection: .rateLimited(until))
             return
@@ -289,6 +331,7 @@ final class GitHubStore: ObservableObject {
             let sessions = sessionSource()
             let watched = watchedRepos(mine: mine, review: review, sessions: sessions)
             let allRuns = try await fetchRuns(watched)
+            guard isEnabled else { return }
 
             let next = GitHubSnapshot(
                 mine: mine.sorted { $0.updatedAt > $1.updatedAt },
@@ -307,6 +350,7 @@ final class GitHubStore: ObservableObject {
             lastRefresh = Date()
             GitHubNotifier.deliver(diff)
         } catch let failure as GitHubFailure {
+            guard isEnabled else { return }
             switch failure {
             case .unauthorized: replace(connection: .unauthorized)
             case .rateLimited(let until): replace(connection: .rateLimited(until))
@@ -318,6 +362,7 @@ final class GitHubStore: ObservableObject {
                 replace(connection: .failing("GitHub error"))
             }
         } catch {
+            guard isEnabled else { return }
             consecutiveFailures += 1
             replace(connection: .failing("GitHub error"))
         }
@@ -386,6 +431,21 @@ final class GitHubStore: ObservableObject {
             if result.count >= maxDisplayedRuns { break }
         }
         return result
+    }
+
+    private func unregisterObservers() {
+        for (center, token) in observers { center.removeObserver(token) }
+        observers = []
+        pathMonitor?.cancel()
+        pathMonitor = nil
+        sleeping = false
+        locked = false
+        offline = false
+    }
+
+    private func registerObserversIfNeeded() {
+        guard observers.isEmpty, pathMonitor == nil else { return }
+        registerObservers()
     }
 
     private func registerObservers() {

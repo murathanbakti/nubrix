@@ -59,7 +59,7 @@ final class DevNotificationStore: ObservableObject {
     }
 
     func showGitHub(title: String, message: String, style: DevNotificationStyle) {
-        guard Defaults[.devEnabled] else { return }
+        guard Defaults[.devEnabled], Defaults[.githubEnabled] else { return }
         show(DevNotification(message: message, title: title, style: style, duration: 6, date: Date(), isGitHub: true))
     }
 

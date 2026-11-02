@@ -1,3 +1,4 @@
+import Combine
 import Defaults
 import Foundation
 import Network
@@ -20,14 +21,27 @@ final class DevPortMonitor: ObservableObject {
     private var observers = Set<String>()
     private var loop: Task<Void, Never>?
     private var scanning = false
+    private var enabledCancellable: AnyCancellable?
 
-    private init() {}
+    private init() {
+        enabledCancellable = Defaults.publisher(.devEnabled, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.syncLoop() }
+    }
 
     func setActive(_ owner: String, _ active: Bool) {
         if active { observers.insert(owner) } else { observers.remove(owner) }
-        if observers.isEmpty {
+        syncLoop()
+    }
+
+    private func syncLoop() {
+        if observers.isEmpty || !Defaults[.devEnabled] {
             loop?.cancel()
             loop = nil
+            if !Defaults[.devEnabled] {
+                if !servers.isEmpty { servers = [] }
+                lastScan = nil
+            }
         } else if loop == nil {
             loop = Task { [weak self] in
                 while !Task.isCancelled {
@@ -39,6 +53,7 @@ final class DevPortMonitor: ObservableObject {
     }
 
     func refresh() {
+        guard Defaults[.devEnabled] else { return }
         Task { await scan() }
     }
 

@@ -3,6 +3,7 @@ import Defaults
 import SwiftUI
 
 struct VitrinSettings: View {
+    @Default(.vitrinEnabled) var enabled
     @Default(.vitrinRetentionDays) var retentionDays
     @Default(.vitrinExcludedApps) var excludedApps
     @Default(.vitrinCaptureImages) var captureImages
@@ -33,12 +34,14 @@ struct VitrinSettings: View {
                     Text("Hide Vitrin from screen sharing")
                 }
             }
+            .disabled(!enabled)
 
             Section("Capture") {
                 Defaults.Toggle(key: .vitrinCaptureImages) { Text("Images") }
                 Defaults.Toggle(key: .vitrinCaptureText) { Text("Text") }
                 Defaults.Toggle(key: .vitrinCaptureLinks) { Text("Links") }
             }
+            .disabled(!enabled)
 
             Section {
                 Defaults.Toggle(key: .vitrinCaptureScreenshots) { Text("Capture screenshots") }
@@ -71,6 +74,7 @@ struct VitrinSettings: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+            .disabled(!enabled)
 
             Section {
                 Picker("Keep history for", selection: $retentionDays) {
@@ -93,6 +97,7 @@ struct VitrinSettings: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+            .disabled(!enabled)
 
             Section {
                 ForEach(excludedApps, id: \.self) { id in
@@ -129,6 +134,7 @@ struct VitrinSettings: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+            .disabled(!enabled)
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Vitrin")

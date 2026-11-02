@@ -294,7 +294,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         quitOnTerminationSignal()
-        AgentEventServer.shared.start()
+        AgentEventServer.shared.applyPolicy()
         GitHubStore.shared.start {
             AgentSessionStore.shared.sessions.compactMap { session in
                 session.remote.map { GitHubSessionRef(repo: $0, branch: session.branch) }
@@ -305,6 +305,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         VitrinService.start()
         MirrorService.start()
         NubrixCalendarService.start()
+        MusicManager.shared.start()
 
         NotificationCenter.default.addObserver(
             self,
@@ -377,7 +378,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         KeyboardShortcuts.onKeyDown(for: .toggleSneakPeek) { [weak self] in
-            guard let self = self else { return }
+            guard let self = self, Defaults[.mediaControlEnabled] else { return }
             if Defaults[.sneakPeekStyles] == .inline {
                 let newStatus = !self.coordinator.expandingView.show
                 self.coordinator.toggleExpandingView(status: newStatus, type: .music)
@@ -452,7 +453,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.showOnboardingWindow()
             }
             playWelcomeSound()
-        } else if MusicManager.shared.isNowPlayingDeprecated
+        } else if Defaults[.mediaControlEnabled]
+            && MusicManager.shared.isNowPlayingDeprecated
             && Defaults[.mediaController] == .nowPlaying
         {
             DispatchQueue.main.async {

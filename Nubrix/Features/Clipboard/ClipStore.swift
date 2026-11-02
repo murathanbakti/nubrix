@@ -69,6 +69,16 @@ final class ClipStore: ObservableObject {
         sweepTimer = nil
     }
 
+    func shutdown() {
+        stop()
+        database = nil
+        items = []
+        thumbnailCache.removeAllObjects()
+        previewCache = nil
+        lastTextHash = nil
+        lastTextID = nil
+    }
+
     var isReady: Bool { database != nil }
 
     private func onQueue<T: Sendable>(_ work: @escaping @Sendable (ClipDatabase) -> T) async -> T? {
@@ -86,7 +96,7 @@ final class ClipStore: ObservableObject {
     func reloadList() async {
         fullReloadCount += 1
         let limit = Self.listLimit
-        if let list = await onQueue({ $0.summaries(limit: limit) }) {
+        if let list = await onQueue({ $0.summaries(limit: limit) }), database != nil {
             items = list
         }
     }
@@ -141,7 +151,7 @@ final class ClipStore: ObservableObject {
                 }
                 return db.summary(id: id)
             } ?? nil
-            guard let item else { return }
+            guard let item, database != nil else { return }
             lastTextHash = hash
             lastTextID = item.id
             place(item)
@@ -162,7 +172,7 @@ final class ClipStore: ObservableObject {
             }
             return db.summary(id: inserted).map { ($0, true) }
         } ?? nil
-        guard let created else { return nil }
+        guard let created, database != nil else { return nil }
         place(created.item)
         if created.isNew { sweep() }
         return created.item

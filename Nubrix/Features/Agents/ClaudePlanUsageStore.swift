@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import Foundation
 import IOKit.ps
@@ -37,6 +38,7 @@ final class ClaudePlanUsageStore: ObservableObject {
     private var failures = 0
     private var inFlight = false
     private var started = false
+    private var wantsStart = false
     private var sleeping = false
     private var locked = false
     private var loop: Task<Void, Never>?
@@ -44,6 +46,7 @@ final class ClaudePlanUsageStore: ObservableObject {
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var powerSource: CFRunLoopSource?
     private var lastOnBattery = false
+    private var settingCancellable: AnyCancellable?
 
     init(fetcher: ClaudePlanFetching = XPCClaudePlanFetcher(),
          lastActivity: @escaping @MainActor () -> Date? = {
@@ -52,6 +55,9 @@ final class ClaudePlanUsageStore: ObservableObject {
         self.fetcher = fetcher
         self.lastActivity = lastActivity
         tracker = ClaudePlanAlertTracker(fired: Set(Defaults[.claudePlanAlertKeys]))
+        settingCancellable = Defaults.publisher(keys: .claudePlanUsageEnabled, .claudeEnabled, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.settingChanged() }
     }
 
     deinit {
@@ -59,7 +65,7 @@ final class ClaudePlanUsageStore: ObservableObject {
         if let powerSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSource, .defaultMode) }
     }
 
-    var isEnabled: Bool { Defaults[.claudePlanUsageEnabled] }
+    var isEnabled: Bool { Defaults[.claudePlanUsageEnabled] && Defaults[.claudeEnabled] }
     var isPaused: Bool { sleeping || locked }
 
     var statusText: String? {
@@ -87,17 +93,28 @@ final class ClaudePlanUsageStore: ObservableObject {
 
     func start() {
         guard !started else { return }
+        wantsStart = true
+        guard isEnabled else { return }
+        beginIfNeeded(initialDelay: 3)
+    }
+
+    private func beginIfNeeded(initialDelay: TimeInterval) {
+        guard !started else { return }
         started = true
         restoreCache()
         registerObservers()
         registerPowerSource()
-        restartLoop(initialDelay: 3)
+        restartLoop(initialDelay: initialDelay)
     }
 
     func settingChanged() {
         if isEnabled {
             failures = 0
-            restartLoop(initialDelay: 0)
+            if wantsStart && !started {
+                beginIfNeeded(initialDelay: 0)
+            } else {
+                restartLoop(initialDelay: 0)
+            }
         } else {
             loop?.cancel()
             loop = nil

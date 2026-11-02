@@ -40,7 +40,8 @@ struct DevTabView: View {
     @ObservedObject var store = DevNotificationStore.shared
     @ObservedObject var github = GitHubStore.shared
     @State private var copiedPort: Int?
-    @State private var section: DevSection = Defaults[.githubTokenSaved] ? .github : .servers
+    @Default(.githubEnabled) private var githubEnabled
+    @State private var section: DevSection = Defaults[.githubEnabled] && Defaults[.githubTokenSaved] ? .github : .servers
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -60,8 +61,11 @@ struct DevTabView: View {
         .padding(.top, 4)
         .onReceive(DevTabNavigation.shared.$requested) { requested in
             guard let requested else { return }
-            section = requested
+            if requested != .github || githubEnabled { section = requested }
             DevTabNavigation.shared.requested = nil
+        }
+        .onChange(of: githubEnabled) { _, on in
+            if !on, section == .github { section = .servers }
         }
         .onAppear { updateActivity() }
         .onChange(of: section) { _, _ in updateActivity() }
