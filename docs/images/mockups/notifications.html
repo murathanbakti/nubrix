@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix notifications from other apps mockup</title>
+<link rel="stylesheet" href="kit.css">
+<style>
+  html, body { background: #151827; }
+  .scene { background: #151827; }
+  .grid { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; row-gap: 12px; }
+  .tile { position: relative; width: 1400px; height: 96px; overflow: hidden; --W: 1400px; --H: 96px; --s: 2.2; background: #2a3152; }
+  .row { height: 32px; display: flex; align-items: center; }
+  .L { display: flex; align-items: center; gap: 6px; flex: none; }
+  .L .t { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gap { flex: none; width: 195px; height: 32px; }
+  .R { flex: none; text-align: right; font-size: 11px; font-weight: 500; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .appicon { flex: none; border-radius: 22%; display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.18); }
+  .appicon.chat { background: linear-gradient(180deg, #5fe07a, #25b545); }
+  .appicon.team { background: linear-gradient(180deg, #8a5cf6, #5b2fc4); }
+  .appicon.mail { background: linear-gradient(180deg, #4fb4ff, #1a73f0); }
+  .appicon.cal { background: #fff; color: #ff3b30; }
+
+  .setup { position: absolute; left: 0; width: 1400px; overflow: hidden; --W: 1400px; --s: 1.5; background: #2a3152; }
+
+  .form { position: absolute; left: 22px; top: 22px; width: 468px; }
+  .form .hd { font-size: 11px; font-weight: 600; color: var(--w62); padding: 0 10px 6px; }
+  .group { border-radius: 10px; background: #2b2b30; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); padding: 0 10px; }
+  .fr { min-height: 32px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #fff; border-bottom: .5px solid rgba(255,255,255,.08); }
+  .fr:last-child { border-bottom: 0; }
+  .fr .lb { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sw { width: 26px; height: 15px; border-radius: 8px; background: rgba(255,255,255,.2); position: relative; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 1.5px; left: 1.5px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 1px rgba(0,0,0,.3); }
+  .sw.on { background: rgb(10,132,255); }
+  .sw.on::after { left: 12.5px; }
+  .warn { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: rgba(255,159,10,.14); display: flex; align-items: center; gap: 10px; }
+  .warn .tx { flex: 1; font-size: 12px; color: #fff; }
+  .pbtn { font-size: 11.5px; font-weight: 500; padding: 3px 10px; border-radius: 6px; background: rgb(10,132,255); color: #fff; white-space: nowrap; }
+  .gbtn { font-size: 11.5px; font-weight: 500; padding: 3px 10px; border-radius: 6px; background: rgba(255,255,255,.14); color: #fff; white-space: nowrap; }
+  .foot { font-size: 10px; line-height: 13px; color: var(--gray); padding: 6px 10px 0; }
+
+  .guide { position: absolute; left: 512px; top: 40px; width: 400px; border-radius: 14px; background: rgba(48,50,62,.97);
+    box-shadow: 0 18px 40px rgba(0,0,0,.45), inset 0 0 0 .5px rgba(255,255,255,.14); padding: 28px 16px 14px; display: flex; flex-direction: column; gap: 12px; }
+  .lights { position: absolute; left: 12px; top: 10px; display: flex; gap: 7px; }
+  .lights i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+  .lights i:nth-child(2), .lights i:nth-child(3) { background: rgba(255,255,255,.18); }
+  .gh { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+  .gh img { width: 28px; height: 28px; }
+  .gbody { display: flex; align-items: flex-start; gap: 14px; }
+  .steps { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .step { display: flex; gap: 6px; font-size: 12.5px; line-height: 16px; }
+  .step b { color: var(--gray); font-weight: 600; }
+  .tilebox { width: 92px; padding: 8px; border-radius: 12px; background: rgba(255,255,255,.08); display: flex; flex-direction: column; align-items: center; gap: 2px; flex: none; }
+  .tilebox img { width: 56px; height: 56px; }
+  .tilebox .n { font-size: 10.5px; font-weight: 500; }
+  .tilebox .d { font-size: 9.5px; color: var(--gray); }
+  .wait { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--gray); }
+  .btns { display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div class="scene" data-size="1400x856" style="--W:1400px;--H:856px">
+  <div class="grid" id="grid"></div>
+  <div class="setup" style="top:324px;height:532px;--H:532px">
+    <div class="stage">
+      <div class="form">
+        <div class="hd">Other apps</div>
+        <div class="group" id="group"></div>
+        <div class="foot">Only the apps you tick are read. Nothing is stored, logged or sent anywhere, and only notifications that arrive after you turn this on are shown.</div>
+      </div>
+      <div class="guide">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="gh"><img src="../../../Nubrix/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" alt="">Allow Full Disk Access</div>
+        <div class="gbody">
+          <div class="steps">
+            <div class="step"><b>1.</b><span>Drag Nubrix into the list</span></div>
+            <div class="step"><b>2.</b><span>Turn on the switch next to Nubrix</span></div>
+            <div class="step"><b>3.</b><span>If macOS asks, choose Quit &amp; Reopen</span></div>
+          </div>
+          <div class="tilebox"><img src="../../../Nubrix/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" alt=""><span class="n">Nubrix</span><span class="d">Drag me</span></div>
+        </div>
+        <div class="wait"><span id="spin" style="display:flex;color:var(--gray)"></span>Waiting for access…</div>
+        <div class="btns"><span class="gbtn">Open System Settings</span><span class="gbtn">Close</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="icons.js"></script>
+<script>
+  var N = window.Nubrix;
+  var GLYPH = {
+    chat: '<svg width="70%" height="70%" viewBox="0 0 24 24"><path d="M12 3.5c-4.9 0-8.6 3.5-8.6 7.9 0 2.1.9 4 2.4 5.4l-.7 3.4 3.5-1.6c1 .4 2.2.6 3.4.6 4.9 0 8.6-3.5 8.6-7.8S16.9 3.5 12 3.5z" fill="currentColor"/></svg>',
+    team: '<svg width="66%" height="66%" viewBox="0 0 24 24"><path d="M9.5 3.5 7.6 20.5M16.4 3.5l-1.9 17M4 8.8h16.5M3.5 15.2H20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>',
+    mail: '<svg width="70%" height="70%" viewBox="0 0 24 24"><rect x="2.6" y="5.2" width="18.8" height="13.6" rx="2.6" fill="currentColor"/><path d="M3.4 6.6 12 13l8.6-6.4" stroke="#1a73f0" stroke-width="1.7" fill="none" stroke-linejoin="round"/></svg>'
+  };
+  function appIcon(kind, size) {
+    return '<span class="appicon ' + kind + '" style="width:' + size + 'px;height:' + size + 'px">' + GLYPH[kind] + '</span>';
+  }
+  function banner(kind, title, detail) {
+    return '<div class="row"><div class="L" style="width:140px;max-width:140px">' + appIcon(kind, 16) + '<span class="t">' + title + '</span></div>' +
+      '<div class="gap"></div><div class="R" style="width:170px">' + detail + '</div></div>';
+  }
+  var tiles = [
+    banner('chat', 'Elif', 'Are we still on for 7?'),
+    banner('team', 'Deniz · #design', 'Pushed the new icons'),
+    banner('mail', 'Can Yilmaz', 'Contract draft attached')
+  ];
+  document.getElementById('grid').innerHTML = tiles.map(function (html) {
+    return '<div class="tile"><div class="stage">' +
+      '<div class="notch closed" style="--nw:533px;--nh:32px"><div class="notch-body">' + html + '</div></div></div></div>';
+  }).join('');
+
+  function sw(on) { return '<span class="sw' + (on ? ' on' : '') + '"></span>'; }
+  function fr(label, on, icon) { return '<div class="fr">' + (icon || '') + '<span class="lb">' + label + '</span>' + sw(on) + '</div>'; }
+  document.getElementById('group').innerHTML =
+    fr('Show notifications from other apps', true) +
+    '<div class="warn"><span style="display:flex;color:var(--orange)"><svg width="14" height="14" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2.4" fill="currentColor"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" stroke="currentColor" stroke-width="2.4" fill="none"/></svg></span>' +
+      '<span class="tx">Nubrix needs Full Disk Access to read notifications.</span><span class="pbtn">Grant Access…</span></div>' +
+    fr('Show message text', true) +
+    fr('Skip notifications from the app in front', true) +
+    fr('Mail', false, appIcon('mail', 20)) +
+    fr('Slack', true, appIcon('team', 20)) +
+    fr('WhatsApp', true, appIcon('chat', 20)) +
+    '<div class="fr" style="justify-content:flex-end"><span class="gbtn">Refresh</span></div>';
+
+  document.getElementById('spin').innerHTML = N.spinner(14, 30);
+  N.hydrate(); N.shapeNotches();
+</script>
+</body>
+</html>

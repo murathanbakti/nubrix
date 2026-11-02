@@ -113,6 +113,10 @@ Other install methods are under [Install](#install); the hook setup is explained
 - Meeting countdown in the closed notch, and a meeting card with a Join button on the Home tab when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link
 - Mirror: a camera preview that splits out of the notch (Control-Option-M)
 
+<p align="center">
+  <img src="docs/images/calendar.png" alt="The calendar sheet with the November month grid and the day panel listing today's events" width="100%">
+</p>
+
 **Notifications from other apps** (optional, off by default)
 - New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; click it to open the app
 - Needs Full Disk Access, because macOS has no public way to read other apps' notifications. When you turn it on, a small guide opens next to System Settings: drag the Nubrix icon into the list, turn on its switch, and the guide confirms as soon as access works
@@ -120,7 +124,7 @@ Other install methods are under [Install](#install); the hook setup is explained
 - Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch
 
 <p align="center">
-  <img src="docs/images/calendar.png" alt="The calendar sheet with the November month grid and the day panel listing today's events" width="100%">
+  <img src="docs/images/notifications.png" alt="Closed-notch banners for a chat message, a Slack channel message and an email, and the Other apps settings next to the Full Disk Access guide with the drag-me Nubrix icon" width="100%">
 </p>
 
 ## Requirements
