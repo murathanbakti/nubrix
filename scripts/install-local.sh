@@ -30,6 +30,23 @@ if [ ! -d "$app" ]; then
   exit 1
 fi
 
+identity="${NUBRIX_SIGN_IDENTITY-}"
+if [ -z "$identity" ]; then
+  identities="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+  identity="$(awk '/"Apple Development: / { print $2; exit }' <<< "$identities")"
+  [ -n "$identity" ] || identity="$(awk '/"Developer ID Application: / { print $2; exit }' <<< "$identities")"
+fi
+if [ -n "$identity" ] && [ "$identity" != "-" ]; then
+  echo "Signing with your local code signing certificate…"
+  if ! NUBRIX_SIGN_IDENTITY="$identity" NUBRIX_SIGN_LOCAL=1 "$root/scripts/sign-release.sh" "$app" > "$(dirname "$log")/sign.log" 2>&1; then
+    cat "$(dirname "$log")/sign.log" >&2
+    echo "Signing failed. Set NUBRIX_SIGN_IDENTITY=- to install with an ad-hoc signature." >&2
+    exit 1
+  fi
+else
+  echo "No code signing certificate found, using an ad-hoc signature (macOS may ask for Keychain access and permissions again after each install)."
+fi
+
 "$root/scripts/verify-bundle.sh" "$app"
 
 if pgrep -xq Nubrix; then

@@ -27,7 +27,7 @@ Use a derived data path of your own (as above, or `~/Library/Caches/Nubrix/Deriv
 
 To try a Release build the way users get it, run `scripts/install-local.sh --open`. It builds into `~/Library/Caches/Nubrix/DerivedData`, verifies the bundle, installs to `/Applications` and refreshes the sealed hook copies.
 
-Local builds are ad-hoc signed. Each rebuild changes the code identity, so macOS may ask again for Keychain access and for permissions such as Camera or Accessibility.
+`install-local.sh` signs with the first Apple Development (or Developer ID Application) certificate in your Keychain, using `scripts/sign-release.sh` with `NUBRIX_SIGN_LOCAL=1` (no team or timestamp checks). The code identity then stays the same across rebuilds, so Keychain access and permissions such as Full Disk Access, Camera or Accessibility are kept. Without a certificate, or with `NUBRIX_SIGN_IDENTITY=-`, the build is ad-hoc signed and macOS may ask again after each rebuild. `NUBRIX_SIGN_IDENTITY` also takes a certificate name or SHA-1. Never commit a team ID, certificate, `.p12`, `.p8` or provisioning profile: the project keeps `DEVELOPMENT_TEAM` empty, signing identities are picked on each machine, and release signing uses GitHub secrets.
 
 ## Where things live
 

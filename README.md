@@ -175,7 +175,9 @@ cd nubrix
 scripts/install-local.sh --open
 ```
 
-This needs Xcode 26 or later. The script builds Release into `~/Library/Caches/Nubrix/DerivedData`, verifies the bundle (hardened runtime on, no `get-task-allow`, only the expected helper and frameworks), quits a running Nubrix, installs `Nubrix.app` to `/Applications`, runs `scripts/install-hooks.sh` and, with `--open`, starts the app. It stops if a check fails. A build you made yourself is signed ad hoc on your Mac and opens with no Gatekeeper prompt.
+This needs Xcode 26 or later. The script builds Release into `~/Library/Caches/Nubrix/DerivedData`, verifies the bundle (hardened runtime on, no `get-task-allow`, only the expected helper and frameworks), quits a running Nubrix, installs `Nubrix.app` to `/Applications`, runs `scripts/install-hooks.sh` and, with `--open`, starts the app. It stops if a check fails. A build you made yourself opens with no Gatekeeper prompt.
+
+If your Mac has an Apple Development or Developer ID Application certificate (any free Apple account signed in to Xcode creates one), the script signs the app with it, so macOS keeps Keychain access and permissions across rebuilds. The first time, macOS may ask to let `codesign` use the key; choose Always Allow. Without a certificate the app is signed ad hoc. Set `NUBRIX_SIGN_IDENTITY` to a certificate name or SHA-1 to choose one, or to `-` to force ad-hoc signing. The certificate stays in your Keychain; nothing about it is written to the repository.
 
 ## First launch and Gatekeeper
 
@@ -345,7 +347,7 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 **I clicked "Move to Trash" and Nubrix is gone.** Run `brew reinstall --cask nubrix` (Homebrew still lists it as installed), or install again with the method you used before. Your settings and the hooks in `~/.config/nubrix` are kept.
 
-**The Keychain asks for access, or Camera, Calendar or Accessibility permissions are asked again after an update.** Ad-hoc signed builds get a new code identity with every version, and macOS ties Keychain access and permission grants to it. Click "Always Allow" for the Keychain item, and grant the permissions again if macOS asks. Your GitHub token is not lost.
+**The Keychain asks for your password, or Camera, Calendar, Accessibility or Full Disk Access is asked again after an update.** Ad-hoc signed builds get a new code identity with every version, and macOS ties Keychain access and permission grants to it. Click "Always Allow" for the Keychain item, and grant the permissions again if macOS asks. Your GitHub token is not lost. If you build from source, sign with your own certificate to stop this (see [From source](#from-source)); after switching, macOS asks one last time.
 
 **The Home card or Claude tab says "Claude sign-in needed: claude auth login".** The Claude Code CLI is signed out. Run `claude auth login` in a terminal; the card updates on the next refresh (open the notch on Home or the Claude tab). "Plan usage needs a Claude subscription" means an API-key login or an account without plan limits; "Claude Code not found" means `claude` is not in one of the [fixed locations](docs/nubrix/CLAUDE-CODE.md#official-plan-usage-claude-usage) Nubrix checks; "Update Claude Code to see plan usage" means your CLI version has no free local `/usage` command.
 

@@ -6,6 +6,7 @@ app="${1%/}"
 identity="${NUBRIX_SIGN_IDENTITY:?set NUBRIX_SIGN_IDENTITY to a Developer ID Application identity, or - for an ad-hoc dry run}"
 team="${NUBRIX_TEAM_ID:-}"
 keychain="${NUBRIX_SIGN_KEYCHAIN:-}"
+local_mode="${NUBRIX_SIGN_LOCAL:-0}"
 
 fail() {
   echo "sign-release: $*" >&2
@@ -13,7 +14,7 @@ fail() {
 }
 
 [ -d "$app/Contents" ] || fail "not an app bundle: $app"
-if [ "$identity" != "-" ]; then
+if [ "$identity" != "-" ] && [ "$local_mode" != 1 ]; then
   [[ "$team" =~ ^[A-Z0-9]{10}$ ]] || fail "NUBRIX_TEAM_ID must be a 10 character Apple team ID"
 fi
 
@@ -30,7 +31,7 @@ is_macho() {
 sign() {
   local target="$1" ent="$work/entitlements.plist"
   local args=(--force --sign "$identity" --options runtime)
-  if [ "$identity" = "-" ]; then
+  if [ "$identity" = "-" ] || [ "$local_mode" = 1 ]; then
     args+=(--timestamp=none)
   else
     args+=(--timestamp)
@@ -89,7 +90,7 @@ while IFS= read -r -d '' f; do
   grep -q 'flags=.*runtime' <<< "$details" || fail "hardened runtime is off: ${f#"$app"/}"
   entitlements="$(codesign -d --entitlements - --xml "$f" 2>/dev/null || true)"
   ! grep -q 'com.apple.security.get-task-allow' <<< "$entitlements" || fail "get-task-allow is present: ${f#"$app"/}"
-  if [ "$identity" != "-" ]; then
+  if [ "$identity" != "-" ] && [ "$local_mode" != 1 ]; then
     grep -q '^Authority=Developer ID Application: ' <<< "$details" || fail "not signed with Developer ID: ${f#"$app"/}"
     grep -qx "TeamIdentifier=$team" <<< "$details" || fail "team is not $team: ${f#"$app"/}"
     grep -q '^Timestamp=' <<< "$details" || fail "no secure timestamp: ${f#"$app"/}"
@@ -98,7 +99,9 @@ while IFS= read -r -d '' f; do
 done < <(find "$app" -type f -print0)
 
 [ "$checked" -gt 0 ] || fail "no code found in $app"
-if [ "$identity" = "-" ]; then
+if [ "$local_mode" = 1 ]; then
+  echo "Local identity: $checked Mach-O files signed with the hardened runtime"
+elif [ "$identity" = "-" ]; then
   echo "Ad-hoc dry run: $checked Mach-O files re-signed with the hardened runtime"
 else
   echo "Developer ID ($team): $checked Mach-O files signed with the hardened runtime and a secure timestamp"

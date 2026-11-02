@@ -59,6 +59,9 @@ build/
 *.p12
 *.cer
 *.mobileprovision
+*.p8
+*.certSigningRequest
+*.keychain-db
 *.sqlite*
 .claude/settings.local.json
 
