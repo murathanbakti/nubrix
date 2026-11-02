@@ -183,7 +183,9 @@ struct SystemNotificationReplyContent: View {
                 phase = .sent
                 try? await Task.sleep(for: .milliseconds(900))
                 dismiss()
-            case .notFound, .failed:
+            case .notFound:
+                await show("Couldn't find this notification in Notification Center. Text copied, paste it in \(record.appName).", status)
+            case .failed:
                 await show("Couldn't reply from the notch. Text copied, paste it in \(record.appName).", status)
             case .unsupported:
                 await show("\(record.appName) has no reply action in its notifications. Text copied.", status)
