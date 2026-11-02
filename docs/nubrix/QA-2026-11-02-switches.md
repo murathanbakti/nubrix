@@ -5,7 +5,7 @@ Kapsam: v0.1.1 sonrası `nubrix` dalındaki yeni özellikler ve bu daldaki (`mur
 Önceki yeni özellikler:
 - Kaydırma düzeltmesi
 - Claude oturumunu açma
-- Bildirimlere hızlı cevap
+- Bildirimlere hızlı cevap (sonradan kaldırıldı, bkz. aşağıdaki not)
 
 Bu daldaki değişiklikler:
 - Her izin gerektiren özelliğe bir Ayarlar anahtarı
@@ -63,7 +63,7 @@ Diğer kontroller:
 - Onboarding'deki bütün izin adımları ("Not Now") atlanabiliyor.
 - Hiçbir `*Enabled` anahtarı kullanıcı tıklaması olmadan açılmıyor; tek yazan `FullDiskAccessGuide.begin()`, o da düğmelerden çağrılıyor.
 - Pil ve raf sürükleme izinsiz ve olay tabanlı; değiştirilmedi.
-- Hızlı cevabın anahtarı (`systemNotificationQuickReply`), birleştirilen kodda hem arayüzde hem store'da kontrol ediliyor.
+- Hızlı cevabın anahtarı (`systemNotificationQuickReply`), birleştirilen kodda hem arayüzde hem store'da kontrol ediliyordu. Not: hızlı cevap özelliği 2026-11-02'de tamamen kaldırıldı; anahtar da yok.
 
 ### Sekme düzeni
 
@@ -98,7 +98,7 @@ Değişmeyenler:
 
 ### Güvenlik
 
-Hızlı cevap (`NubrixHelper/NotificationReplier.swift` ve ilgili uygulama kodu, a7b7820 ve bd01f24 üzerinde incelendi):
+Hızlı cevap (`NubrixHelper/NotificationReplier.swift` ve ilgili uygulama kodu, a7b7820 ve bd01f24 üzerinde incelendi). Not: özellik 2026-11-02'de tamamen kaldırıldı; aşağıdaki bulgular artık geçerli değil.
 
 | # | Önem | Bulgu | Durum |
 |---|---|---|---|

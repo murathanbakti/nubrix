@@ -291,60 +291,6 @@ final class XPCHelperClient: NSObject {
             return .failed
         }
     }
-
-    @MainActor func notificationExists(recID: Int64) async -> Bool? {
-        do {
-            let service = ensureRemoteService()
-            let value: Int = try await service.withContinuation { service, continuation in
-                service.notificationExists(recID) { number in
-                    continuation.resume(returning: number.map { $0.boolValue ? 1 : 0 } ?? -1)
-                }
-            }
-            return value < 0 ? nil : value == 1
-        } catch {
-            return nil
-        }
-    }
-
-    @MainActor func notificationPreviewFingerprint(bundleID: String) async -> String? {
-        do {
-            let service = ensureRemoteService()
-            let value: String = try await service.withContinuation { service, continuation in
-                service.notificationPreviewFingerprint(bundleID) { fingerprint in
-                    continuation.resume(returning: fingerprint ?? "")
-                }
-            }
-            return value.isEmpty ? nil : value
-        } catch {
-            return nil
-        }
-    }
-
-    @MainActor func replyToNotification(recID: Int64, bundleID: String, appName: String, title: String, subtitle: String, body: String, text: String) async -> SystemNotificationReplyStatus {
-        struct Payload: Encodable {
-            let recID: Int64
-            let bundleID: String
-            let appName: String
-            let title: String
-            let subtitle: String
-            let body: String
-            let text: String
-        }
-        guard let request = try? JSONEncoder().encode(Payload(recID: recID, bundleID: bundleID, appName: appName, title: title, subtitle: subtitle, body: body, text: text)) else {
-            return .failed
-        }
-        do {
-            let service = ensureRemoteService()
-            let data: Data = try await service.withContinuation { service, continuation in
-                service.replyToNotification(request) { data in
-                    continuation.resume(returning: data)
-                }
-            }
-            return SystemNotificationReplyStatus.decode(data)
-        } catch {
-            return .unconfirmed
-        }
-    }
 }
 
 extension Notification.Name {

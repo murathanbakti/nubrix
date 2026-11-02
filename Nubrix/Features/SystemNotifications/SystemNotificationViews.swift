@@ -6,11 +6,7 @@ struct SystemNotificationBannerView: View {
     @EnvironmentObject var vm: NubrixViewModel
     @ObservedObject var store = SystemNotificationStore.shared
     @Default(.systemNotificationsShowBody) var showBody
-    @Default(.systemNotificationQuickReply) var quickReply
-    @ObservedObject private var availability = QuickReplyAvailability.shared
     let banner: SystemNotificationBanner
-
-    private var showReply: Bool { quickReply && availability.isReplyAvailable(banner.bundleID) }
 
     private var detail: String {
         if showBody, !banner.body.isEmpty { return banner.body }
@@ -40,34 +36,9 @@ struct SystemNotificationBannerView: View {
                 .foregroundStyle(.white.opacity(0.75))
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .frame(width: showReply ? 144 : 170, alignment: .trailing)
-
-            if showReply {
-                Button {
-                    replyFromBanner()
-                } label: {
-                    Image(systemName: "arrowshape.turn.up.left.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .frame(width: 22, height: vm.effectiveClosedNotchHeight)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Reply")
-            }
+                .frame(width: 170, alignment: .trailing)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-        .onHover { store.pauseBanner($0) }
-        .onDisappear { store.pauseBanner(false) }
-    }
-
-    private func replyFromBanner() {
-        guard let record = store.record(matching: banner) else {
-            store.openSource(banner)
-            return
-        }
-        store.dismissBanner()
-        NotificationReplyController.shared.openAndBegin(record: record, vm: vm)
     }
 
     @ViewBuilder
@@ -87,7 +58,6 @@ struct SystemNotificationBannerView: View {
 struct SystemNotificationSettingsSection: View {
     @ObservedObject var store = SystemNotificationStore.shared
     @ObservedObject var inbox = NubrixInbox.shared
-    @ObservedObject private var availability = QuickReplyAvailability.shared
     @Default(.systemNotificationsEnabled) var enabled
     @Default(.systemNotificationApps) var allowedApps
 
@@ -109,15 +79,6 @@ struct SystemNotificationSettingsSection: View {
                 Defaults.Toggle(key: .systemNotificationsSkipFrontmost) {
                     Text("Skip notifications from the app in front")
                 }
-                Defaults.Toggle(key: .systemNotificationQuickReply) {
-                    Text("Quick reply from the notch")
-                }
-                Text("Quick reply needs message previews: System Settings, Notifications, Show previews: Always (and on for that app).")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach(allowedApps.filter { availability.isHidden($0) }, id: \.self) { bundleID in
-                    hiddenRow(bundleID)
-                }
                 ForEach(rows, id: \.self) { bundleID in
                     appRow(bundleID)
                 }
@@ -129,7 +90,7 @@ struct SystemNotificationSettingsSection: View {
         } header: {
             Text("Other apps")
         } footer: {
-            Text("Only the apps you tick are read. The Notifications tab keeps the last 50 in memory only: nothing is written to disk or sent anywhere, and no message content is logged, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
+            Text("Only the apps you tick are read. The Notifications tab keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }
@@ -146,25 +107,7 @@ struct SystemNotificationSettingsSection: View {
         }
         .onAppear {
             if enabled { store.refreshApps() }
-            availability.refresh(allowedApps)
         }
-    }
-
-    private func hiddenRow(_ bundleID: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            Text("\(store.appName(for: bundleID)): previews are hidden, quick reply is off")
-                .font(.caption)
-            Spacer(minLength: 6)
-            Button("Open Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            Button("Check again") { availability.clear(bundleID) }
-        }
-        .controlSize(.small)
     }
 
     @ViewBuilder

@@ -288,10 +288,7 @@ struct ContentView: View {
         .background(dragDetector)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
-        .onAppear {
-            reportPermissionSurface()
-            NotificationReplyController.shared.register(vm)
-        }
+        .onAppear { reportPermissionSurface() }
         .onChange(of: vm.hideOnClosed) { _, _ in reportPermissionSurface() }
         .onDisappear { permissions.removeSurface(permissionSurfaceID) }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in

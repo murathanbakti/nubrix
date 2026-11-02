@@ -166,19 +166,9 @@ Remaining:
 - Notifications tab (bell, shown while the feature is on): the last 50 in
   memory, newest first, app filter chips, click to open the app, hover to
   remove, Clear. With six tabs the tab buttons use 6 pt padding to fit.
-- Quick reply (Notifications tab row, reply arrow): a sheet under the notch
-  takes the text; `NubrixHelper/NotificationReplier.swift` finds the same
-  notification in Notification Center through Accessibility (title and body
-  prefix must match exactly one notification, stacks are never expanded),
-  opens Notification Center once if the banner is gone, performs the
-  notification's own Reply action, sets the text, checks it reads back, and
-  sends. Anything uncertain sends nothing: the text is copied (transient,
-  concealed) and the app is opened. A send that could not be confirmed says so
-  instead of asking to paste again. Needs on-device checking after macOS
-  updates. Needs Notification Center previews: when they are hidden the
-  reply arrow is not offered for that app (learned on the first attempt,
-  stored with the `com.apple.ncprefs` visibility values and re-offered when
-  those change or via Check again in Settings).
+- Quick reply to these notifications was built and then removed (2026-11-02):
+  without message previews Notification Center gives no safe way to know
+  which chat a reply belongs to, and failures left the notch open.
 - Later: Dock badge counts as a no-permission fallback.
 
 ## Feature switches and tab layout (done, not yet tried on device)
