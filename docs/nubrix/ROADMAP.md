@@ -133,12 +133,12 @@ Done locally:
 
 Published:
 - GitHub repository, with README screenshots and private vulnerability reporting.
+- Logo and app icon (`docs/branding/`).
 - Releases built by CI as a zip (not a DMG): v0.1.0 ad-hoc signed, v0.1.1 Developer ID signed and notarized.
 
 Remaining:
 - An update mechanism (none exists; Sparkle was removed).
 - Encryption at rest for Vitrin (possible now that releases keep one signing identity).
-- A final app icon (a logo is being worked on separately).
 
 ## Notch extensions
 
