@@ -6,6 +6,7 @@ struct SystemNotificationBannerView: View {
     @EnvironmentObject var vm: NubrixViewModel
     @ObservedObject var store = SystemNotificationStore.shared
     @Default(.systemNotificationsShowBody) var showBody
+    @Default(.systemNotificationQuickReply) var quickReply
     let banner: SystemNotificationBanner
 
     private var detail: String {
@@ -36,9 +37,34 @@ struct SystemNotificationBannerView: View {
                 .foregroundStyle(.white.opacity(0.75))
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .frame(width: 170, alignment: .trailing)
+                .frame(width: quickReply ? 144 : 170, alignment: .trailing)
+
+            if quickReply {
+                Button {
+                    replyFromBanner()
+                } label: {
+                    Image(systemName: "arrowshape.turn.up.left.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(width: 22, height: vm.effectiveClosedNotchHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Reply")
+            }
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+        .onHover { store.pauseBanner($0) }
+        .onDisappear { store.pauseBanner(false) }
+    }
+
+    private func replyFromBanner() {
+        guard let record = store.record(matching: banner) else {
+            store.openSource(banner)
+            return
+        }
+        store.dismissBanner()
+        NotificationReplyController.shared.openAndBegin(record: record, vm: vm)
     }
 
     @ViewBuilder

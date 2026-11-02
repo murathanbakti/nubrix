@@ -42,7 +42,7 @@ enum AccessibilityGuide {
     private static func resume() {
         let record = resumeRecord
         resumeRecord = nil
-        if let record { SystemNotificationReplySheet.present(record: record) }
+        if let record { NotificationReplyController.shared.openAndBegin(record: record) }
     }
 
     private static func startPolling() {

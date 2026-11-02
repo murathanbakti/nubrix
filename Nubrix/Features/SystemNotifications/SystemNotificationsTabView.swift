@@ -135,6 +135,8 @@ struct SystemNotificationRow: View {
     let showBody: Bool
     @EnvironmentObject var vm: NubrixViewModel
     @Default(.systemNotificationQuickReply) var quickReply
+    @ObservedObject private var reply = NotificationReplyController.shared
+    @FocusState private var focused: Bool
     @State private var hovering = false
 
     private var message: String {
@@ -153,57 +155,148 @@ struct SystemNotificationRow: View {
             + Text(" · \(record.appName)").font(.system(size: 12)).foregroundColor(.gray)
     }
 
+    private var replying: Bool { reply.activeRecordID == record.id }
+    private var target: String { record.title.isEmpty ? record.appName : record.title }
+
     var body: some View {
-        Button {
-            store.open(bundleID: record.bundleID)
-        } label: {
-            HStack(alignment: .top, spacing: 8) {
-                icon
-                VStack(alignment: .leading, spacing: 1) {
-                    heading
-                        .lineLimit(1)
-                    Text(message)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.gray)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 6)
-                if hovering {
-                    if quickReply {
-                        Button {
-                            SystemNotificationReplySheet.present(record: record, screenUUID: vm.screenUUID)
-                        } label: {
-                            Image(systemName: "arrowshape.turn.up.left")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.gray)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Reply")
-                    }
+        VStack(alignment: .leading, spacing: 6) {
+            summary
+            if replying {
+                replyArea
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hovering || replying ? 0.1 : 0.06)))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !replying { store.open(bundleID: record.bundleID) }
+        }
+        .onHover { hovering = $0 }
+    }
+
+    private var summary: some View {
+        HStack(alignment: .top, spacing: 8) {
+            icon
+            VStack(alignment: .leading, spacing: 1) {
+                heading
+                    .lineLimit(1)
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.gray)
+                    .lineLimit(replying ? 3 : 2)
+                    .multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: 6)
+            if replying {
+                EmptyView()
+            } else if hovering {
+                if quickReply {
                     Button {
-                        withAnimation(.smooth) { store.removeRecord(record.id) }
+                        reply.begin(record: record, vm: vm)
                     } label: {
+                        Image(systemName: "arrowshape.turn.up.left")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.gray)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Reply")
+                }
+                Button {
+                    withAnimation(.smooth) { store.removeRecord(record.id) }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.gray)
+                }
+                .buttonStyle(.plain)
+            } else {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    Text(Self.age(from: record.date, to: context.date))
+                        .font(.system(size: 11).monospacedDigit())
+                        .foregroundStyle(.gray)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var replyArea: some View {
+        switch reply.phase {
+        case .checking:
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .ready, .sending:
+            HStack(spacing: 8) {
+                TextField("Reply…", text: $reply.draft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .focused($focused)
+                    .disabled(reply.phase == .sending)
+                    .onSubmit { reply.send() }
+                    .onExitCommand { reply.cancel() }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.1)))
+                    .onChange(of: reply.focusToken) { _, _ in focused = true }
+                    .onAppear { if reply.focusToken > 0 { focused = true } }
+                if reply.phase == .sending {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 20, height: 20)
+                } else {
+                    Button { reply.send() } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(reply.canSend ? Color.white : Color.gray)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!reply.canSend)
+                    .frame(width: 20, height: 20)
+                    Button { reply.cancel() } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.gray)
                     }
                     .buttonStyle(.plain)
-                } else {
-                    TimelineView(.periodic(from: .now, by: 30)) { context in
-                        Text(Self.age(from: record.date, to: context.date))
-                            .font(.system(size: 11).monospacedDigit())
-                            .foregroundStyle(.gray)
-                    }
+                    .frame(width: 16, height: 20)
+                    .help("Cancel")
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hovering ? 0.1 : 0.06)))
-            .contentShape(Rectangle())
+        case .sent:
+            Label("Sent", systemImage: "checkmark.circle.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.green)
+        case .needsAccess:
+            bar("Replying from the notch needs Accessibility.", "Allow…") { reply.requestAccess() }
+        case .missing:
+            bar("This notification is no longer in Notification Center.", "Open \(record.appName)") { reply.openApp() }
+        case .note(let text):
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.gray)
+                .lineLimit(2)
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+    }
+
+    private func bar(_ text: String, _ action: String, perform: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.gray)
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            Button(action, action: perform)
+                .controlSize(.small)
+            Button { reply.cancel() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.gray)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     @ViewBuilder

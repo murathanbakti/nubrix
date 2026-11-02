@@ -19,6 +19,8 @@ final class SystemNotificationStore: ObservableObject {
     private var fastRecheck = false
     private var loop: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
+    private var bannerDeadline = Date()
+    private var bannerRemaining: TimeInterval = 6
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var names: [String: String] = [:]
     private var icons: [String: NSImage?] = [:]
@@ -82,8 +84,38 @@ final class SystemNotificationStore: ObservableObject {
 
     func dismissBanner() {
         bannerTask?.cancel()
+        bannerTask = nil
         guard banner != nil else { return }
         withAnimation(.smooth) { banner = nil }
+    }
+
+    func pauseBanner(_ paused: Bool) {
+        guard banner != nil else { return }
+        if paused {
+            guard bannerTask != nil else { return }
+            bannerRemaining = max(bannerDeadline.timeIntervalSinceNow, 0)
+            bannerTask?.cancel()
+            bannerTask = nil
+        } else if bannerTask == nil {
+            scheduleBannerDismiss(after: max(bannerRemaining, 2))
+        }
+    }
+
+    func record(matching banner: SystemNotificationBanner) -> SystemNotificationRecord? {
+        history.first {
+            $0.bundleID == banner.bundleID && $0.body == banner.body && $0.subtitle == banner.subtitle
+                && ($0.title == banner.title || ($0.title.isEmpty && banner.title == banner.appName))
+        }
+    }
+
+    private func scheduleBannerDismiss(after seconds: TimeInterval) {
+        bannerTask?.cancel()
+        bannerDeadline = Date().addingTimeInterval(seconds)
+        bannerTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            self?.dismissBanner()
+        }
     }
 
     func openSource(_ banner: SystemNotificationBanner) {
@@ -114,9 +146,7 @@ final class SystemNotificationStore: ObservableObject {
         let status = await XPCHelperClient.shared.replyToNotification(
             recID: record.recID, bundleID: record.bundleID, appName: record.appName, title: record.title, body: record.body, text: text)
         switch status {
-        case .sent:
-            removeRecord(record.id)
-        case .unconfirmed:
+        case .sent, .unconfirmed:
             break
         case .notFound, .noAccess, .unsupported, .failed, .gone:
             copyToPasteboard(text)
@@ -245,11 +275,7 @@ final class SystemNotificationStore: ObservableObject {
         DevNotificationStore.shared.dismissBanner()
         bannerTask?.cancel()
         withAnimation(.smooth) { self.banner = banner }
-        bannerTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(6))
-            guard !Task.isCancelled else { return }
-            self?.dismissBanner()
-        }
+        scheduleBannerDismiss(after: 6)
     }
 
     private func setPaused(sleeping: Bool? = nil, locked: Bool? = nil) {
