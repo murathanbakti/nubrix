@@ -56,6 +56,27 @@ struct SystemNotificationAppsFetch: Equatable, Sendable {
     }
 }
 
+enum SystemNotificationReplyStatus: String, Sendable {
+    case sent
+    case notFound
+    case noAccess
+    case unsupported
+    case failed
+    case unconfirmed
+
+    static let maxBytes = 4 * 1024
+
+    private struct Envelope: Decodable {
+        var status: String
+    }
+
+    static func decode(_ data: Data) -> SystemNotificationReplyStatus {
+        guard data.count <= maxBytes, let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
+              let status = SystemNotificationReplyStatus(rawValue: envelope.status) else { return .failed }
+        return status
+    }
+}
+
 struct SystemNotificationBanner: Identifiable, Equatable {
     let id = UUID()
     let bundleID: String

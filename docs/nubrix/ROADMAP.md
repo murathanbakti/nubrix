@@ -166,4 +166,14 @@ Remaining:
 - Notifications tab (bell, shown while the feature is on): the last 50 in
   memory, newest first, app filter chips, click to open the app, hover to
   remove, Clear. With six tabs the tab buttons use 6 pt padding to fit.
+- Quick reply (Notifications tab row, reply arrow): a sheet under the notch
+  takes the text; `NubrixHelper/NotificationReplier.swift` finds the same
+  notification in Notification Center through Accessibility (title and body
+  prefix must match exactly one notification, stacks are never expanded),
+  opens Notification Center once if the banner is gone, performs the
+  notification's own Reply action, sets the text, checks it reads back, and
+  sends. Anything uncertain sends nothing: the text is copied (transient,
+  concealed) and the app is opened. A send that could not be confirmed says so
+  instead of asking to paste again. Needs on-device checking after macOS
+  updates.
 - Later: Dock badge counts as a no-permission fallback.

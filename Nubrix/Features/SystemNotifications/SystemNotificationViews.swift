@@ -79,6 +79,9 @@ struct SystemNotificationSettingsSection: View {
                 Defaults.Toggle(key: .systemNotificationsSkipFrontmost) {
                     Text("Skip notifications from the app in front")
                 }
+                Defaults.Toggle(key: .systemNotificationQuickReply) {
+                    Text("Quick reply from the notch")
+                }
                 ForEach(rows, id: \.self) { bundleID in
                     appRow(bundleID)
                 }

@@ -133,6 +133,8 @@ struct SystemNotificationRow: View {
     let record: SystemNotificationRecord
     let store: SystemNotificationStore
     let showBody: Bool
+    @EnvironmentObject var vm: NubrixViewModel
+    @Default(.systemNotificationQuickReply) var quickReply
     @State private var hovering = false
 
     private var message: String {
@@ -168,6 +170,17 @@ struct SystemNotificationRow: View {
                 }
                 Spacer(minLength: 6)
                 if hovering {
+                    if quickReply {
+                        Button {
+                            SystemNotificationReplySheet.present(record: record, screenUUID: vm.screenUUID)
+                        } label: {
+                            Image(systemName: "arrowshape.turn.up.left")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.gray)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Reply")
+                    }
                     Button {
                         withAnimation(.smooth) { store.removeRecord(record.id) }
                     } label: {

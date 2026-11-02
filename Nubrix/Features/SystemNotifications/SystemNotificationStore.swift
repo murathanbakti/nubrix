@@ -110,6 +110,36 @@ final class SystemNotificationStore: ObservableObject {
         NubrixInbox.shared.markRead(.system)
     }
 
+    func reply(to record: SystemNotificationRecord, text: String) async -> SystemNotificationReplyStatus {
+        let status = await XPCHelperClient.shared.replyToNotification(
+            bundleID: record.bundleID, appName: record.appName, title: record.title, body: record.body, text: text)
+        switch status {
+        case .sent, .unconfirmed:
+            break
+        case .notFound, .noAccess, .unsupported, .failed:
+            copyToPasteboard(text)
+        }
+        return status
+    }
+
+    func finishReply(_ status: SystemNotificationReplyStatus, record: SystemNotificationRecord) {
+        guard status != .sent else { return }
+        open(bundleID: record.bundleID)
+        if status == .noAccess {
+            Task { _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true) }
+        }
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+        let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+        pasteboard.declareTypes([.string, transient, concealed], owner: nil)
+        pasteboard.setString(text, forType: .string)
+        pasteboard.setData(Data(), forType: transient)
+        pasteboard.setData(Data(), forType: concealed)
+    }
+
     func appName(for bundleID: String) -> String {
         if let cached = names[bundleID] { return cached }
         var name = bundleID

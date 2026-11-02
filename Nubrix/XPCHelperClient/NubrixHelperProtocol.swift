@@ -23,5 +23,6 @@ import Foundation
     func fetchClaudePlanUsage(with reply: @escaping (Data) -> Void)
     func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void)
     func fetchSystemNotificationApps(with reply: @escaping (Data) -> Void)
+    func replyToNotification(_ request: Data, with reply: @escaping (Data) -> Void)
 }
 

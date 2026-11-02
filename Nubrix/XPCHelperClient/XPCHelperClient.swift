@@ -291,6 +291,30 @@ final class XPCHelperClient: NSObject {
             return .failed
         }
     }
+
+    @MainActor func replyToNotification(bundleID: String, appName: String, title: String, body: String, text: String) async -> SystemNotificationReplyStatus {
+        struct Payload: Encodable {
+            let bundleID: String
+            let appName: String
+            let title: String
+            let body: String
+            let text: String
+        }
+        guard let request = try? JSONEncoder().encode(Payload(bundleID: bundleID, appName: appName, title: title, body: body, text: text)) else {
+            return .failed
+        }
+        do {
+            let service = ensureRemoteService()
+            let data: Data = try await service.withContinuation { service, continuation in
+                service.replyToNotification(request) { data in
+                    continuation.resume(returning: data)
+                }
+            }
+            return SystemNotificationReplyStatus.decode(data)
+        } catch {
+            return .failed
+        }
+    }
 }
 
 extension Notification.Name {

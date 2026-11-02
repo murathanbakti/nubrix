@@ -126,6 +126,7 @@ Other install methods are under [Install](#install); the hook setup is explained
 - New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; it disappears after 6 seconds, and clicking it opens the app
 - Needs Full Disk Access, because macOS has no public way to read other apps' notifications. When you turn it on, a small guide opens next to System Settings: drag the Nubrix icon into the list, turn on its switch, and the guide confirms as soon as access works
 - The Notifications tab (bell icon, shown while the feature is on) lists the last 50 notifications, newest first, with a filter per app. Click a row to open its app, hover to remove one, or Clear them all. New ones put a dot on the tab
+- Quick reply: hover a row and click the reply arrow, type, press Return. Nubrix fills in the reply box of that same notification in macOS Notification Center and sends it, so it works for apps whose notifications have a Reply button (WhatsApp, Messages, Slack and others). If the notification is no longer in Notification Center, Nubrix briefly opens Notification Center to find it. It sends only when it finds exactly that one notification (same sender and message) and the text reads back unchanged; otherwise it sends nothing, copies your text and opens the app so you can paste it. Needs Accessibility for `NubrixHelper`. Turn it off in Settings, Notifications, Other apps. This drives the macOS interface, so a macOS update can break it; the copy-and-open fallback still works then
 - Only the apps you tick are read. The list is kept in memory only and is gone when Nubrix quits. Notifications from the app you are using are skipped, and the message text can be hidden
 - Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch
 
@@ -208,7 +209,7 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 |---|---|---|
 | Calendars (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | Calendar and meeting features |
 | Camera* | Mirror preview | When you open Mirror |
-| Accessibility* | Intercept volume and brightness keys to replace the system HUDs. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" |
+| Accessibility* | Intercept volume and brightness keys to replace the system HUDs, and type quick replies into a notification's Reply box in Notification Center. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" or send a quick reply |
 | Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal or iTerm. These four are the only apps Nubrix is allowed to script | When you pick those sources in Settings, Media, or first click a Terminal or iTerm session |
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin |
 | Pasteboard access | On recent macOS versions macOS may ask whether Nubrix may read what other apps copy. Vitrin cannot capture anything while access is denied | When Vitrin starts capturing |

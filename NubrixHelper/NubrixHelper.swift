@@ -161,6 +161,12 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         }
     }
 
+    private let notificationReplier = NotificationReplier()
+
+    @objc func replyToNotification(_ request: Data, with reply: @escaping (Data) -> Void) {
+        notificationReplier.reply(request, completion: reply)
+    }
+
     // MARK: - Private helpers for DisplayServices / IOKit access
     private func displayServicesGetBrightness(displayID: CGDirectDisplayID, out: inout Float) -> Bool {
         guard let sym = dlsym(DisplayServicesHandle.handle, "DisplayServicesGetBrightness") else { return false }
