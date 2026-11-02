@@ -103,8 +103,11 @@ rm -rf "$target"
 mv "$staged" "$target"
 codesign --verify --strict --deep "$target" >/dev/null 2>&1 || fail "installed app does not verify"
 
-if spctl --assess --type execute --verbose=2 "$target" 2>&1 | grep -q 'source=Notarized Developer ID'; then
-  signer="$(codesign -dvv "$target" 2>&1 | awk -F= '/^Authority=Developer ID Application/ { print $2; exit }')"
+assessment="$(spctl --assess --type execute --verbose=2 "$target" 2>&1 || true)"
+if [[ "$assessment" == *"source=Notarized Developer ID"* ]]; then
+  details="$(codesign -dvv "$target" 2>&1 || true)"
+  signer="$(awk -F= '/^Authority=Developer ID Application/ { print $2; exit }' <<< "$details")"
+  signer="${signer#Developer ID Application: }"
   signing_note="Nubrix is signed with a Developer ID ($signer) and notarized by Apple.
 Integrity comes from HTTPS, the published SHA-256, the code signature and
 Apple's notarization ticket. Set NUBRIX_SHA256 to pin the expected hash."
