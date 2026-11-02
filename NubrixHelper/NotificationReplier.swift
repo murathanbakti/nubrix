@@ -12,6 +12,7 @@ enum NotificationReplyStatus: String {
     case unsupported
     case failed
     case unconfirmed
+    case gone
 
     func encoded() -> Data {
         (try? JSONSerialization.data(withJSONObject: ["status": rawValue])) ?? Data()
@@ -19,22 +20,43 @@ enum NotificationReplyStatus: String {
 }
 
 final class NotificationReplier {
+    static let shared = NotificationReplier()
+
     private static let timeout: TimeInterval = 9
     private static let maxRequestBytes = 16 * 1024
     private let queue = DispatchQueue(label: "dev.nubrix.helper.notificationReply", qos: .userInitiated)
+    private let flightLock = NSLock()
+    private var inFlight = false
+
+    private init() {}
+
+    private func claim() -> Bool {
+        flightLock.lock()
+        defer { flightLock.unlock() }
+        if inFlight { return false }
+        inFlight = true
+        return true
+    }
+
+    private func release() {
+        flightLock.lock()
+        inFlight = false
+        flightLock.unlock()
+    }
 
     func reply(_ data: Data, completion: @escaping (Data) -> Void) {
         let job = ReplyJob(deadline: Date().addingTimeInterval(Self.timeout), completion: completion)
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + Self.timeout) {
-            job.finish(job.isSubmitted ? .unconfirmed : .failed)
-        }
-        guard data.count <= Self.maxRequestBytes, let request = ReplyRequest.parse(data) else {
+        guard data.count <= Self.maxRequestBytes, let request = ReplyRequest.parse(data), claim() else {
             job.finish(.failed)
             return
+        }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + Self.timeout) {
+            job.finish(job.isSubmitted ? .unconfirmed : .failed)
         }
         queue.async {
             let status = ReplySession(job: job, request: request).run()
             job.finish(status)
+            self.release()
         }
     }
 }
@@ -60,10 +82,12 @@ private final class ReplyJob: @unchecked Sendable {
         return submitted
     }
 
-    func markSubmitted() {
+    func beginSubmit() -> Bool {
         lock.lock()
+        defer { lock.unlock() }
+        if finished { return false }
         submitted = true
-        lock.unlock()
+        return true
     }
 
     func finish(_ status: NotificationReplyStatus) {
@@ -83,13 +107,18 @@ private struct ReplyRequest {
     let appName: String
     let title: String
     let body: String
+    let subtitle: String
     let text: String
+    let recID: Int64?
+    let bundleID: String
 
     private struct Raw: Decodable {
+        var recID: Int64?
         var bundleID: String?
         var appName: String?
         var title: String?
         var body: String?
+        var subtitle: String?
         var text: String?
     }
 
@@ -101,8 +130,18 @@ private struct ReplyRequest {
         let body = String((raw.body ?? "").prefix(500))
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 || !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return ReplyRequest(appName: String((raw.appName ?? "").prefix(500)), title: title, body: body, text: text)
+        return ReplyRequest(appName: String((raw.appName ?? "").prefix(500)), title: title, body: body, subtitle: String((raw.subtitle ?? "").prefix(500)), text: text, recID: raw.recID, bundleID: String((raw.bundleID ?? "").prefix(500)))
     }
+}
+
+private struct TextPart {
+    let source: String
+    let text: String
+}
+
+private struct OwnedPart {
+    let part: TextPart
+    let owner: Int
 }
 
 private struct AXNode {
@@ -112,7 +151,7 @@ private struct AXNode {
     let role: String
     let subrole: String
     var customActions: [String]
-    var parts: [String]
+    var parts: [TextPart]
 
     var isCandidate: Bool { subrole.hasPrefix("AXNotificationCenter") || !customActions.isEmpty }
 }
@@ -121,7 +160,6 @@ private struct NotificationMatch {
     let element: AXUIElement
     let actions: [String]
     let subrole: String
-    let text: String
 }
 
 private enum LocateResult {
@@ -165,6 +203,11 @@ private final class ReplySession {
     }
 
     func run() -> NotificationReplyStatus {
+        if let recID = request.recID {
+            let present = SystemNotificationReader().exists(recID: recID)
+            replyLog.info("reply exists known=\(present != nil, privacy: .public) present=\(present ?? false, privacy: .public)")
+            if present == false { return .gone }
+        }
         guard AXIsProcessTrusted() else { return .noAccess }
         guard let pid = Self.pid(of: Self.ncBundleID) else { return .notFound }
         ncPid = pid
@@ -250,26 +293,33 @@ private final class ReplySession {
         var scalars = String.UnicodeScalarView()
         for scalar in value.unicodeScalars {
             switch scalar.value {
-            case 0x200B...0x200F, 0x202A...0x202E, 0x2060...0x2064, 0xFEFF, 0x00AD, 0xFE00...0xFE0F:
+            case 0x200B...0x200F, 0x202A...0x202E, 0x2060...0x2064, 0x2066...0x2069, 0xFEFF, 0x00AD, 0xFE00...0xFE0F:
                 continue
+            case 0x00A0, 0x202F:
+                scalars.append(" ")
             default:
                 if scalar.properties.generalCategory == .control, !scalar.properties.isWhitespace { continue }
                 scalars.append(scalar)
             }
         }
         return String(scalars)
+            .precomposedStringWithCanonicalMapping
             .lowercased()
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
     }
 
+    private static func tokens(_ normalized: String) -> [String] {
+        normalized.split(separator: " ").map(String.init)
+    }
+
     private func makeNode(_ element: AXUIElement, parent: Int, depth: Int, gatherParts: Bool) -> AXNode {
         let role = string(element, kAXRoleAttribute) ?? ""
         let subrole = string(element, kAXSubroleAttribute) ?? ""
-        var parts: [String] = []
+        var parts: [TextPart] = []
         if gatherParts, Self.partRoles.contains(role) {
             for name in [kAXValueAttribute, kAXDescriptionAttribute, kAXTitleAttribute] {
-                if let text = string(element, name), !text.isEmpty { parts.append(text) }
+                if let text = string(element, name), !text.isEmpty { parts.append(TextPart(source: "\(role).\(name)", text: text)) }
             }
         }
         var actions: [String] = []
@@ -335,92 +385,183 @@ private final class ReplySession {
             return .missing
         }
 
-        var texts = [[String]](repeating: [], count: nodes.count)
+        var texts = [[OwnedPart]](repeating: [], count: nodes.count)
         for (index, node) in nodes.enumerated() where node.isCandidate {
             for name in [kAXDescriptionAttribute, kAXTitleAttribute, kAXValueAttribute] {
-                if let text = string(node.element, name), !text.isEmpty { texts[index].append(text) }
+                if let text = string(node.element, name), !text.isEmpty {
+                    texts[index].append(OwnedPart(part: TextPart(source: "self.\(name)", text: text), owner: index))
+                }
             }
         }
-        for node in nodes where !node.parts.isEmpty {
+        for node in nodes where !node.parts.isEmpty && !node.isCandidate {
             var ancestor = node.parent
             var distance = 1
             while ancestor >= 0, distance <= 10 {
-                if nodes[ancestor].isCandidate { texts[ancestor].append(contentsOf: node.parts) }
+                if nodes[ancestor].isCandidate {
+                    texts[ancestor].append(contentsOf: node.parts.map { OwnedPart(part: $0, owner: ancestor) })
+                    break
+                }
                 ancestor = nodes[ancestor].parent
                 distance += 1
             }
         }
 
         let title = Self.normalize(request.title)
+        let subtitle = Self.normalize(request.subtitle)
         let body = Self.normalize(request.body)
-        let bodyKey = String(body.prefix(min(40, body.count)))
         let appName = Self.normalize(request.appName)
 
-        var matches: [Int] = []
-        var combined: [Int: String] = [:]
-        var candidateCount = 0
+        struct Evaluation {
+            var app = false
+            var sender = false
+            var message = false
+            var distinct = false
+            var ownParts = false
+            var appIndex: Int?
+            var base: Bool { app && sender && message && distinct && ownParts }
+        }
+
+        var candidates: [Int] = []
+        var evaluations: [Int: Evaluation] = [:]
+        var normalizedParts: [Int: [String]] = [:]
         for (index, node) in nodes.enumerated() where node.isCandidate {
-            candidateCount += 1
-            let text = Self.normalize(texts[index].joined(separator: " "))
-            let titleMatched = !title.isEmpty && text.contains(title)
-            let bodyMatched = !bodyKey.isEmpty && text.contains(bodyKey)
-            if candidateCount <= Self.maxCandidateLogs {
-                let identifier = string(node.element, kAXIdentifierAttribute) ?? ""
-                let actionNames = node.customActions.map { Self.displayName(of: $0) }.joined(separator: "|")
-                let ancestors = ancestorSummary(nodes, from: index)
-                replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .public) actions=[\(actionNames, privacy: .public)] parts=\(texts[index].count, privacy: .public) textLen=\(text.count, privacy: .public) titleMatched=\(titleMatched, privacy: .public) bodyMatched=\(bodyMatched, privacy: .public) anc=[\(ancestors, privacy: .public)]")
+            candidates.append(index)
+            let owned = texts[index]
+            let norm = owned.map { Self.normalize($0.part.text) }
+            normalizedParts[index] = norm
+            var evaluation = Evaluation()
+            if !appName.isEmpty { evaluation.appIndex = norm.firstIndex(of: appName) }
+            evaluation.app = evaluation.appIndex != nil
+            let titleIndexes = norm.indices.filter { !title.isEmpty && norm[$0] == title }
+            evaluation.sender = !titleIndexes.isEmpty && (subtitle.isEmpty || norm.contains(subtitle))
+            let bodyIndexes = norm.indices.filter {
+                let result = Self.bodyMatch(norm[$0], body: body)
+                return result.exact || result.prefix
             }
-            guard !text.isEmpty else { continue }
-            if !title.isEmpty, !titleMatched { continue }
-            if !bodyKey.isEmpty, !bodyMatched { continue }
-            matches.append(index)
-            combined[index] = text
+            evaluation.message = !bodyIndexes.isEmpty
+            let pairs = titleIndexes.flatMap { t in bodyIndexes.filter { $0 != t }.map { (t, $0) } }
+            evaluation.distinct = !pairs.isEmpty
+            evaluation.ownParts = pairs.contains { owned[$0.0].owner == index && owned[$0.1].owner == index }
+            evaluations[index] = evaluation
+        }
+
+        func deduped(_ indexes: [Int]) -> [Int] {
+            var unique: [Int] = []
+            for index in indexes where !unique.contains(where: { CFEqual(nodes[$0].element, nodes[index].element) }) {
+                unique.append(index)
+            }
+            return unique
+        }
+
+        let baseMatches = deduped(candidates.filter { evaluations[$0]?.base == true })
+
+        func isStack(_ index: Int) -> Bool { nodes[index].subrole.contains("Stack") }
+
+        func stackReason(_ index: Int) -> String {
+            guard baseMatches.count == 1 else { return "stackNotUnique" }
+            guard texts[index].count <= 6 else { return "tooManyParts" }
+            guard let norm = normalizedParts[index], let appIndex = evaluations[index]?.appIndex else { return "noApp" }
+            let after = norm.indices.filter { $0 > appIndex && !norm[$0].isEmpty && norm[$0] != appName }
+            guard let first = after.first, norm[first] == title else { return "titleNotFirst" }
+            let rest = after.filter { norm[$0] != title && (subtitle.isEmpty || norm[$0] != subtitle) }
+            guard let next = rest.first else { return "bodyNotNext" }
+            let nextMatch = Self.bodyMatch(norm[next], body: body)
+            guard nextMatch.exact || nextMatch.prefix else { return "bodyNotNext" }
+            var known: Set<String> = [appName, title, subtitle]
+            for word in Self.replyWords + Self.sendWords { known.insert(Self.normalize(word)) }
+            for word in Self.closeWords.union(Self.clearAllWords) { known.insert(Self.normalize(word)) }
+            for action in nodes[index].customActions { known.insert(Self.normalize(Self.displayName(of: action))) }
+            for text in norm where !text.isEmpty && !known.contains(text) {
+                let match = Self.bodyMatch(text, body: body)
+                if !(match.exact || match.prefix) { return "otherText" }
+            }
+            return "ok"
+        }
+
+        var accepted: [Int] = []
+        var reasons: [Int: String] = [:]
+        for index in candidates {
+            guard let evaluation = evaluations[index] else { continue }
+            if accepted.contains(where: { CFEqual(nodes[$0].element, nodes[index].element) }) {
+                reasons[index] = "sameElement"
+                continue
+            }
+            let reason: String
+            if !evaluation.app {
+                reason = "noApp"
+            } else if !evaluation.sender {
+                reason = "noSender"
+            } else if !evaluation.message {
+                reason = "noMessage"
+            } else if !evaluation.distinct {
+                reason = "notDistinct"
+            } else if !evaluation.ownParts {
+                reason = "notOwnParts"
+            } else if isStack(index) {
+                reason = stackReason(index)
+            } else {
+                reason = "ok"
+            }
+            reasons[index] = reason
+            if reason == "ok" { accepted.append(index) }
+        }
+        if accepted.count > 1 {
+            for index in accepted { reasons[index] = "duplicate" }
+        }
+
+        for (position, index) in candidates.enumerated() where position < Self.maxCandidateLogs {
+            let node = nodes[index]
+            let identifier = string(node.element, kAXIdentifierAttribute) ?? ""
+            let roleDescription = string(node.element, kAXRoleDescriptionAttribute) ?? ""
+            let childCount = elements(node.element, kAXChildrenAttribute).count
+            let actionNames = node.customActions.map { Self.displayName(of: $0) }.joined(separator: "|")
+            let ancestors = ancestorSummary(nodes, from: index)
+            replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .private) actions=[\(actionNames, privacy: .private)] parts=\(texts[index].count, privacy: .public) roleDesc=\(roleDescription, privacy: .private) hasChildren=\(childCount > 0, privacy: .public) children=\(childCount, privacy: .public) anc=[\(ancestors, privacy: .public)]")
+            for (k, owned) in texts[index].enumerated() {
+                let normalized = normalizedParts[index]?[k] ?? ""
+                let bodyResult = Self.bodyMatch(normalized, body: body)
+                let eqApp = !appName.isEmpty && normalized == appName
+                let eqTitle = !title.isEmpty && normalized == title
+                let eqSubtitle = !subtitle.isEmpty && normalized == subtitle
+                replyLog.info("part pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) src=\(owned.part.source, privacy: .public) len=\(normalized.count, privacy: .public) words=\(Self.tokens(normalized).count, privacy: .public) eqApp=\(eqApp, privacy: .public) eqTitle=\(eqTitle, privacy: .public) eqSubtitle=\(eqSubtitle, privacy: .public) bodyExact=\(bodyResult.exact, privacy: .public) bodyPrefix=\(bodyResult.prefix, privacy: .public)")
+            }
+            if let evaluation = evaluations[index] {
+                replyLog.info("match cand=\(index, privacy: .public) app=\(evaluation.app, privacy: .public) sender=\(evaluation.sender, privacy: .public) message=\(evaluation.message, privacy: .public) distinct=\(evaluation.distinct, privacy: .public) ownParts=\(evaluation.ownParts, privacy: .public) accepted=\(reasons[index] == "ok", privacy: .public) reason=\(reasons[index] ?? "none", privacy: .public)")
+            }
         }
 
         func finish(_ result: LocateResult, _ label: String) -> LocateResult {
-            replyLog.info("locate pass=\(pass, privacy: .public) windows=\(windows.count, privacy: .public) nodes=\(nodes.count, privacy: .public) candidates=\(candidateCount, privacy: .public) matches=\(matches.count, privacy: .public) result=\(label, privacy: .public)")
+            replyLog.info("locate pass=\(pass, privacy: .public) windows=\(windows.count, privacy: .public) nodes=\(nodes.count, privacy: .public) candidates=\(candidates.count, privacy: .public) matches=\(baseMatches.count, privacy: .public) accepted=\(accepted.count, privacy: .public) result=\(label, privacy: .public)")
             return result
         }
 
-        guard !matches.isEmpty else { return finish(.missing, "missing") }
+        guard !baseMatches.isEmpty else { return finish(.missing, "missing") }
+        guard accepted.count == 1, let chosen = accepted.first else { return finish(.blocked, "blocked reason=\(accepted.isEmpty ? "rejected" : "duplicate")") }
 
-        var hasMatchingDescendant = Set<Int>()
-        for index in matches {
-            var ancestor = nodes[index].parent
-            while ancestor >= 0 {
-                hasMatchingDescendant.insert(ancestor)
-                ancestor = nodes[ancestor].parent
-            }
+        let node = nodes[chosen]
+        return finish(.found(NotificationMatch(element: node.element, actions: node.customActions, subrole: node.subrole)), "found")
+    }
+
+    private static func bodyMatch(_ part: String, body: String) -> (exact: Bool, prefix: Bool) {
+        guard !body.isEmpty, !part.isEmpty else { return (false, false) }
+        if part == body { return (true, false) }
+        for mark in ["…", "..."] where part.hasSuffix(mark) {
+            let stem = String(part.dropLast(mark.count)).trimmingCharacters(in: .whitespaces)
+            if stem.count >= 12, body.hasPrefix(stem) { return (false, true) }
         }
-        var innermost = matches.filter { !hasMatchingDescendant.contains($0) }
-        let individual = innermost.filter { !nodes[$0].subrole.contains("Stack") }
-        guard !individual.isEmpty else { return finish(.blocked, "blocked reason=stackOnly") }
-        innermost = individual
-
-        if !appName.isEmpty {
-            let withApp = innermost.filter { combined[$0]?.contains(appName) == true }
-            if !withApp.isEmpty { innermost = withApp }
-        }
-
-        guard let first = innermost.first else { return finish(.missing, "missing") }
-        let firstText = combined[first] ?? ""
-        for index in innermost where combined[index] != firstText { return finish(.blocked, "blocked reason=ambiguous") }
-
-        let node = nodes[first]
-        return finish(.found(NotificationMatch(element: node.element, actions: node.customActions,
-                                               subrole: node.subrole, text: firstText)), "found")
+        return (false, false)
     }
 
     private func isReplyAction(_ action: String) -> Bool {
         let name = Self.normalize(Self.displayName(of: action))
         guard !name.isEmpty else { return false }
-        return Self.replyWords.contains { name == $0 || name.hasPrefix($0) }
+        return Self.replyWords.contains(name)
     }
 
     private func perform(_ match: NotificationMatch, app: AXUIElement) -> NotificationReplyStatus {
         let names = match.actions.map { Self.displayName(of: $0) }.joined(separator: "|")
         let replyAction = match.actions.first(where: isReplyAction)
-        replyLog.info("perform replyActionFound=\(replyAction != nil, privacy: .public) actions=[\(names, privacy: .public)]")
+        replyLog.info("perform replyActionFound=\(replyAction != nil, privacy: .public) actions=[\(names, privacy: .private)]")
         guard let action = replyAction else { return .unsupported }
         guard !job.isExpired else { return .failed }
         let pressed = AXUIElementPerformAction(match.element, action as CFString) == .success
@@ -441,11 +582,57 @@ private final class ReplySession {
             return .failed
         }
 
-        job.markSubmitted()
+        guard job.beginSubmit() else {
+            _ = AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, "" as CFString)
+            return .failed
+        }
         let path = submit(field: field, notification: match.element)
-        let sent = awaitSent(field)
+        let sent = awaitSent(field, viaAction: path != "return")
         replyLog.info("perform submitPath=\(path, privacy: .public) confirmed=\(sent, privacy: .public)")
+        if sent { cleanup(match) }
         return sent ? .sent : .unconfirmed
+    }
+
+    private static let closeWords: Set<String> = [
+        "close", "clear", "kapat", "temizle", "schließen", "löschen", "fermer", "effacer", "cerrar", "borrar",
+        "chiudi", "cancella", "sluiten", "wissen", "stäng", "rensa", "zamknij", "wyczyść", "закрыть", "очистить",
+        "关闭", "清除", "關閉", "閉じる", "消去", "닫기", "지우기"
+    ]
+
+    private static let clearAllWords: Set<String> = [
+        "clear all", "tümünü temizle", "alle löschen", "tout effacer", "borrar todo", "cancella tutto",
+        "alles wissen", "rensa alla", "wyczyść wszystko", "очистить все", "全部清除", "すべて消去", "모두 지우기"
+    ]
+
+    private func cleanup(_ match: NotificationMatch) {
+        func log(_ removed: Bool, _ action: String, _ skipped: String) {
+            replyLog.info("cleanup removedByMac=\(removed, privacy: .public) action=\(action, privacy: .public) skipped=\(skipped, privacy: .public)")
+        }
+        let reader = SystemNotificationReader()
+        if let recID = request.recID {
+            let limit = min(Date().addingTimeInterval(1), job.deadline)
+            repeat {
+                if reader.exists(recID: recID) == false {
+                    log(true, "none", "none")
+                    return
+                }
+                Thread.sleep(forTimeInterval: 0.15)
+            } while Date() < limit
+        }
+        guard !job.isExpired else { return log(false, "none", "deadline") }
+        let isStack = match.subrole.contains("Stack")
+        let wanted = isStack ? Self.clearAllWords : Self.closeWords
+        guard let action = match.actions.first(where: { wanted.contains(Self.normalize(Self.displayName(of: $0))) }) else {
+            return log(false, "none", "noAction")
+        }
+        if isStack {
+            guard !request.bundleID.isEmpty, let count = reader.recordCount(bundleID: request.bundleID) else {
+                return log(false, "none", "countUnknown")
+            }
+            guard count == 1 else { return log(false, "none", "multipleRecords") }
+        }
+        let pressed = AXUIElementPerformAction(match.element, action as CFString) == .success
+        log(false, pressed ? (isStack ? "clearAll" : "close") : "none", pressed ? "none" : "actionFailed")
     }
 
     private func isEditable(_ node: AXNode) -> Bool {
@@ -456,17 +643,30 @@ private final class ReplySession {
 
     private func awaitTextField(notification: AXUIElement, app: AXUIElement) -> AXUIElement? {
         let limit = min(Date().addingTimeInterval(1.5), job.deadline)
+        var first = true
         repeat {
             let nodes = collect(roots: [notification], maxNodes: 400, maxDepth: 10, gatherParts: false)
             if let node = nodes.first(where: isEditable) { return node.element }
-            if let focused = elementAttribute(app, kAXFocusedUIElementAttribute) {
+            if !first, let focused = elementAttribute(app, kAXFocusedUIElementAttribute), isInside(focused, container: notification) {
                 let role = string(focused, kAXRoleAttribute) ?? ""
                 let node = AXNode(element: focused, parent: -1, depth: 0, role: role, subrole: "", customActions: [], parts: [])
                 if isEditable(node) { return focused }
             }
+            first = false
             Thread.sleep(forTimeInterval: 0.1)
         } while Date() < limit
         return nil
+    }
+
+    private func isInside(_ element: AXUIElement, container: AXUIElement) -> Bool {
+        var current: AXUIElement? = element
+        var hops = 0
+        while let candidate = current, hops < 30 {
+            if CFEqual(candidate, container) { return true }
+            current = elementAttribute(candidate, kAXParentAttribute)
+            hops += 1
+        }
+        return false
     }
 
     private func setText(_ field: AXUIElement) -> Bool {
@@ -480,19 +680,9 @@ private final class ReplySession {
     }
 
     private func submit(field: AXUIElement, notification: AXUIElement) -> String {
-        var roots = [notification]
-        var ancestor = elementAttribute(field, kAXParentAttribute)
-        var hops = 0
-        while let current = ancestor, hops < 3 {
-            roots.append(current)
-            ancestor = elementAttribute(current, kAXParentAttribute)
-            hops += 1
-        }
-        for root in roots {
-            let nodes = collect(roots: [root], maxNodes: 300, maxDepth: 8, gatherParts: false)
-            for node in nodes where node.role == "AXButton" && isSendButton(node.element) {
-                if AXUIElementPerformAction(node.element, kAXPressAction as CFString) == .success { return "button" }
-            }
+        let nodes = collect(roots: [notification], maxNodes: 300, maxDepth: 8, gatherParts: false)
+        for node in nodes where node.role == "AXButton" && isSendButton(node.element) {
+            if AXUIElementPerformAction(node.element, kAXPressAction as CFString) == .success { return "button" }
         }
         if actionNames(field).contains(kAXConfirmAction as String),
            AXUIElementPerformAction(field, kAXConfirmAction as CFString) == .success {
@@ -506,7 +696,7 @@ private final class ReplySession {
         for name in [kAXTitleAttribute, kAXDescriptionAttribute] {
             guard let label = string(button, name) else { continue }
             let normalized = Self.normalize(label)
-            if !normalized.isEmpty, Self.sendWords.contains(where: { normalized == $0 || normalized.hasPrefix($0) }) {
+            if !normalized.isEmpty, Self.sendWords.contains(normalized) {
                 return true
             }
         }
@@ -521,12 +711,12 @@ private final class ReplySession {
         }
     }
 
-    private func awaitSent(_ field: AXUIElement) -> Bool {
+    private func awaitSent(_ field: AXUIElement, viaAction: Bool) -> Bool {
         let limit = min(Date().addingTimeInterval(1.5), job.deadline)
         repeat {
             var role: CFTypeRef?
             let error = AXUIElementCopyAttributeValue(field, kAXRoleAttribute as CFString, &role)
-            if error == .invalidUIElement { return true }
+            if error == .invalidUIElement { return viaAction }
             if error == .success, let value = string(field, kAXValueAttribute), value.isEmpty { return true }
             Thread.sleep(forTimeInterval: 0.1)
         } while Date() < limit
@@ -536,17 +726,7 @@ private final class ReplySession {
     private func findClockItem(_ controlCenter: AXUIElement) -> AXUIElement? {
         guard let bar = elementAttribute(controlCenter, "AXExtrasMenuBar") else { return nil }
         let items = elements(bar, kAXChildrenAttribute)
-        if let byID = items.first(where: { string($0, kAXIdentifierAttribute) == "com.apple.menuextra.clock" }) {
-            return byID
-        }
-        guard let pattern = try? NSRegularExpression(pattern: "\\d{1,2}[:.]\\d{2}") else { return nil }
-        return items.first { item in
-            guard (string(item, kAXRoleAttribute) ?? "") == "AXMenuBarItem" else { return false }
-            return [kAXDescriptionAttribute, kAXTitleAttribute, kAXValueAttribute].contains { name in
-                guard let text = string(item, name) else { return false }
-                return pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
-            }
-        }
+        return items.first(where: { string($0, kAXIdentifierAttribute) == "com.apple.menuextra.clock" })
     }
 
     private func controlCenterElement() -> AXUIElement? {
@@ -560,15 +740,15 @@ private final class ReplySession {
         guard let controlCenter = controlCenterElement(), let clock = findClockItem(controlCenter) else { return false }
         let before = elements(app, kAXWindowsAttribute).count
         guard AXUIElementPerformAction(clock, kAXPressAction as CFString) == .success else { return false }
-        openedNotificationCenter = true
         let limit = min(Date().addingTimeInterval(1.5), job.deadline)
         repeat {
             Thread.sleep(forTimeInterval: 0.1)
             if elements(app, kAXWindowsAttribute).count > before {
+                openedNotificationCenter = true
                 return true
             }
         } while Date() < limit
-        return true
+        return false
     }
 
     private func closeNotificationCenterIfOpened() {

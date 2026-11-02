@@ -136,6 +136,40 @@ final class SystemNotificationReader {
         return SystemNotificationAppsResult(status: "ok", apps: found.sorted())
     }
 
+    func exists(recID: Int64) -> Bool? {
+        guard let path = Self.databasePath() else { return nil }
+        if case .failure = Self.stamp(path: path) { return nil }
+        guard case .handle(let db) = Self.open(path: path) else { return nil }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 200)
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT 1 FROM record WHERE rec_id = ?1 LIMIT 1", -1, &statement, nil) == SQLITE_OK, let statement else {
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int64(statement, 1, recID)
+        switch sqlite3_step(statement) {
+        case SQLITE_ROW: return true
+        case SQLITE_DONE: return false
+        default: return nil
+        }
+    }
+
+    func recordCount(bundleID: String) -> Int? {
+        guard let path = Self.databasePath() else { return nil }
+        if case .failure = Self.stamp(path: path) { return nil }
+        guard case .handle(let db) = Self.open(path: path) else { return nil }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 200)
+        var statement: OpaquePointer?
+        let sql = "SELECT COUNT(*) FROM record r JOIN app a ON a.app_id = r.app_id WHERE a.identifier = ?1"
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else { return nil }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, bundleID, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+        return Int(sqlite3_column_int64(statement, 0))
+    }
+
     private static func failed(_ cursor: Int64) -> SystemNotificationResult {
         empty("failed", cursor)
     }

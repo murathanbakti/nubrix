@@ -109,6 +109,8 @@ class NubrixSkyLightPanel: NSPanel {
     
     private var observers: Set<AnyCancellable> = []
     
-    override var canBecomeKey: Bool { false }
+    var allowsKeyInput = false
+
+    override var canBecomeKey: Bool { allowsKeyInput }
     override var canBecomeMain: Bool { false }
 }

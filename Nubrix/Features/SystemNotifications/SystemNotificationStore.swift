@@ -20,6 +20,8 @@ final class SystemNotificationStore: ObservableObject {
     private var fastRecheck = false
     private var loop: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
+    private var bannerDeadline = Date()
+    private var bannerRemaining: TimeInterval = 6
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var names: [String: String] = [:]
     private var icons: [String: NSImage?] = [:]
@@ -92,8 +94,38 @@ final class SystemNotificationStore: ObservableObject {
 
     func dismissBanner() {
         bannerTask?.cancel()
+        bannerTask = nil
         guard banner != nil else { return }
         withAnimation(.smooth) { banner = nil }
+    }
+
+    func pauseBanner(_ paused: Bool) {
+        guard banner != nil else { return }
+        if paused {
+            guard bannerTask != nil else { return }
+            bannerRemaining = max(bannerDeadline.timeIntervalSinceNow, 0)
+            bannerTask?.cancel()
+            bannerTask = nil
+        } else if bannerTask == nil {
+            scheduleBannerDismiss(after: max(bannerRemaining, 2))
+        }
+    }
+
+    func record(matching banner: SystemNotificationBanner) -> SystemNotificationRecord? {
+        history.first {
+            $0.bundleID == banner.bundleID && $0.body == banner.body && $0.subtitle == banner.subtitle
+                && ($0.title == banner.title || ($0.title.isEmpty && banner.title == banner.appName))
+        }
+    }
+
+    private func scheduleBannerDismiss(after seconds: TimeInterval) {
+        bannerTask?.cancel()
+        bannerDeadline = Date().addingTimeInterval(seconds)
+        bannerTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            self?.dismissBanner()
+        }
     }
 
     func openSource(_ banner: SystemNotificationBanner) {
@@ -121,19 +153,21 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func reply(to record: SystemNotificationRecord, text: String) async -> SystemNotificationReplyStatus {
+        guard Defaults[.systemNotificationsEnabled], Defaults[.systemNotificationQuickReply] else { return .failed }
         let status = await XPCHelperClient.shared.replyToNotification(
-            bundleID: record.bundleID, appName: record.appName, title: record.title, body: record.body, text: text)
+            recID: record.recID, bundleID: record.bundleID, appName: record.appName, title: record.title, subtitle: record.subtitle, body: record.body, text: text)
         switch status {
-        case .sent, .unconfirmed:
+        case .sent:
             break
-        case .notFound, .noAccess, .unsupported, .failed:
+        case .notFound, .noAccess, .unsupported, .failed, .gone, .unconfirmed:
             copyToPasteboard(text)
         }
         return status
     }
 
     func finishReply(_ status: SystemNotificationReplyStatus, record: SystemNotificationRecord) {
-        guard status != .sent else { return }
+        guard status != .sent, status != .unconfirmed,
+              Defaults[.systemNotificationsEnabled], Defaults[.systemNotificationQuickReply] else { return }
         if status == .noAccess {
             AccessibilityGuide.begin(resume: record)
         } else {
@@ -143,12 +177,16 @@ final class SystemNotificationStore: ObservableObject {
 
     private func copyToPasteboard(_ text: String) {
         let pasteboard = NSPasteboard.general
+        pasteboard.prepareForNewContents(with: .currentHostOnly)
         let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
         let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
-        pasteboard.declareTypes([.string, transient, concealed], owner: nil)
         pasteboard.setString(text, forType: .string)
         pasteboard.setData(Data(), forType: transient)
         pasteboard.setData(Data(), forType: concealed)
+        let changeCount = pasteboard.changeCount
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+            if NSPasteboard.general.changeCount == changeCount { NSPasteboard.general.clearContents() }
+        }
     }
 
     func appName(for bundleID: String) -> String {
@@ -254,11 +292,7 @@ final class SystemNotificationStore: ObservableObject {
         DevNotificationStore.shared.dismissBanner()
         bannerTask?.cancel()
         withAnimation(.smooth) { self.banner = banner }
-        bannerTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(6))
-            guard !Task.isCancelled else { return }
-            self?.dismissBanner()
-        }
+        scheduleBannerDismiss(after: 6)
     }
 
     private func setPaused(sleeping: Bool? = nil, locked: Bool? = nil) {
