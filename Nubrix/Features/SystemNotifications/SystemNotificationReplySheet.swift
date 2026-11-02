@@ -43,6 +43,7 @@ struct SystemNotificationReplyContent: View {
     @State private var text = ""
     @State private var phase: Phase = .idle
     @State private var access: Bool?
+    @State private var exists: Bool?
     @FocusState private var focused: Bool
 
     private enum Phase: Equatable {
@@ -73,7 +74,24 @@ struct SystemNotificationReplyContent: View {
                 }
                 .buttonStyle(.plain)
             }
-            if access == false {
+            if exists == false {
+                HStack(spacing: 8) {
+                    Text("This notification is no longer in Notification Center.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.gray)
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Button("Open \(record.appName)") {
+                        store.open(bundleID: record.bundleID)
+                        dismiss()
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.1)))
+                Spacer(minLength: 0)
+            } else if access == false {
                 HStack(spacing: 8) {
                     Text("Replying from the notch needs Accessibility.")
                         .font(.system(size: 12))
@@ -111,8 +129,12 @@ struct SystemNotificationReplyContent: View {
         .padding(.horizontal, SystemNotificationReplyMetrics.sideInset)
         .padding(.top, 4)
         .task {
-            access = await XPCHelperClient.shared.isAccessibilityAuthorized()
-            guard access == true else { return }
+            async let accessCheck = XPCHelperClient.shared.isAccessibilityAuthorized()
+            async let existsCheck = XPCHelperClient.shared.notificationExists(recID: record.recID)
+            let (accessResult, existsResult) = await (accessCheck, existsCheck)
+            access = accessResult
+            exists = existsResult
+            guard access == true, exists != false else { return }
             try? await Task.sleep(for: .milliseconds(250))
             focused = true
         }
@@ -191,6 +213,8 @@ struct SystemNotificationReplyContent: View {
                 await show("\(record.appName) has no reply action in its notifications. Text copied.", status)
             case .noAccess:
                 await show("Nubrix needs Accessibility to reply. Text copied.", status)
+            case .gone:
+                await show("This notification was cleared from Notification Center. Text copied.", status)
             case .unconfirmed:
                 await show("Reply sent, but Nubrix couldn't confirm it. Check \(record.appName).", status)
             }

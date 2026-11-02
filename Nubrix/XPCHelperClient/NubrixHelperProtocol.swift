@@ -24,5 +24,6 @@ import Foundation
     func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void)
     func fetchSystemNotificationApps(with reply: @escaping (Data) -> Void)
     func replyToNotification(_ request: Data, with reply: @escaping (Data) -> Void)
+    func notificationExists(_ recID: Int64, with reply: @escaping (NSNumber?) -> Void)
 }
 

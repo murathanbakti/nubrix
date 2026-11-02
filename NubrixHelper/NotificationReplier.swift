@@ -12,6 +12,7 @@ enum NotificationReplyStatus: String {
     case unsupported
     case failed
     case unconfirmed
+    case gone
 
     func encoded() -> Data {
         (try? JSONSerialization.data(withJSONObject: ["status": rawValue])) ?? Data()
@@ -84,8 +85,11 @@ private struct ReplyRequest {
     let title: String
     let body: String
     let text: String
+    let recID: Int64?
+    let bundleID: String
 
     private struct Raw: Decodable {
+        var recID: Int64?
         var bundleID: String?
         var appName: String?
         var title: String?
@@ -101,8 +105,13 @@ private struct ReplyRequest {
         let body = String((raw.body ?? "").prefix(500))
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 || !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return ReplyRequest(appName: String((raw.appName ?? "").prefix(500)), title: title, body: body, text: text)
+        return ReplyRequest(appName: String((raw.appName ?? "").prefix(500)), title: title, body: body, text: text, recID: raw.recID, bundleID: String((raw.bundleID ?? "").prefix(500)))
     }
+}
+
+private struct TextPart {
+    let source: String
+    let text: String
 }
 
 private struct AXNode {
@@ -112,7 +121,7 @@ private struct AXNode {
     let role: String
     let subrole: String
     var customActions: [String]
-    var parts: [String]
+    var parts: [TextPart]
 
     var isCandidate: Bool { subrole.hasPrefix("AXNotificationCenter") || !customActions.isEmpty }
 }
@@ -165,6 +174,11 @@ private final class ReplySession {
     }
 
     func run() -> NotificationReplyStatus {
+        if let recID = request.recID {
+            let present = SystemNotificationReader().exists(recID: recID)
+            replyLog.info("reply exists known=\(present != nil, privacy: .public) present=\(present ?? false, privacy: .public)")
+            if present == false { return .gone }
+        }
         guard AXIsProcessTrusted() else { return .noAccess }
         guard let pid = Self.pid(of: Self.ncBundleID) else { return .notFound }
         ncPid = pid
@@ -250,26 +264,33 @@ private final class ReplySession {
         var scalars = String.UnicodeScalarView()
         for scalar in value.unicodeScalars {
             switch scalar.value {
-            case 0x200B...0x200F, 0x202A...0x202E, 0x2060...0x2064, 0xFEFF, 0x00AD, 0xFE00...0xFE0F:
+            case 0x200B...0x200F, 0x202A...0x202E, 0x2060...0x2064, 0x2066...0x2069, 0xFEFF, 0x00AD, 0xFE00...0xFE0F:
                 continue
+            case 0x00A0, 0x202F:
+                scalars.append(" ")
             default:
                 if scalar.properties.generalCategory == .control, !scalar.properties.isWhitespace { continue }
                 scalars.append(scalar)
             }
         }
         return String(scalars)
+            .precomposedStringWithCanonicalMapping
             .lowercased()
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
     }
 
+    private static func tokens(_ normalized: String) -> [String] {
+        normalized.split(separator: " ").map(String.init)
+    }
+
     private func makeNode(_ element: AXUIElement, parent: Int, depth: Int, gatherParts: Bool) -> AXNode {
         let role = string(element, kAXRoleAttribute) ?? ""
         let subrole = string(element, kAXSubroleAttribute) ?? ""
-        var parts: [String] = []
+        var parts: [TextPart] = []
         if gatherParts, Self.partRoles.contains(role) {
             for name in [kAXValueAttribute, kAXDescriptionAttribute, kAXTitleAttribute] {
-                if let text = string(element, name), !text.isEmpty { parts.append(text) }
+                if let text = string(element, name), !text.isEmpty { parts.append(TextPart(source: "\(role).\(name)", text: text)) }
             }
         }
         var actions: [String] = []
@@ -335,10 +356,10 @@ private final class ReplySession {
             return .missing
         }
 
-        var texts = [[String]](repeating: [], count: nodes.count)
+        var texts = [[TextPart]](repeating: [], count: nodes.count)
         for (index, node) in nodes.enumerated() where node.isCandidate {
             for name in [kAXDescriptionAttribute, kAXTitleAttribute, kAXValueAttribute] {
-                if let text = string(node.element, name), !text.isEmpty { texts[index].append(text) }
+                if let text = string(node.element, name), !text.isEmpty { texts[index].append(TextPart(source: "self.\(name)", text: text)) }
             }
         }
         for node in nodes where !node.parts.isEmpty {
@@ -355,20 +376,37 @@ private final class ReplySession {
         let body = Self.normalize(request.body)
         let bodyKey = String(body.prefix(min(40, body.count)))
         let appName = Self.normalize(request.appName)
+        let titleTokens = Self.tokens(title)
+        let bodyTokens = Array(Self.tokens(body).prefix(8))
 
         var matches: [Int] = []
         var combined: [Int: String] = [:]
         var candidateCount = 0
         for (index, node) in nodes.enumerated() where node.isCandidate {
             candidateCount += 1
-            let text = Self.normalize(texts[index].joined(separator: " "))
-            let titleMatched = !title.isEmpty && text.contains(title)
-            let bodyMatched = !bodyKey.isEmpty && text.contains(bodyKey)
+            let text = Self.normalize(texts[index].map(\.text).joined(separator: " "))
+            let textTokens = Set(Self.tokens(text))
+            let titleMatched = !title.isEmpty && (text.contains(title) || titleTokens.allSatisfy { textTokens.contains($0) })
+            let bodyMatched = !bodyKey.isEmpty && (text.contains(bodyKey) || (!bodyTokens.isEmpty && bodyTokens.allSatisfy { textTokens.contains($0) }))
             if candidateCount <= Self.maxCandidateLogs {
                 let identifier = string(node.element, kAXIdentifierAttribute) ?? ""
+                let roleDescription = string(node.element, kAXRoleDescriptionAttribute) ?? ""
+                let childCount = elements(node.element, kAXChildrenAttribute).count
                 let actionNames = node.customActions.map { Self.displayName(of: $0) }.joined(separator: "|")
                 let ancestors = ancestorSummary(nodes, from: index)
-                replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .public) actions=[\(actionNames, privacy: .public)] parts=\(texts[index].count, privacy: .public) textLen=\(text.count, privacy: .public) titleMatched=\(titleMatched, privacy: .public) bodyMatched=\(bodyMatched, privacy: .public) anc=[\(ancestors, privacy: .public)]")
+                replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .public) actions=[\(actionNames, privacy: .public)] parts=\(texts[index].count, privacy: .public) textLen=\(text.count, privacy: .public) titleMatched=\(titleMatched, privacy: .public) bodyMatched=\(bodyMatched, privacy: .public) roleDesc=\(roleDescription, privacy: .public) hasChildren=\(childCount > 0, privacy: .public) children=\(childCount, privacy: .public) anc=[\(ancestors, privacy: .public)]")
+                for (k, part) in texts[index].enumerated() {
+                    let normalized = Self.normalize(part.text)
+                    let partTokens = Self.tokens(normalized)
+                    let partSet = Set(partTokens)
+                    let titleHits = titleTokens.filter { partSet.contains($0) }.count
+                    let bodyHits = bodyTokens.filter { partSet.contains($0) }.count
+                    let eqTitle = !title.isEmpty && normalized == title
+                    let hasTitle = !title.isEmpty && normalized.contains(title)
+                    let hasBody = !bodyKey.isEmpty && normalized.contains(bodyKey)
+                    let isApp = !appName.isEmpty && normalized == appName
+                    replyLog.info("part pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) src=\(part.source, privacy: .public) len=\(normalized.count, privacy: .public) words=\(partTokens.count, privacy: .public) titleWordHits=\(titleHits, privacy: .public)/\(titleTokens.count, privacy: .public) bodyWordHits=\(bodyHits, privacy: .public)/\(bodyTokens.count, privacy: .public) eqTitle=\(eqTitle, privacy: .public) hasTitle=\(hasTitle, privacy: .public) hasBody=\(hasBody, privacy: .public) isApp=\(isApp, privacy: .public)")
+                }
             }
             guard !text.isEmpty else { continue }
             if !title.isEmpty, !titleMatched { continue }
@@ -394,8 +432,27 @@ private final class ReplySession {
         }
         var innermost = matches.filter { !hasMatchingDescendant.contains($0) }
         let individual = innermost.filter { !nodes[$0].subrole.contains("Stack") }
-        guard !individual.isEmpty else { return finish(.blocked, "blocked reason=stackOnly") }
-        innermost = individual
+        if !individual.isEmpty {
+            if individual.count != innermost.count {
+                replyLog.info("stack pass=\(pass, privacy: .public) stackAccepted=false reason=individualPresent")
+            }
+            innermost = individual
+        } else {
+            let anyIndividualMatch = matches.contains { !nodes[$0].subrole.contains("Stack") }
+            let reason: String
+            if anyIndividualMatch {
+                reason = "individualDescendant"
+            } else if innermost.count != 1 {
+                reason = "multipleStacks(\(innermost.count))"
+            } else if texts[innermost[0]].count > 6 {
+                reason = "tooManyParts(\(texts[innermost[0]].count))"
+            } else {
+                reason = "ok"
+            }
+            let accepted = reason == "ok"
+            replyLog.info("stack pass=\(pass, privacy: .public) stackAccepted=\(accepted, privacy: .public) reason=\(reason, privacy: .public)")
+            guard accepted else { return finish(.blocked, "blocked reason=stack") }
+        }
 
         if !appName.isEmpty {
             let withApp = innermost.filter { combined[$0]?.contains(appName) == true }
@@ -445,7 +502,50 @@ private final class ReplySession {
         let path = submit(field: field, notification: match.element)
         let sent = awaitSent(field)
         replyLog.info("perform submitPath=\(path, privacy: .public) confirmed=\(sent, privacy: .public)")
+        if sent { cleanup(match) }
         return sent ? .sent : .unconfirmed
+    }
+
+    private static let closeWords: Set<String> = [
+        "close", "clear", "kapat", "temizle", "schließen", "löschen", "fermer", "effacer", "cerrar", "borrar",
+        "chiudi", "cancella", "sluiten", "wissen", "stäng", "rensa", "zamknij", "wyczyść", "закрыть", "очистить",
+        "关闭", "清除", "關閉", "閉じる", "消去", "닫기", "지우기"
+    ]
+
+    private static let clearAllWords: Set<String> = [
+        "clear all", "tümünü temizle", "alle löschen", "tout effacer", "borrar todo", "cancella tutto",
+        "alles wissen", "rensa alla", "wyczyść wszystko", "очистить все", "全部清除", "すべて消去", "모두 지우기"
+    ]
+
+    private func cleanup(_ match: NotificationMatch) {
+        func log(_ removed: Bool, _ action: String, _ skipped: String) {
+            replyLog.info("cleanup removedByMac=\(removed, privacy: .public) action=\(action, privacy: .public) skipped=\(skipped, privacy: .public)")
+        }
+        let reader = SystemNotificationReader()
+        if let recID = request.recID {
+            let limit = min(Date().addingTimeInterval(1), job.deadline)
+            repeat {
+                if reader.exists(recID: recID) == false {
+                    log(true, "none", "none")
+                    return
+                }
+                Thread.sleep(forTimeInterval: 0.15)
+            } while Date() < limit
+        }
+        guard !job.isExpired else { return log(false, "none", "deadline") }
+        let isStack = match.subrole.contains("Stack")
+        let wanted = isStack ? Self.clearAllWords : Self.closeWords
+        guard let action = match.actions.first(where: { wanted.contains(Self.normalize(Self.displayName(of: $0))) }) else {
+            return log(false, "none", "noAction")
+        }
+        if isStack {
+            guard !request.bundleID.isEmpty, let count = reader.recordCount(bundleID: request.bundleID) else {
+                return log(false, "none", "countUnknown")
+            }
+            guard count == 1 else { return log(false, "none", "multipleRecords") }
+        }
+        let pressed = AXUIElementPerformAction(match.element, action as CFString) == .success
+        log(false, pressed ? (isStack ? "clearAll" : "close") : "none", pressed ? "none" : "actionFailed")
     }
 
     private func isEditable(_ node: AXNode) -> Bool {
