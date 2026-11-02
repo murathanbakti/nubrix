@@ -1,11 +1,12 @@
 # Images
 
-The README images are rendered from HTML mockups in [`mockups/`](mockups), not captured from a running app. The mockups follow the SwiftUI source (sizes, fonts, colors, radii) and use sample data only: the `acme` organization, made-up branches, people, events and a fictional track. Nothing in them comes from a real account, clipboard, calendar or repository.
+The README and docs images are rendered from HTML mockups in [`mockups/`](mockups), not captured from a running app. The mockups follow the SwiftUI source (sizes, fonts, colors, radii) and use sample data only: the `acme` organization, made-up branches, people, events and a fictional track. Nothing in them comes from a real account, clipboard, calendar or repository.
 
 | File | Scene | Shows |
 |---|---|---|
-| `hero.png` | `hero.html` | The open notch on the Home tab: music player and the Claude plan usage card |
-| `claude-sessions.png` | `claude-sessions.html` | The Claude tab with Needs you, Working, Done and Idle sessions, source labels, branches, context bars and a PR chip |
+| `hero.png` | `hero.html` | The open notch on the Claude tab under the menu bar: Needs you, Working, Done and Idle sessions with the usage header |
+| `home.png` | `home.html` | The open notch on the Home tab: music player and the Claude plan usage card |
+| `claude-sessions.png` | `claude-sessions.html` | Used in `docs/nubrix/CLAUDE-CODE.md`. The Claude tab with Needs you, Working, Done and Idle sessions, source labels, branches, context bars and a PR chip |
 | `permission-approval.png` | `permission-approval.html` | A Bash permission card with Deny and Allow, and a risky command in the "Allow anyway" state |
 | `vitrin.png` | `vitrin.html` | The Vitrin tab with filter chips, cards and the actions menu of a JSON item |
 | `vitrin-panel.png` | `vitrin-panel.html` | The Vitrin showcase panel with search and rows, and the Space preview with developer-insight actions |

@@ -26,6 +26,10 @@ It registers `nubrix-hook` for SessionStart, UserPromptSubmit, PreToolUse, PostT
 
 ## Source label, branch and jump
 
+<p align="center">
+  <img src="../images/claude-sessions.png" alt="The Claude tab with four sessions: Needs you, Working with a PR chip, Done and Idle, each with branch, source, context bar and token count" width="100%">
+</p>
+
 The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch and the GitHub repository (`owner/repo`, parsed from `git remote get-url origin`; only `github.com` https, ssh and `git@github.com:` remotes count, credentials in the URL are never forwarded, anything else sends nothing). It also sends the desktop app's session id (`CLAUDE_CODE_HOST_SESSION_ID`, only in the `local_...` form) and, on those three events, the terminal device name (`ttys003`, from `ps`). Nothing else is read from your project.
 
 ### Opening a session

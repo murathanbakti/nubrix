@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nubrix Home tab mockup</title>
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="scene" data-size="1600x470" style="--W:1600px;--H:470px;--s:1.8">
+  <div class="desk"></div>
+  <div class="stage">
+    <div class="menubar">
+      <div class="left">
+        <span class="dot"></span><span class="app">Finder</span>
+      </div>
+      <div class="right">
+        <span>Mon&nbsp;&nbsp;09:41</span>
+      </div>
+    </div>
+
+    <div class="notch open" style="--nw:640px;--nh:190px">
+      <div class="notch-body">
+        <div class="nx-header">
+          <div class="nx-left">
+            <div class="tabs">
+              <div class="tab sel"><i data-icon="house" data-size="15"></i></div>
+              <div class="tab"><i data-icon="tray" data-size="15"></i></div>
+              <div class="tab"><i data-icon="stack" data-size="15"></i></div>
+              <div class="tab"><i data-icon="sparkle" data-size="15"></i></div>
+              <div class="tab"><i data-icon="terminal" data-size="15"></i></div>
+            </div>
+          </div>
+          <div class="nx-gap"></div>
+          <div class="nx-right">
+            <div class="date-pill">Mon 2</div>
+            <div class="round-btn"><i data-icon="camera" data-size="16"></i></div>
+            <div class="round-btn"><i data-icon="gear" data-size="16"></i></div>
+            <div class="battery-pct">
+              <span class="pct">64%</span>
+              <div class="battery">
+                <svg width="31" height="15" viewBox="0 0 31 15">
+                  <rect x=".5" y=".5" width="27" height="14" rx="4.2" fill="none" stroke="#fff" stroke-opacity=".5"/>
+                  <path d="M29 5v5c1-.3 1.7-1.2 1.7-2.5S30 5.3 29 5z" fill="#fff" fill-opacity=".5"/>
+                  <rect x="2" y="2.9" width="15.4" height="9.25" rx="2.5" fill="#fff"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nx-content">
+          <div class="home-row">
+            <div class="music">
+              <div class="art-wrap">
+                <div class="art-glow"><svg id="glow" viewBox="0 0 128 128"></svg></div>
+                <div class="art"><svg id="art" viewBox="0 0 128 128"></svg></div>
+                <div class="app-badge"><i data-icon="note" data-size="17"></i></div>
+              </div>
+              <div class="controls">
+                <div class="song-area">
+                  <div class="song-title">Night Drive</div>
+                  <div class="song-artist" style="color:#ff6f9c">Lumen Coast</div>
+                  <div class="slider-block">
+                    <div class="slider-inner">
+                      <div class="progress-row"><div class="progress"><i style="width:37%"></i></div></div>
+                      <div class="times" style="color:#ff6f9c"><span>1:24</span><span>3:47</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="slots">
+                  <div class="hover-btn"><i data-icon="backward" data-size="16"></i></div>
+                  <div class="hover-btn large"><i data-icon="pause" data-size="26"></i></div>
+                  <div class="hover-btn"><i data-icon="forward" data-size="16"></i></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ucard">
+              <div class="uh"><span style="color:var(--claude)"><i data-icon="sparkle" data-size="12"></i></span><span class="t">Claude</span></div>
+              <div class="meter">
+                <div class="mr"><span class="mt">Session</span><span class="mp">38%</span></div>
+                <div class="ubar"><i style="width:38%;background:var(--green)"></i></div>
+                <div class="cap">Resets 03:30</div>
+              </div>
+              <div class="meter">
+                <div class="mr"><span class="mt">Week</span><span class="mp">21%</span></div>
+                <div class="ubar"><i style="width:21%;background:var(--green)"></i></div>
+                <div class="cap">Resets Sat 12:00</div>
+              </div>
+              <div class="meter">
+                <div class="mr"><span class="mt">Sonnet</span><span class="mp">9%</span></div>
+                <div class="ubar"><i style="width:9%;background:var(--green)"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="icons.js"></script>
+<script>
+  var art = '' +
+    '<defs>' +
+      '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#150a3a"/><stop offset=".45" stop-color="#5a1c86"/>' +
+        '<stop offset=".72" stop-color="#e0407c"/><stop offset="1" stop-color="#ff9a52"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#ff4f8b"/></linearGradient>' +
+      '<mask id="slits"><rect width="128" height="128" fill="#fff"/>' +
+        '<rect x="0" y="70" width="128" height="1.6" fill="#000"/><rect x="0" y="77" width="128" height="2.4" fill="#000"/>' +
+        '<rect x="0" y="84" width="128" height="3.2" fill="#000"/><rect x="0" y="91" width="128" height="4" fill="#000"/></mask>' +
+    '</defs>' +
+    '<rect width="128" height="128" fill="url(#sky)"/>' +
+    '<g fill="#fff" opacity=".8"><circle cx="18" cy="16" r=".9"/><circle cx="44" cy="9" r=".7"/><circle cx="96" cy="14" r="1"/><circle cx="112" cy="30" r=".7"/><circle cx="28" cy="36" r=".6"/><circle cx="80" cy="26" r=".6"/></g>' +
+    '<circle cx="64" cy="76" r="30" fill="url(#sun)" mask="url(#slits)"/>' +
+    '<path d="M0 96 L24 84 L44 94 L70 80 L98 94 L128 86 V128 H0Z" fill="#1b0f33"/>' +
+    '<path d="M0 108 L128 100 V128 H0Z" fill="#0d0620"/>' +
+    '<path d="M60 128 L63 101 H65 L68 128Z" fill="#ff7aa8" opacity=".55"/>';
+  document.getElementById('art').innerHTML = art.replace(/id="(sky|sun|slits)"/g, 'id="a_$1"').replace(/url\(#(sky|sun|slits)\)/g, 'url(#a_$1)');
+  document.getElementById('glow').innerHTML = art.replace(/id="(sky|sun|slits)"/g, 'id="g_$1"').replace(/url\(#(sky|sun|slits)\)/g, 'url(#g_$1)');
+</script>
+</body>
+</html>
