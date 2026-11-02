@@ -185,6 +185,7 @@ struct ContentView: View {
                             inbox.markRead(.github)
                         } else if vm.notchState == .closed, let banner = systemNotifications.banner {
                             systemNotifications.openSource(banner)
+                            return
                         } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()

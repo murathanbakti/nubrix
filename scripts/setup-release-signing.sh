@@ -7,15 +7,20 @@ usage:
   scripts/setup-release-signing.sh csr
       Creates a private key and a certificate signing request for a
       Developer ID Application certificate.
-  scripts/setup-release-signing.sh environment [NAME]
+  scripts/setup-release-signing.sh environment [NAME] [--yes]
       Creates the GitHub environment NAME (default release) that only v*
       tags can deploy to. The release workflow reads its secrets from it.
-  scripts/setup-release-signing.sh upload [--env NAME] [--cer FILE] [--p8 FILE] [--issuer ID] [--yes] [--dry-run]
+      An environment that already restricts deployments to custom branch
+      and tag policies is left as it is; only the v* tag policy is ensured.
+      --yes skips the confirmation prompt.
+  scripts/setup-release-signing.sh upload [--env NAME | --repo-level] [--cer FILE] [--p8 FILE] [--issuer ID] [--yes] [--dry-run]
       Builds the .p12 from the downloaded certificate and uploads the
       release signing secrets to GitHub. Without --cer or --p8 it uses the
       newest matching file in ~/Downloads, then the copy kept in the signing
-      folder. With --env the secrets go to that environment and copies stored
-      at the repository level are deleted.
+      folder. The secrets go to the environment NAME (default release) and
+      copies stored at the repository level are deleted. --repo-level stores
+      them at the repository level instead, where every workflow can read
+      them. --yes skips the confirmation prompt.
 
 Files are kept in $NUBRIX_SIGNING_DIR (default ~/.nubrix-signing), never in
 the repository. Secrets go to the repository of the origin remote, or $NUBRIX_REPO.
@@ -35,7 +40,7 @@ umask 077
 
 newest() {
   local pattern="$1" f best=""
-  for f in $HOME/Downloads/$pattern; do
+  for f in "$HOME"/Downloads/$pattern; do
     [ -f "$f" ] || continue
     if [ -z "$best" ] || [ "$f" -nt "$best" ]; then best="$f"; fi
   done
@@ -45,7 +50,7 @@ newest() {
 repository() {
   local repo="${NUBRIX_REPO:-}"
   if [ -z "$repo" ]; then
-    repo="$(git -C "$root" remote get-url origin 2>/dev/null | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##')"
+    repo="$(git -C "$root" remote get-url origin 2>/dev/null | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##' || true)"
   fi
   [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "cannot tell the GitHub repository; set NUBRIX_REPO=owner/name"
   printf '%s' "$repo"
@@ -63,9 +68,13 @@ cmd_environment() {
   [[ "$name" =~ ^[A-Za-z0-9_.-]+$ ]] || fail "invalid environment name '$name'"
   repo="$(repository)"
   [ "$yes" = 1 ] || confirm "Create the '$name' environment in $repo, deployable only from v* tags?"
-  gh api -X PUT "repos/$repo/environments/$name" --input - >/dev/null <<'JSON'
+  local current
+  current="$(gh api "repos/$repo/environments/$name" --jq '.deployment_branch_policy.custom_branch_policies // false' 2>/dev/null || true)"
+  if [ "$current" != true ]; then
+    gh api -X PUT "repos/$repo/environments/$name" --input - >/dev/null <<'JSON'
 {"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
 JSON
+  fi
   local existing
   existing="$(gh api "repos/$repo/environments/$name/deployment-branch-policies" \
     --jq '.branch_policies[] | select(.type == "tag" and .name == "v*") | .id')"
@@ -93,18 +102,36 @@ cmd_csr() {
 }
 
 cmd_upload() {
-  local cer="" p8="" issuer="" env_name="" dry=0 yes=0
+  local cer="" p8="" issuer="" env_name="release" env_given=0 repo_level=0 dry=0 yes=0
   while [ $# -gt 0 ]; do
     case "$1" in
-      --cer) cer="${2:-}"; shift 2 ;;
-      --p8) p8="${2:-}"; shift 2 ;;
-      --issuer) issuer="${2:-}"; shift 2 ;;
-      --env) env_name="${2:-}"; shift 2 ;;
+      --cer | --p8 | --issuer | --env)
+        if [ $# -lt 2 ] || [ -z "$2" ]; then
+          echo "setup-release-signing: $1 needs a value" >&2
+          usage
+        fi
+        case "$1" in
+          --cer) cer="$2" ;;
+          --p8) p8="$2" ;;
+          --issuer) issuer="$2" ;;
+          --env) env_name="$2"; env_given=1 ;;
+        esac
+        shift 2
+        ;;
+      --repo-level) repo_level=1; shift ;;
       --dry-run) dry=1; shift ;;
       --yes) yes=1; shift ;;
       *) usage ;;
     esac
   done
+  if [ "$repo_level" = 1 ]; then
+    if [ "$env_given" = 1 ]; then
+      echo "setup-release-signing: --env and --repo-level cannot be combined" >&2
+      usage
+    fi
+    env_name=""
+    echo "Warning: repository-level secrets are visible to every workflow in the repository." >&2
+  fi
 
   local key="$dir/developer-id.key"
   [ -f "$key" ] || fail "no private key in $dir; run the csr step first"
@@ -124,20 +151,20 @@ cmd_upload() {
 
   local pem="$dir/developer-id.pem" pem_new="$dir/developer-id.pem.new"
   "$ssl" x509 -inform der -in "$cer" -out "$pem_new" 2>/dev/null || "$ssl" x509 -in "$cer" -out "$pem_new" 2>/dev/null \
-    || fail "cannot read certificate $cer"
-  mv "$pem_new" "$pem"
+    || { rm -f "$pem_new"; fail "cannot read certificate $cer"; }
 
   local subject cn team
-  subject="$("$ssl" x509 -in "$pem" -noout -subject -nameopt multiline)"
+  subject="$("$ssl" x509 -in "$pem_new" -noout -subject -nameopt multiline)"
   cn="$(awk -F' = ' '/commonName/ { print $2; exit }' <<< "$subject")"
   team="$(awk -F' = ' '/organizationalUnitName/ { print $2; exit }' <<< "$subject")"
-  [[ "$cn" == "Developer ID Application: "* ]] || fail "$cer is not a Developer ID Application certificate ($cn)"
-  [[ "$team" =~ ^[A-Z0-9]{10}$ ]] || fail "cannot read the team ID from the certificate"
+  [[ "$cn" == "Developer ID Application: "* ]] || { rm -f "$pem_new"; fail "$cer is not a Developer ID Application certificate ($cn)"; }
+  [[ "$team" =~ ^[A-Z0-9]{10}$ ]] || { rm -f "$pem_new"; fail "cannot read the team ID from the certificate"; }
 
   local cert_mod key_mod
-  cert_mod="$("$ssl" x509 -in "$pem" -noout -modulus | shasum -a 256)"
+  cert_mod="$("$ssl" x509 -in "$pem_new" -noout -modulus | shasum -a 256)"
   key_mod="$("$ssl" rsa -in "$key" -noout -modulus 2>/dev/null | shasum -a 256)"
-  [ "$cert_mod" = "$key_mod" ] || fail "the certificate does not belong to the private key in $dir; create it from the CSR this script made"
+  [ "$cert_mod" = "$key_mod" ] || { rm -f "$pem_new"; fail "the certificate does not belong to the private key in $dir; create it from the CSR this script made"; }
+  mv "$pem_new" "$pem"
 
   local issuer_hash chain="$dir/chain.pem" all="$dir/all-ca.pem"
   issuer_hash="$("$ssl" x509 -in "$pem" -noout -issuer_hash)"

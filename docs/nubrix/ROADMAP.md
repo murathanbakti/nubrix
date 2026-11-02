@@ -60,7 +60,7 @@ Data layer (`Nubrix/Features/Clipboard/`):
   MIT notice is kept in `THIRD_PARTY_LICENSES`.
 
 UI:
-- Notch tab "Vitrin": filter chips (All / Images / Text / Links) and one
+- Notch tab "Vitrin": filter chips (All / Images / Screenshots / Text / Links) and one
   horizontal row of cards. Click copies (and closes the notch); pin and delete
   on hover and in the context menu.
 - Showcase panel (global shortcut, default ⌃⌥V): a larger dark panel under the
@@ -84,13 +84,14 @@ UI:
 - Showcase panel: Space toggles a large preview of the selected item
   (highlighted code, full image, link details) inside the panel.
 - JWT decoding is out of scope: JWTs are blocked by the secret guard.
-- Encryption at rest is deferred to Phase 5: with ad-hoc signing every rebuild
-  changes the code identity, so Keychain access would prompt after each build.
+- Encryption at rest is deferred: with ad-hoc signing every rebuild changes the
+  code identity, so Keychain access would prompt after each build. Releases now
+  keep one signing identity, so it is possible (see Phase 5).
 
 ## Phase 4: Extras (done, UI not yet tried on device)
 
 - `notchctl` CLI (bash + curl, same endpoint and token as the Claude hooks):
-  `notchctl notify "Build done" --title api --style success|error|info`,
+  `notchctl notify "Build done" --title api --style success|error|info|warning`,
   `notchctl ping`. The app accepts `POST /v1/notify` and shows a closed-notch
   banner plus a short history in a "Dev" tab. Scripts can then report anything,
   e.g. `gh run watch && notchctl notify "CI green"`.
@@ -116,7 +117,7 @@ UI:
   place), the exact set of permission names in GitHub's token form, Keychain prompts after an
   ad hoc re-sign, fork PRs (the session's `origin` is the fork, the PR lives upstream).
 
-## Phase 5: Open source release (local preparation done, publishing pending)
+## Phase 5: Open source release (published; some items remaining)
 
 Done locally:
 - User-visible rebrand to Nubrix (strings, window titles, onboarding, tips, About
@@ -130,13 +131,14 @@ Done locally:
   plus script and manifest checks).
 - Claude Code plugin and manual hooks instructions, notchctl install notes.
 
-Left for publishing:
-- Create the GitHub repository and add its URL to the README, About page and issue templates.
-- Developer ID signing and notarization; CI-built release DMG.
-- Decide on an update mechanism (none exists; Sparkle was removed).
-- Encryption at rest for Vitrin (needs stable signing identity for Keychain access).
-- Enable GitHub private vulnerability reporting on the repository (SECURITY.md already points to it).
-- Screenshots and final app icon.
+Published:
+- GitHub repository, with README screenshots and private vulnerability reporting.
+- Releases built by CI as a zip (not a DMG): v0.1.0 ad-hoc signed, v0.1.1 Developer ID signed and notarized.
+
+Remaining:
+- An update mechanism (none exists; Sparkle was removed).
+- Encryption at rest for Vitrin (possible now that releases keep one signing identity).
+- A final app icon (a logo is being worked on separately).
 
 ## Notch extensions
 

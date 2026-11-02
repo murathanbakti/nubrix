@@ -9,16 +9,17 @@ enum FullDiskAccessGuide {
     static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
 
     static func begin() {
+        let wasEnabled = Defaults[.systemNotificationsEnabled]
         Defaults[.systemNotificationsEnabled] = true
         let store = SystemNotificationStore.shared
-        store.settingChanged()
+        if !wasEnabled { store.settingChanged() }
         if let panel {
             panel.orderFrontRegardless()
             return
         }
         Task { @MainActor in
             let status = await store.checkNow()
-            if status == .ready { return }
+            guard status == .noAccess else { return }
             guard Defaults[.systemNotificationsEnabled] else { return }
             openSettings()
             show()

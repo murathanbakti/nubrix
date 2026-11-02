@@ -71,7 +71,7 @@ struct GitHubSettings: View {
         } header: {
             Text("Connection")
         } footer: {
-            Text("The token is stored in the macOS Keychain (item dev.nubrix.github) and is never written to preferences, logs or files. With ad hoc signing, macOS may ask once for Keychain access after you update Nubrix.")
+            Text("The token is stored in the macOS Keychain (item dev.nubrix.github) and is never written to preferences, logs or files. Updating from 0.1.0 (ad-hoc signed) may make the Keychain ask once; releases from 0.1.1 on keep the same identity.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

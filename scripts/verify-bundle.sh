@@ -6,6 +6,13 @@ b="${1%/}"
 
 expected_xpc="NubrixHelper.xpc"
 expected_frameworks="Lottie.framework MediaRemoteAdapter.framework"
+expected_macho=(
+  "Contents/MacOS/Nubrix"
+  "Contents/XPCServices/NubrixHelper.xpc/Contents/MacOS/NubrixHelper"
+  "Contents/Frameworks/Lottie.framework/Versions/A/Lottie"
+  "Contents/Frameworks/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter"
+  "Contents/Resources/MediaRemoteAdapterTestClient"
+)
 hook_files=(
   "scripts/install-hooks.sh"
   "claude-plugin/scripts/nubrix-hook"
@@ -27,8 +34,55 @@ xpc="$(find "$b/Contents/XPCServices" -mindepth 1 -maxdepth 1 -exec basename {} 
 frameworks="$(find "$b/Contents/Frameworks" -mindepth 1 -maxdepth 1 -exec basename {} \; 2>/dev/null | sort | tr '\n' ' ' | sed 's/ $//' || true)"
 [ "$frameworks" = "$expected_frameworks" ] || fail "Frameworks is '$frameworks', expected '$expected_frameworks'"
 
-stale="$(find "$b" -iname '*boring*' | head -5)"
+stale_all="$(find "$b" -iname '*boring*')"
+stale="$(sed -n '1,5p' <<< "$stale_all")"
 [ -z "$stale" ] || fail "stale upstream files: $stale"
+
+root_real="$(cd "$b" && pwd -P)"
+links="$(find "$b" -type l)"
+while IFS= read -r link; do
+  [ -n "$link" ] || continue
+  link_target="$(readlink "$link")"
+  if [ -d "$link" ]; then
+    resolved="$(cd "$link" 2>/dev/null && pwd -P)" || fail "cannot resolve symlink ${link#"$b"/}"
+  else
+    case "$link_target" in
+      /*) parent="$(dirname "$link_target")" ;;
+      *) parent="$(dirname "$link")/$(dirname "$link_target")" ;;
+    esac
+    parent_real="$(cd "$parent" 2>/dev/null && pwd -P)" || fail "cannot resolve symlink ${link#"$b"/}"
+    resolved="$parent_real/$(basename "$link_target")"
+  fi
+  case "$resolved" in
+    "$root_real" | "$root_real"/*) ;;
+    *) fail "symlink ${link#"$b"/} points outside the bundle ($link_target)" ;;
+  esac
+done <<< "$links"
+
+regular="$(find "$b" -type f)"
+found_macho=()
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  kind="$(file -b "$f" 2>/dev/null || true)"
+  case "$kind" in
+    Mach-O*) found_macho+=("${f#"$b"/}") ;;
+  esac
+done <<< "$regular"
+
+for rel in ${found_macho[@]+"${found_macho[@]}"}; do
+  allowed=0
+  for want in "${expected_macho[@]}"; do
+    [ "$rel" = "$want" ] && allowed=1
+  done
+  [ "$allowed" = 1 ] || fail "unexpected Mach-O file $rel"
+done
+for want in "${expected_macho[@]}"; do
+  present=0
+  for rel in ${found_macho[@]+"${found_macho[@]}"}; do
+    [ "$rel" = "$want" ] && present=1
+  done
+  [ "$present" = 1 ] || fail "missing Mach-O file $want"
+done
 
 for rel in "${hook_files[@]}"; do
   f="$b/Contents/Resources/nubrix-hooks/$rel"

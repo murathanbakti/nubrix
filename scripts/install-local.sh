@@ -57,9 +57,38 @@ if pgrep -xq Nubrix; then
 fi
 pkill -TERM -f "$dest/Nubrix.app/Contents/Resources/mediaremote-adapter.pl" || true
 
-rm -rf "$dest/Nubrix.app"
-cp -R "$app" "$dest/"
-"$root/scripts/verify-bundle.sh" "$dest/Nubrix.app"
+target="$dest/Nubrix.app"
+staged="$dest/.Nubrix.app.new.$$"
+old="$dest/.Nubrix.app.old.$$"
+[ -d "$dest" ] && [ -w "$dest" ] || { echo "$dest is not a writable directory (set NUBRIX_INSTALL_DIR)" >&2; exit 1; }
+rm -rf "$staged" "$old"
+if ! cp -R "$app" "$staged"; then
+  rm -rf "$staged"
+  echo "Could not copy the app into $dest" >&2
+  exit 1
+fi
+if [ -e "$target" ] || [ -L "$target" ]; then
+  if ! mv "$target" "$old"; then
+    rm -rf "$staged"
+    echo "Could not move the existing $target aside" >&2
+    exit 1
+  fi
+fi
+if ! mv "$staged" "$target"; then
+  rm -rf "$staged"
+  if [ -e "$old" ]; then
+    if mv "$old" "$target"; then
+      echo "Could not move the new app into place; the previous Nubrix was restored" >&2
+    else
+      echo "Could not move the new app into place and could not restore the previous Nubrix; it is kept at $old" >&2
+    fi
+  else
+    echo "Could not move the new app into place at $target" >&2
+  fi
+  exit 1
+fi
+rm -rf "$old"
+"$root/scripts/verify-bundle.sh" "$target"
 echo "Installed $dest/Nubrix.app"
 
 if [ -x "$root/scripts/install-hooks.sh" ]; then

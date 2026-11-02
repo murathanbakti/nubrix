@@ -137,7 +137,8 @@ cmd_notify() {
   esac
   case "$duration" in
     '') ;;
-    *[!0-9.]*|.|*.*.*) fail "invalid duration '$duration'" ;;
+    *[!0-9.]*|.*|*.|*.*.*) fail "invalid duration '$duration'" ;;
+    *) duration="$((10#${duration%%.*}))${duration#"${duration%%.*}"}" ;;
   esac
 
   local body

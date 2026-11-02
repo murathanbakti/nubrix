@@ -22,6 +22,7 @@ jobs:
   build:
     name: Build without secrets
     runs-on: macos-latest
+    timeout-minutes: 45
     permissions:
       contents: read
     outputs:
@@ -63,7 +64,8 @@ jobs:
             exit 1
           fi
           VERSION="${TAG#v}"
-          PROJECT_VERSION="$(xcodebuild -project "$PROJECT_NAME.xcodeproj" -scheme "$PROJECT_NAME" -configuration Release -showBuildSettings 2>/dev/null | awk '$1 == "MARKETING_VERSION" { print $3; exit }')"
+          build_settings="$(xcodebuild -project "$PROJECT_NAME.xcodeproj" -scheme "$PROJECT_NAME" -configuration Release -showBuildSettings 2>/dev/null || true)"
+          PROJECT_VERSION="$(awk '$1 == "MARKETING_VERSION" { print $3; exit }' <<< "$build_settings")"
           if [[ "$PROJECT_VERSION" != "$VERSION" ]]; then
             echo "::error::Tag $TAG does not match MARKETING_VERSION $PROJECT_VERSION"
             exit 1
@@ -81,7 +83,7 @@ jobs:
           name: nubrix-unsigned
           path: dist/Nubrix-${{ steps.version.outputs.version }}-unsigned.zip
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 7
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -93,6 +95,7 @@ jobs:
     name: Sign, notarize and draft release
     needs: build
     runs-on: macos-latest
+    timeout-minutes: 60
     environment: release
     permissions:
       contents: write
@@ -127,7 +130,11 @@ jobs:
           rm -rf "$app_dir"
           mkdir -p "$app_dir"
           ditto -x -k "$RUNNER_TEMP/unsigned/Nubrix-$VERSION-unsigned.zip" "$app_dir"
-          [[ -d "$app_dir/Nubrix.app" ]] || { echo "::error::The build artifact holds no Nubrix.app"; exit 1; }
+          if [[ -L "$app_dir/Nubrix.app" || ! -d "$app_dir/Nubrix.app" ]]; then
+            echo "::error::The build artifact holds no Nubrix.app directory"
+            exit 1
+          fi
+          scripts/verify-bundle.sh "$app_dir/Nubrix.app"
           echo "BUILT_APP=$app_dir/Nubrix.app" >> "$GITHUB_ENV"
 
       - name: Choose signing mode
@@ -148,6 +155,10 @@ jobs:
             [[ -z "$APPLE_TEAM_ID" ]] || present+=("variable APPLE_TEAM_ID")
             if (( ${#present[@]} )); then
               echo "::error::DEVELOPER_ID_P12_BASE64 is empty but these are set: ${present[*]}. Add the .p12 for a Developer ID release, or remove them for an ad-hoc one"
+              exit 1
+            fi
+            if [[ "$GITHUB_REPOSITORY" == "murathanbakti/nubrix" ]]; then
+              echo "::error::The Developer ID secrets are missing in $GITHUB_REPOSITORY, refusing to build an ad-hoc release. Check the 'release' environment secrets"
               exit 1
             fi
             echo "::notice::No Developer ID secrets, building an ad-hoc signed release that is not notarized"
@@ -259,8 +270,16 @@ jobs:
           else
             signing_note="Ad-hoc signed and not notarized. If you download the zip yourself, see [First launch](https://github.com/$GITHUB_REPOSITORY#first-launch-and-gatekeeper) in the README."
           fi
-          gh release create "$TAG" dist/Nubrix-*.zip dist/Nubrix-*.zip.sha256 \
-            --draft --verify-tag --title "Nubrix $VERSION" --notes "$signing_note" --generate-notes
+          if state="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [[ "$state" != "true" ]]; then
+              echo "::error::A published release for $TAG already exists; refusing to modify it"
+              exit 1
+            fi
+            gh release upload "$TAG" dist/Nubrix-*.zip dist/Nubrix-*.zip.sha256 --clobber
+          else
+            gh release create "$TAG" dist/Nubrix-*.zip dist/Nubrix-*.zip.sha256 \
+              --draft --verify-tag --title "Nubrix $VERSION" --notes "$signing_note" --generate-notes
+          fi
 
       - name: Summary
         run: |
@@ -271,6 +290,10 @@ jobs:
             echo
             echo "Signing: \`$SIGNING_MODE\`"
             echo
+            if [[ "$SIGNING_MODE" == "adhoc" ]]; then
+              echo "> **Warning:** this build is not notarized and the cask keeps the quarantine flag, so do not publish it to the tap."
+              echo
+            fi
             echo "SHA-256:"
             echo '```'
             cat "dist/Nubrix-$VERSION.zip.sha256"

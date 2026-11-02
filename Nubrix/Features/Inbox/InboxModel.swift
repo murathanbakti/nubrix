@@ -120,6 +120,12 @@ struct InboxLedger {
 
     private mutating func insert(_ entry: InboxEntry) {
         entries.insert(entry, at: 0)
-        if entries.count > Self.capacity { entries.removeLast(entries.count - Self.capacity) }
+        while entries.count > Self.capacity {
+            if let index = entries.lastIndex(where: { $0.source == .system }) {
+                entries.remove(at: index)
+            } else {
+                entries.removeLast()
+            }
+        }
     }
 }

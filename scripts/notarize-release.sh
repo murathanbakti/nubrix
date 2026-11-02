@@ -43,7 +43,17 @@ if [ "$status" != "Accepted" ]; then
   fail "notarization status is '$status'"
 fi
 
-xcrun stapler staple "$app" || fail "stapler staple failed"
+stapled=0
+for attempt in 1 2 3 4 5; do
+  if xcrun stapler staple "$app"; then
+    stapled=1
+    break
+  fi
+  [ "$attempt" -lt 5 ] || break
+  echo "stapler staple failed (attempt $attempt of 5), retrying in 20 s…" >&2
+  sleep 20
+done
+[ "$stapled" = 1 ] || fail "stapler staple failed after 5 attempts"
 xcrun stapler validate "$app" >/dev/null || fail "stapler validate failed"
 
 assessment="$(spctl --assess --type execute --verbose=2 "$app" 2>&1)" || { echo "$assessment" >&2; fail "Gatekeeper rejects the stapled app"; }

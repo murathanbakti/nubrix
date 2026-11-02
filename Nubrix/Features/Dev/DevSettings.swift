@@ -10,7 +10,7 @@ struct DevSettings: View {
     @State private var portError = false
     @State private var copied = false
 
-    private static let installCommand = "mkdir -p ~/.local/bin && ln -sf \"$PWD/cli/notchctl\" ~/.local/bin/notchctl"
+    private static let installCommand = "mkdir -p ~/.local/bin && ln -sf ~/.config/nubrix/bin/notchctl ~/.local/bin/notchctl"
 
     var body: some View {
         Form {
@@ -53,7 +53,7 @@ struct DevSettings: View {
             } header: {
                 Text("Watched ports")
             } footer: {
-                Text("Ports are checked every 5 seconds only while the Dev tab or this page is visible.")
+                Text("Ports are checked every 15 seconds only while the Dev tab or this page is visible.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -86,7 +86,7 @@ struct DevSettings: View {
             } header: {
                 Text("notchctl")
             } footer: {
-                Text("Run the command from the Nubrix repository, then use: notchctl notify \"Build done\" --style success")
+                Text("Install the hooks with install-hooks.sh first, then run the install command and use: notchctl notify \"Build done\" --style success")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }

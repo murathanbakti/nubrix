@@ -67,6 +67,7 @@ struct SystemNotificationBanner: Identifiable, Equatable {
 
 struct SystemNotificationRecord: Identifiable, Equatable {
     let id = UUID()
+    let recID: Int64
     let bundleID: String
     let appName: String
     let title: String

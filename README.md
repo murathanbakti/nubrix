@@ -118,7 +118,7 @@ Other install methods are under [Install](#install); the hook setup is explained
 </p>
 
 **Notifications from other apps** (optional, off by default)
-- New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; click it to open the app
+- New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; it disappears after 6 seconds, and clicking it opens the app
 - Needs Full Disk Access, because macOS has no public way to read other apps' notifications. When you turn it on, a small guide opens next to System Settings: drag the Nubrix icon into the list, turn on its switch, and the guide confirms as soon as access works
 - The Notifications tab (bell icon, shown while the feature is on) lists the last 50 notifications, newest first, with a filter per app. Click a row to open its app, hover to remove one, or Clear them all. New ones put a dot on the tab
 - Only the apps you tick are read. The list is kept in memory only and is gone when Nubrix quits. Notifications from the app you are using are skipped, and the message text can be hidden
@@ -147,7 +147,7 @@ brew trust --tap murathanbakti/tap
 brew install --cask nubrix
 ```
 
-`brew trust` is needed because Homebrew 7 only installs from third-party taps you have trusted. The cask needs Homebrew 5.1.14 or later; `brew install` updates Homebrew first unless `HOMEBREW_NO_AUTO_UPDATE` is set.
+`brew trust` is needed because Homebrew 7 only installs from third-party taps you have trusted.
 
 The cask pins the release's SHA-256 and leaves the quarantine flag in place, so Gatekeeper checks the Developer ID signature and Apple's notarization ticket on first launch, as for any other app.
 
@@ -214,7 +214,7 @@ Nubrix's own banners are drawn in the notch; it does not post to the macOS notif
 
 ## Claude Code setup
 
-Nubrix listens on a loopback HTTP server, and small hook scripts forward Claude Code hook events to it. Hooks are asynchronous, have a short timeout and always exit 0, so they never block or slow down Claude Code. If Nubrix is not running, they do nothing.
+Nubrix listens on a loopback HTTP server, and small hook scripts forward Claude Code hook events to it. The event hooks are asynchronous, have a short timeout and always exit 0, so they never block or slow down Claude Code. `nubrix-permission` is the one synchronous hook: it waits for your answer on the approval card (12 seconds in a terminal, 110 seconds for the Claude desktop app, the VS Code extension and SDK sessions) and then falls back to Claude Code's own permission dialog. If Nubrix is not running, the hooks do nothing.
 
 **1. Install the hook scripts.**
 
@@ -331,7 +331,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
   - Artwork URLs supplied by Spotify or YouTube Music are fetched to show the cover.
   - `localhost:26538`, the local API of the YouTube Music desktop app, when that controller is used.
   - The `claude` command-line tool, run by the helper to read your plan usage (see [Usage, context and cost](#usage-context-and-cost)); Claude itself talks to Anthropic as it always does. Turn it off in Settings, Notifications, Claude Code.
-- **Sandbox and helper split.** The app is sandboxed. The only unsandboxed part is the small XPC service `NubrixHelper`, used for Accessibility-based key handling, brightness and the `claude /usage` probe. The app can read `~/.config/nubrix/` (the sealed hook scripts) but cannot write there, so it cannot change what Claude Code runs; its only writable config location is `~/.config/nubrix-run/`.
+- **Sandbox and helper split.** The app is sandboxed. The only unsandboxed part is the small XPC service `NubrixHelper`, used for Accessibility-based key handling, brightness, the `claude /usage` probe and, when turned on, the read-only reader of the macOS notification database. The app can read `~/.config/nubrix/` (the sealed hook scripts) but cannot write there, so it cannot change what Claude Code runs; its only writable config location is `~/.config/nubrix-run/`.
 - **Local endpoint.** The event server binds to the loopback interface only (127.0.0.1) on a random port, authenticates on request headers with a random bearer token and caps connections. Port, token and process id are written to `~/.config/nubrix-run/agent-endpoint` (file 0600 in a 0700 directory). Hook scripts verify the server with an HMAC challenge before trusting an answer.
 - **Sealed hooks and deny rules.** See [Why sealed copies](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies). Nothing edits `~/.claude/settings.json`.
 - **Vitrin.** History is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet. The Vitrin panel is hidden from screen sharing and recording by default (Settings, Vitrin). The secret guard is a heuristic: it reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
@@ -375,7 +375,7 @@ Nubrix has no auto-updater. Update with the method you installed with:
 brew upgrade --cask nubrix
 ```
 
-or run the install script again, or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again. Only a zip you downloaded with a browser needs the [First launch](#first-launch-and-gatekeeper) step again.
+or run the install script again, or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again. From 0.1.1 on, releases are signed and notarized, so no extra step is needed. Only a non-notarized build (0.1.0) downloaded with a browser needs the [First launch](#first-launch-and-gatekeeper) step.
 
 ## Uninstall
 

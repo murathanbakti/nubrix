@@ -36,9 +36,9 @@ enum AgentInfoModel {
         }
 
         if snapshot.sealedScripts == 0 {
-            result.append(AgentInfoProblem(id: "sealed", message: "Hook scripts not installed \u{2014} run scripts/install-hooks.sh"))
+            result.append(AgentInfoProblem(id: "sealed", message: "Hook scripts not installed \u{2014} run install-hooks.sh (see README)"))
         } else if snapshot.sealedScripts < snapshot.sealedTotal {
-            result.append(AgentInfoProblem(id: "sealed", message: "\(snapshot.sealedScripts) of \(snapshot.sealedTotal) hook scripts installed \u{2014} run scripts/install-hooks.sh"))
+            result.append(AgentInfoProblem(id: "sealed", message: "\(snapshot.sealedScripts) of \(snapshot.sealedTotal) hook scripts installed \u{2014} run install-hooks.sh (see README)"))
         }
 
         if let date = snapshot.lastHookEventAt {
@@ -46,7 +46,7 @@ enum AgentInfoModel {
                 result.append(AgentInfoProblem(id: "hooks", message: "No hook events for \(ago(date, now: now)) \u{2014} if Claude is running, restart it"))
             }
         } else {
-            result.append(AgentInfoProblem(id: "hooks", message: "Hooks not seen yet \u{2014} run scripts/install-hooks.sh and restart Claude"))
+            result.append(AgentInfoProblem(id: "hooks", message: "Hooks not seen yet \u{2014} run install-hooks.sh (see README) and restart Claude"))
         }
         return result
     }

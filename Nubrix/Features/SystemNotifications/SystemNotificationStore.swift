@@ -21,7 +21,7 @@ final class SystemNotificationStore: ObservableObject {
     private var bannerTask: Task<Void, Never>?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var names: [String: String] = [:]
-    private var icons: [String: NSImage] = [:]
+    private var icons: [String: NSImage?] = [:]
 
     private init() {}
 
@@ -46,10 +46,10 @@ final class SystemNotificationStore: ObservableObject {
         cursor = -1
         generation += 1
         if isEnabled {
-            status = .waiting
+            setStatus(.waiting)
             restartLoop()
         } else {
-            status = .off
+            setStatus(.off)
             dismissBanner()
             history = []
             if NubrixCoordinator.shared.currentView == .notifications {
@@ -76,7 +76,7 @@ final class SystemNotificationStore: ObservableObject {
         Task { [weak self] in
             let result = await XPCHelperClient.shared.fetchSystemNotificationApps()
             guard let self, result.status == .ok else { return }
-            self.knownApps = result.apps
+            if self.knownApps != result.apps { self.knownApps = result.apps }
         }
     }
 
@@ -100,10 +100,12 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func open(bundleID: String) {
-        if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
-            running.activate()
-        } else if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+            ?? NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.bundleURL
+        if let url {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            NSWorkspace.shared.openApplication(at: url, configuration: configuration)
         }
         NubrixInbox.shared.markRead(.system)
     }
@@ -122,7 +124,10 @@ final class SystemNotificationStore: ObservableObject {
 
     func icon(for bundleID: String) -> NSImage? {
         if let cached = icons[bundleID] { return cached }
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            icons[bundleID] = .some(nil)
+            return nil
+        }
         let image = NSWorkspace.shared.icon(forFile: url.path)
         icons[bundleID] = image
         return image
@@ -146,6 +151,10 @@ final class SystemNotificationStore: ObservableObject {
         }
     }
 
+    private func setStatus(_ new: SystemNotificationStatus) {
+        if status != new { status = new }
+    }
+
     private func poll() async {
         let allowed = Defaults[.systemNotificationApps]
         let current = generation
@@ -153,20 +162,18 @@ final class SystemNotificationStore: ObservableObject {
         guard isEnabled, current == generation else { return }
         switch result.status {
         case .ok:
-            status = .ready
+            setStatus(.ready)
             if result.cursor >= 0 { cursor = result.cursor }
             handle(result.items)
         case .noAccess:
-            status = .noAccess
+            setStatus(.noAccess)
             cursor = -1
         case .notFound:
-            status = .notFound
-            cursor = -1
+            setStatus(.notFound)
         case .unsupported:
-            status = .unsupported
-            cursor = -1
+            setStatus(.unsupported)
         case .failed:
-            status = .failed
+            setStatus(.failed)
         }
     }
 
@@ -175,18 +182,24 @@ final class SystemNotificationStore: ObservableObject {
         let frontmost = Defaults[.systemNotificationsSkipFrontmost] ? NSWorkspace.shared.frontmostApplication?.bundleIdentifier : nil
         let visible = items.filter { $0.bundleID != frontmost }
         guard !visible.isEmpty else { return }
+        var newestFresh: SystemNotificationItem?
         for item in visible {
             let name = appName(for: item.bundleID)
-            let title = item.title.isEmpty ? name : item.title
-            let message = [item.subtitle, item.body].filter { !$0.isEmpty }.joined(separator: " ")
-            NubrixInbox.shared.system(title: title, message: message.isEmpty ? name : message)
-            let record = SystemNotificationRecord(bundleID: item.bundleID, appName: name, title: title,
-                                                  subtitle: item.subtitle, body: item.body,
-                                                  date: item.date > 0 ? Date(timeIntervalSince1970: item.date) : Date())
+            let date = item.date > 0 ? Date(timeIntervalSince1970: item.date) : Date()
+            let fresh = Date().timeIntervalSince(date) <= 300
+            if fresh {
+                let title = item.title.isEmpty ? name : item.title
+                let message = [item.subtitle, item.body].filter { !$0.isEmpty }.joined(separator: " ")
+                NubrixInbox.shared.system(title: title, message: message.isEmpty ? name : message)
+                newestFresh = item
+            }
+            let record = SystemNotificationRecord(recID: item.id, bundleID: item.bundleID, appName: name, title: item.title,
+                                                  subtitle: item.subtitle, body: item.body, date: date)
+            history.removeAll { $0.recID == item.id && $0.bundleID == item.bundleID }
             history.insert(record, at: 0)
         }
         if history.count > 50 { history.removeLast(history.count - 50) }
-        if let newest = visible.last { show(newest) }
+        if let newestFresh { show(newestFresh) }
     }
 
     private func show(_ item: SystemNotificationItem) {

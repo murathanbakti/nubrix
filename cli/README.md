@@ -37,7 +37,7 @@ notchctl --help
 ```
 
 Styles: `success`, `error`, `info` (default), `warning`. Duration is in seconds (1-30, default 4).
-Notifications appear as a banner on the closed notch; click it to open the Dev tab, which keeps the last 50.
+Notifications need the Dev tab to be turned on (Settings, Dev). They appear as a banner on the closed notch; click it to open the Dev tab, which keeps the last 50.
 
 ## Examples
 

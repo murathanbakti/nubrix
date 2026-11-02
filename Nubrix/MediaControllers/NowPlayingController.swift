@@ -68,6 +68,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private var process: Process?
     private var pipeHandler: JSONLinesPipeHandler?
     private var streamTask: Task<Void, Never>?
+    private var stopped = false
 
     // MARK: - Initialization
     init?() {
@@ -109,6 +110,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     func stop() {
+        stopped = true
         streamTask?.cancel()
         streamTask = nil
         guard let process else { return }
@@ -209,7 +211,11 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         
         let pipeHandler = JSONLinesPipeHandler()
         process.standardOutput = await pipeHandler.getPipe()
-        
+        guard !stopped else {
+            await pipeHandler.close()
+            return
+        }
+
         self.process = process
         self.pipeHandler = pipeHandler
 

@@ -32,7 +32,7 @@ To try a Release build the way users get it, run `scripts/install-local.sh --ope
 ## Where things live
 
 - Nubrix code is in `Nubrix/Features/`. It is a file-system synchronized group in Xcode, so new files are picked up automatically; avoid editing `project.pbxproj` by hand.
-- `NubrixHelper/` is the small unsandboxed XPC service (Accessibility key handling, brightness, the `claude /usage` probe).
+- `NubrixHelper/` is the small unsandboxed XPC service (Accessibility key handling, brightness, the `claude /usage` probe and, when turned on, the read-only reader of the macOS notification database).
 - `claude-plugin/` holds the Claude Code hook scripts (`claude-plugin/scripts/`) and the status-only plugin manifest. `cli/notchctl` is the CLI. `scripts/` holds the installers and release tooling.
 - Files under the rest of `Nubrix/` come from the upstream project (see Credits in the README). Keep edits there small so upstream changes can still be merged. You can see the upstream repository with `git remote -v` (remote `upstream`).
 - Docs live in `docs/nubrix/` (roadmap, audit reports, supply chain notes).
@@ -109,7 +109,7 @@ The `release` job uses the GitHub environment `release`, which only `v*` tags ca
 
 The private key is imported on the runner as non-extractable, into a temporary keychain that is deleted at the end of the job. Keep a copy of `~/.nubrix-signing` in a password manager or on an encrypted disk, then delete it.
 
-If `DEVELOPER_ID_P12_BASE64` is set, all other entries are required and the workflow stops when one is missing. Locally, `NUBRIX_SIGN_IDENTITY=- scripts/sign-release.sh <app>` runs the same re-signing ad hoc as a dry run.
+If `DEVELOPER_ID_P12_BASE64` is set, all other entries are required and the workflow stops when one is missing. Locally, `NUBRIX_SIGN_IDENTITY=- scripts/sign-release.sh <app>` runs the same re-signing ad hoc, to test it without a certificate. It re-signs that app in place, so run it on a copy.
 
 There is no auto-updater; users update with `brew upgrade --cask nubrix` or by running the install script again.
 

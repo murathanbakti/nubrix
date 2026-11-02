@@ -19,8 +19,32 @@ fail() {
 macos_major="$(sw_vers -productVersion | cut -d. -f1)"
 [ "$macos_major" -ge 14 ] || fail "Nubrix needs macOS 14 or later (this Mac runs $(sw_vers -productVersion))"
 
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/nubrix-install.XXXXXX")"
-trap 'rm -rf "$tmp"' EXIT
+team_id="${NUBRIX_TEAM_ID:-399MAAJ7QT}"
+[[ "$team_id" =~ ^[A-Z0-9]{10}$ ]] || fail "NUBRIX_TEAM_ID must be 10 uppercase letters or digits"
+
+if [ -e "$dest" ] && [ ! -d "$dest" ]; then
+  fail "$dest is not a directory"
+fi
+mkdir -p "$dest" || fail "cannot create $dest"
+[ -w "$dest" ] || fail "$dest is not writable (set NUBRIX_INSTALL_DIR or use sudo)"
+dest="$(cd "$dest" && pwd -P)" || fail "cannot resolve $dest"
+target="$dest/Nubrix.app"
+
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/nubrix-install.XXXXXX")" || fail "cannot create a temporary directory"
+staged=""
+old=""
+cleanup() {
+  rm -rf "$tmp"
+  if [ -n "$staged" ]; then rm -rf "$staged"; fi
+  if [ -n "$old" ] && [ -e "$old" ]; then
+    if [ -e "$target" ]; then
+      rm -rf "$old"
+    else
+      mv "$old" "$target" 2>/dev/null || echo "Nubrix install: the previous app is kept at $old" >&2
+    fi
+  fi
+}
+trap cleanup EXIT
 
 proto="=https"
 case "$base_url" in
@@ -70,10 +94,15 @@ found_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' 
 [ "$found_version" = "$version" ] || fail "app version is '$found_version', expected '$version'"
 codesign --verify --strict --deep "$app" >/dev/null 2>&1 || fail "code signature does not verify"
 
-mkdir -p "$dest" || fail "cannot create $dest"
-[ -w "$dest" ] || fail "$dest is not writable (set NUBRIX_INSTALL_DIR or use sudo)"
+if [ "$version" != "0.1.0" ]; then
+  requirement="anchor apple generic and certificate leaf[subject.OU] = \"$team_id\""
+  verify_out="$(codesign --verify --strict --deep -R="$requirement" "$app" 2>&1)" \
+    || fail "the app is not signed by Developer ID team $team_id: $verify_out"
+  gatekeeper="$(spctl --assess --type execute --verbose=2 "$app" 2>&1 || true)"
+  [[ "$gatekeeper" == *"source=Notarized Developer ID"* ]] \
+    || fail "Gatekeeper does not report a notarized Developer ID app: $gatekeeper"
+fi
 
-target="$dest/Nubrix.app"
 running=()
 while read -r pid; do
   [ -n "$pid" ] || continue
@@ -92,15 +121,44 @@ if [ "${#running[@]}" -gt 0 ]; then
     [ "$alive" = 0 ] && break
     sleep 0.5
   done
-  kill -KILL "${running[@]}" 2>/dev/null || true
+  for pid in "${running[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+  done
 fi
 pkill -TERM -f "$target/Contents/Resources/mediaremote-adapter.pl" || true
 
 staged="$dest/.Nubrix.app.new.$$"
 rm -rf "$staged"
 ditto "$app" "$staged" || fail "could not copy the app into $dest"
-rm -rf "$target"
-mv "$staged" "$target"
+codesign --verify --strict --deep "$staged" >/dev/null 2>&1 || fail "the copied app does not verify"
+
+if [ -e "$target" ] || [ -L "$target" ]; then
+  old="$dest/.Nubrix.app.old.$$"
+  rm -rf "$old"
+  if ! mv "$target" "$old"; then
+    old=""
+    fail "could not move the existing $target aside (is it in use or protected?)"
+  fi
+fi
+if ! mv "$staged" "$target"; then
+  if [ -n "$old" ]; then
+    if mv "$old" "$target"; then
+      old=""
+      fail "could not move the new app into place; the previous Nubrix was restored"
+    fi
+    kept="$old"
+    old=""
+    fail "could not move the new app into place and could not restore the previous Nubrix; it is kept at $kept"
+  fi
+  fail "could not move the new app into place at $target"
+fi
+staged=""
+if [ -n "$old" ]; then
+  rm -rf "$old" || echo "Warning: could not remove the previous app at $old" >&2
+  old=""
+fi
 codesign --verify --strict --deep "$target" >/dev/null 2>&1 || fail "installed app does not verify"
 
 assessment="$(spctl --assess --type execute --verbose=2 "$target" 2>&1 || true)"

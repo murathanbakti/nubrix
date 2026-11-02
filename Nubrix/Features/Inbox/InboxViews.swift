@@ -134,7 +134,7 @@ struct InboxSettings: View {
                         .disabled(inbox.unreadCount == 0)
                 }
             } footer: {
-                Text("Items are marked read when you open the Claude or Dev tab, or click the notification. They are not kept after a restart.")
+                Text("Items are marked read when you open the Claude, Dev or Notifications tab, or click the notification. They are not kept after a restart.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }

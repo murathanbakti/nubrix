@@ -51,8 +51,8 @@ elif [ "$mode" = sign ]; then
   version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || true)"
   [ -n "$version" ] || fail "could not read the version of $app"
 else
-  version="$(xcodebuild -project "$root/Nubrix.xcodeproj" -scheme Nubrix -configuration Release -showBuildSettings 2>/dev/null \
-    | awk '$1 == "MARKETING_VERSION" { print $3; exit }')"
+  settings="$(xcodebuild -project "$root/Nubrix.xcodeproj" -scheme Nubrix -configuration Release -showBuildSettings 2>/dev/null || true)"
+  version="$(awk '$1 == "MARKETING_VERSION" { print $3; exit }' <<< "$settings")"
   [ -n "$version" ] || fail "could not read MARKETING_VERSION"
 fi
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid version '$version', expected X.Y.Z"

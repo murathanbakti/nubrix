@@ -143,6 +143,14 @@ struct SystemNotificationRow: View {
         return record.subtitle.isEmpty ? record.appName : record.subtitle
     }
 
+    private var heading: Text {
+        if record.title.isEmpty {
+            return Text(record.appName).font(.system(size: 12, weight: .semibold)).foregroundColor(.white)
+        }
+        return Text(record.title).font(.system(size: 12, weight: .semibold)).foregroundColor(.white)
+            + Text(" · \(record.appName)").font(.system(size: 12)).foregroundColor(.gray)
+    }
+
     var body: some View {
         Button {
             store.open(bundleID: record.bundleID)
@@ -150,8 +158,7 @@ struct SystemNotificationRow: View {
             HStack(alignment: .top, spacing: 8) {
                 icon
                 VStack(alignment: .leading, spacing: 1) {
-                    (Text(record.title).font(.system(size: 12, weight: .semibold)).foregroundColor(.white)
-                        + Text(" · \(record.appName)").font(.system(size: 12)).foregroundColor(.gray))
+                    heading
                         .lineLimit(1)
                     Text(message)
                         .font(.system(size: 11))
