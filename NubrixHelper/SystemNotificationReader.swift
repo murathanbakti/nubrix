@@ -8,6 +8,7 @@ struct SystemNotificationItem: Codable {
     var title: String
     var subtitle: String
     var body: String
+    var thread: String
     var date: Double
 }
 
@@ -271,12 +272,13 @@ final class SystemNotificationReader {
         let title = sanitize(req["titl"] as? String, limit: 120)
         let subtitle = sanitize(req["subt"] as? String, limit: 120)
         let body = sanitize(req["body"] as? String, limit: 400)
+        let thread = sanitize(req["thre"] as? String, limit: 200)
         guard !title.isEmpty || !body.isEmpty else { return nil }
         var date = Date().timeIntervalSince1970
         if let seconds = root["date"] as? Double, seconds.isFinite {
             date = seconds + referenceOffset
         }
-        return SystemNotificationItem(id: id, bundleID: bundleID, title: title, subtitle: subtitle, body: body, date: date)
+        return SystemNotificationItem(id: id, bundleID: bundleID, title: title, subtitle: subtitle, body: body, thread: thread, date: date)
     }
 
     static func sanitize(_ value: String?, limit: Int) -> String {

@@ -70,12 +70,19 @@
   .nt-row .l1 { font-size: 12px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nt-row .l1 b { font-weight: 600; color: #fff; }
   .nt-row .l1 span { color: var(--gray); }
+  .nt-row .sb { font-size: 10.5px; line-height: 13px; color: rgba(152,152,157,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nt-row .ms { font-size: 11px; line-height: 13px; color: var(--gray); }
+  .nt-row .mo { font-size: 11px; line-height: 13px; color: var(--gray); margin-top: 2px; }
+  .nt-stack { position: relative; padding-bottom: 8px; }
+  .nt-stack .e1, .nt-stack .e2 { position: absolute; height: 4px; border-radius: 0 0 8px 8px; }
+  .nt-stack .e1 { left: 8px; right: 8px; bottom: 4px; background: rgba(255,255,255,.09); }
+  .nt-stack .e2 { left: 18px; right: 18px; bottom: 0; background: rgba(255,255,255,.05); }
+  .badge { flex: none; font-size: 10px; font-weight: 600; line-height: 14px; padding: 0 5px; border-radius: 7px; color: #fff; background: rgba(255,255,255,.2); }
   .nt-row .ag { font-size: 11px; line-height: 15px; color: var(--gray); font-variant-numeric: tabular-nums; flex: none; }
 </style>
 </head>
 <body>
-<div class="scene" data-size="1400x1230" style="--W:1400px;--H:1230px">
+<div class="scene" data-size="1400x1260" style="--W:1400px;--H:1260px">
   <div class="pane" style="--H:470px;height:470px">
     <div class="desk"></div>
     <div class="stage">
@@ -120,12 +127,12 @@
     </div>
   </div>
   <div class="grid" id="grid" style="top:482px"></div>
-  <div class="setup" style="top:698px;height:532px;--H:532px">
+  <div class="setup" style="top:698px;height:562px;--H:562px">
     <div class="stage">
       <div class="form">
         <div class="hd">Other apps</div>
         <div class="group" id="group"></div>
-        <div class="foot">Only the apps you tick are read. The Notifications tab keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown.</div>
+        <div class="foot">Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown.</div>
       </div>
       <div class="guide">
         <div class="lights"><i></i><i></i><i></i></div>
@@ -155,22 +162,24 @@
   function appIcon(kind, size) {
     return '<span class="appicon ' + kind + '" style="width:' + size + 'px;height:' + size + 'px">' + GLYPH[kind] + '</span>';
   }
-  function banner(kind, title, detail) {
-    return '<div class="row"><div class="L" style="width:140px;max-width:140px">' + appIcon(kind, 16) + '<span class="t">' + title + '</span></div>' +
+  function banner(kind, title, detail, count) {
+    return '<div class="row"><div class="L" style="width:140px;max-width:140px">' + appIcon(kind, 16) + '<span class="t">' + title + '</span>' + (count ? '<span class="badge">' + count + '</span>' : '') + '</div>' +
       '<div class="gap"></div><div class="R" style="width:170px">' + detail + '</div></div>';
   }
   var tiles = [
-    banner('chat', 'Elif', 'Are we still on for 7?'),
-    banner('team', 'Deniz · #design', 'Pushed the new icons')
+    banner('chat', 'Weekend trip', 'Are we still on for 7?', 3),
+    banner('team', 'Deniz', 'Pushed the new icons')
   ];
   var rows = [
-    ['chat', 'Elif', 'WhatsApp', 'Are we still on for 7? I can book the table if you are.', 'now'],
-    ['team', 'Deniz · #design', 'Slack', 'Pushed the new icons to the shared folder', '4m'],
-    ['mail', 'Can Yilmaz', 'Mail', 'Contract draft attached. Comments by Friday?', '18m']
+    ['chat', 'Weekend trip', 'WhatsApp', 'Elif', 'Are we still on for 7? I can book the table if you are.', 'now', 2],
+    ['team', 'Deniz', 'Slack', '#design', 'Pushed the new icons to the shared folder', '4m', 0],
+    ['mail', 'Can Yilmaz', 'Mail', 'Contract draft', 'Attached. Comments by Friday?', '18m', 0]
   ];
   document.getElementById('list').innerHTML = rows.map(function (r) {
-    return '<div class="nt-row">' + appIcon(r[0], 20) + '<div class="tx"><div class="l1"><b>' + r[1] + '</b><span> · ' + r[2] + '</span></div>' +
-      '<div class="ms">' + r[3] + '</div></div><span class="ag">' + r[4] + '</span></div>';
+    var row = '<div class="nt-row">' + appIcon(r[0], 20) + '<div class="tx"><div class="l1"><b>' + r[1] + '</b><span> · ' + r[2] + '</span></div>' +
+      (r[3] ? '<div class="sb">' + r[3] + '</div>' : '') + '<div class="ms">' + r[4] + '</div>' +
+      (r[6] ? '<div class="mo">+' + r[6] + ' more</div>' : '') + '</div><span class="ag">' + r[5] + '</span></div>';
+    return r[6] ? '<div class="nt-stack">' + row + '<div class="e1"></div><div class="e2"></div></div>' : row;
   }).join('');
   document.getElementById('grid').innerHTML = tiles.map(function (html) {
     return '<div class="tile"><div class="stage">' +

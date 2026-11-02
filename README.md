@@ -217,7 +217,8 @@ Requests, polling and why this kind of token: [docs/nubrix/GITHUB.md](docs/nubri
 
 Optional and off by default. New notifications from the apps you pick, such as WhatsApp, Slack or Mail, appear as a banner on the closed notch. The Notifications tab keeps the last 50.
 
-- Banners show the app icon, sender and message, disappear after 6 seconds, and open the app when clicked.
+- Banners show the app icon, the chat or sender and the message, disappear after 6 seconds, and open the app when clicked. New messages from the same chat update the banner and its counter instead of opening a new one.
+- The tab stacks notifications from the same chat into one card with the newest message and "+N more". Click "+N more" to see them all. A group or channel name, or a mail subject, gets its own small line and is never mixed into the message.
 - Only the apps you tick are read, and the list lives in memory only. You can hide message text, and notifications from the app in front are skipped.
 - It needs Full Disk Access, because macOS has no public way to read other apps' notifications. A short guide walks you through granting it.
 

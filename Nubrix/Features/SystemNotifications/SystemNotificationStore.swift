@@ -106,6 +106,10 @@ final class SystemNotificationStore: ObservableObject {
         history.removeAll { $0.id == id }
     }
 
+    func removeConversation(_ key: String) {
+        history.removeAll { $0.conversationKey == key }
+    }
+
     func clearHistory() {
         history = []
     }
@@ -194,31 +198,33 @@ final class SystemNotificationStore: ObservableObject {
         let frontmost = Defaults[.systemNotificationsSkipFrontmost] ? NSWorkspace.shared.frontmostApplication?.bundleIdentifier : nil
         let visible = items.filter { $0.bundleID != frontmost }
         guard !visible.isEmpty else { return }
-        var newestFresh: SystemNotificationItem?
+        var freshRecords: [SystemNotificationRecord] = []
         for item in visible {
             let name = appName(for: item.bundleID)
             let date = item.date > 0 ? Date(timeIntervalSince1970: item.date) : Date()
-            let fresh = Date().timeIntervalSince(date) <= 300
-            if fresh {
-                let title = item.title.isEmpty ? name : item.title
-                let message = [item.subtitle, item.body].filter { !$0.isEmpty }.joined(separator: " ")
-                NubrixInbox.shared.system(title: title, message: message.isEmpty ? name : message)
-                newestFresh = item
-            }
             let record = SystemNotificationRecord(recID: item.id, bundleID: item.bundleID, appName: name, title: item.title,
-                                                  subtitle: item.subtitle, body: item.body, date: date)
+                                                  subtitle: item.subtitle, body: item.body, thread: item.thread ?? "", date: date)
+            if Date().timeIntervalSince(date) <= 300 {
+                let message = item.body.isEmpty ? (item.subtitle.isEmpty ? name : item.subtitle) : item.body
+                NubrixInbox.shared.system(title: item.title.isEmpty ? name : item.title, message: message)
+                freshRecords.append(record)
+            }
             history.removeAll { $0.recID == item.id && $0.bundleID == item.bundleID }
             history.insert(record, at: 0)
         }
         if history.count > 50 { history.removeLast(history.count - 50) }
-        if let newestFresh { show(newestFresh) }
+        if let newest = freshRecords.last {
+            show(newest, batchCount: freshRecords.filter { $0.conversationKey == newest.conversationKey }.count)
+        }
     }
 
-    private func show(_ item: SystemNotificationItem) {
-        let name = appName(for: item.bundleID)
-        let banner = SystemNotificationBanner(bundleID: item.bundleID, appName: name,
-                                              title: item.title.isEmpty ? name : item.title,
-                                              subtitle: item.subtitle, body: item.body)
+    private func show(_ record: SystemNotificationRecord, batchCount: Int) {
+        let key = record.conversationKey
+        let current = banner?.conversationKey == key ? banner : nil
+        let banner = SystemNotificationBanner(id: current?.id ?? UUID(), bundleID: record.bundleID, appName: record.appName,
+                                              title: record.title.isEmpty ? record.appName : record.title,
+                                              subtitle: record.subtitle, body: record.body, conversationKey: key,
+                                              count: (current?.count ?? 0) + batchCount)
         AgentSessionStore.shared.dismissBanner()
         ScreenshotBannerStore.shared.dismissBanner()
         DevNotificationStore.shared.dismissBanner()

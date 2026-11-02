@@ -24,6 +24,15 @@ struct SystemNotificationBannerView: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if banner.count > 1 {
+                    Text("\(banner.count)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.white.opacity(0.2)))
+                        .fixedSize()
+                }
             }
             .frame(maxWidth: 140, alignment: .leading)
 
@@ -90,7 +99,7 @@ struct SystemNotificationSettingsSection: View {
         } header: {
             Text("Other apps")
         } footer: {
-            Text("Only the apps you tick are read. The Notifications tab keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
+            Text("Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

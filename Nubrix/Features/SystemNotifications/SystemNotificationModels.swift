@@ -14,6 +14,7 @@ struct SystemNotificationItem: Decodable, Equatable, Sendable {
     var title: String
     var subtitle: String
     var body: String
+    var thread: String?
     var date: Double
 }
 
@@ -57,12 +58,26 @@ struct SystemNotificationAppsFetch: Equatable, Sendable {
 }
 
 struct SystemNotificationBanner: Identifiable, Equatable {
-    let id = UUID()
+    let id: UUID
     let bundleID: String
     let appName: String
     let title: String
     let subtitle: String
     let body: String
+    let conversationKey: String
+    let count: Int
+
+    init(id: UUID = UUID(), bundleID: String, appName: String, title: String, subtitle: String, body: String,
+         conversationKey: String, count: Int) {
+        self.id = id
+        self.bundleID = bundleID
+        self.appName = appName
+        self.title = title
+        self.subtitle = subtitle
+        self.body = body
+        self.conversationKey = conversationKey
+        self.count = count
+    }
 }
 
 struct SystemNotificationRecord: Identifiable, Equatable {
@@ -73,7 +88,12 @@ struct SystemNotificationRecord: Identifiable, Equatable {
     let title: String
     let subtitle: String
     let body: String
+    let thread: String
     let date: Date
+
+    var conversationKey: String {
+        bundleID + "\u{1F}" + (thread.isEmpty ? (title.isEmpty ? "r:\(recID)" : "n:" + title) : "t:" + thread)
+    }
 }
 
 enum SystemNotificationStatus: Equatable {
