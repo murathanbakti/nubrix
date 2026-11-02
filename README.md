@@ -1,4 +1,9 @@
-# Nubrix
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/branding/nubrix-logo-dark.svg">
+    <img src="docs/branding/nubrix-logo.svg" alt="Nubrix" width="300">
+  </picture>
+</h1>
 
 Nubrix is a notch bar for macOS built for developers. It is based on [boring.notch](https://github.com/TheBoredTeam/boring.notch), so you get music controls, volume and brightness HUDs and a file shelf, and it adds:
 
