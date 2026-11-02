@@ -82,22 +82,32 @@ struct AgentSourceInfo: Equatable {
     var entrypoint: String = ""
     var appBundleID: String = ""
     var terminal: String = ""
+    var hostSessionID: String = ""
+    var tty: String = ""
 
-    init(entrypoint: String? = nil, appBundleID: String? = nil, terminal: String? = nil) {
+    private static let hostSessionPattern = /^local_[A-Za-z0-9-]{1,64}$/
+    private static let ttyPattern = /^ttys[0-9]{1,4}$/
+
+    init(entrypoint: String? = nil, appBundleID: String? = nil, terminal: String? = nil,
+         hostSessionID: String? = nil, tty: String? = nil) {
         self.entrypoint = AgentText.sanitized(entrypoint, limit: 48)
         self.appBundleID = AgentText.sanitized(appBundleID, limit: 128)
         self.terminal = AgentText.sanitized(terminal, limit: 48)
+        if let hostSessionID, hostSessionID.wholeMatch(of: Self.hostSessionPattern) != nil { self.hostSessionID = hostSessionID }
+        if let tty, tty.wholeMatch(of: Self.ttyPattern) != nil { self.tty = tty }
     }
 
     init(headers: [String: String]) {
         self.init(
             entrypoint: headers["x-nubrix-entrypoint"],
             appBundleID: headers["x-nubrix-app"],
-            terminal: headers["x-nubrix-term"]
+            terminal: headers["x-nubrix-term"],
+            hostSessionID: headers["x-nubrix-host-session"],
+            tty: headers["x-nubrix-tty"]
         )
     }
 
-    var isEmpty: Bool { entrypoint.isEmpty && appBundleID.isEmpty && terminal.isEmpty }
+    var isEmpty: Bool { entrypoint.isEmpty && appBundleID.isEmpty && terminal.isEmpty && hostSessionID.isEmpty && tty.isEmpty }
 
     var activationBundleID: String? {
         if !appBundleID.isEmpty { return appBundleID }
@@ -162,6 +172,8 @@ struct AgentSourceInfo: Equatable {
         if !other.entrypoint.isEmpty { entrypoint = other.entrypoint }
         if !other.appBundleID.isEmpty { appBundleID = other.appBundleID }
         if !other.terminal.isEmpty { terminal = other.terminal }
+        if !other.hostSessionID.isEmpty { hostSessionID = other.hostSessionID }
+        if !other.tty.isEmpty { tty = other.tty }
     }
 }
 

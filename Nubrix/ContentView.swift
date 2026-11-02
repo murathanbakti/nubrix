@@ -186,6 +186,12 @@ struct ContentView: View {
                         } else if vm.notchState == .closed, let banner = systemNotifications.banner {
                             systemNotifications.openSource(banner)
                             return
+                        } else if vm.notchState == .closed, let banner = agents.banner, let session = agents.session(banner.sessionID),
+                                  AgentSessionOpener.canOpen(session.source) {
+                            AgentSessionOpener.open(session.source)
+                            agents.dismissBanner()
+                            inbox.markRead(.claude)
+                            return
                         } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()

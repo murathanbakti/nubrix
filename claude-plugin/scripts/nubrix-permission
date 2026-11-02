@@ -52,13 +52,17 @@ nubrix_json_string() {
 
 nubrix_source_args() {
   source_args=()
-  local entry app term
+  local entry app term host
   entry="$(nubrix_clean "${CLAUDE_CODE_ENTRYPOINT:-}" 48)"
   app="$(nubrix_clean "${__CFBundleIdentifier:-}" 128)"
   term="$(nubrix_clean "${TERM_PROGRAM:-}" 48)"
   [ -n "$entry" ] && source_args+=(-H "X-Nubrix-Entrypoint: $entry")
   [ -n "$app" ] && source_args+=(-H "X-Nubrix-App: $app")
   [ -n "$term" ] && source_args+=(-H "X-Nubrix-Term: $term")
+  host="${CLAUDE_CODE_HOST_SESSION_ID:-}"
+  if [[ "$host" =~ ^local_[A-Za-z0-9-]{1,64}$ ]]; then
+    source_args+=(-H "X-Nubrix-Host-Session: $host")
+  fi
   return 0
 }
 

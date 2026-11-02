@@ -107,13 +107,17 @@ nubrix_remote() {
 
 nubrix_source_args() {
   source_args=()
-  local entry app term
+  local entry app term host
   entry="$(nubrix_clean "${CLAUDE_CODE_ENTRYPOINT:-}" 48)"
   app="$(nubrix_clean "${__CFBundleIdentifier:-}" 128)"
   term="$(nubrix_clean "${TERM_PROGRAM:-}" 48)"
   [ -n "$entry" ] && source_args+=(-H "X-Nubrix-Entrypoint: $entry")
   [ -n "$app" ] && source_args+=(-H "X-Nubrix-App: $app")
   [ -n "$term" ] && source_args+=(-H "X-Nubrix-Term: $term")
+  host="${CLAUDE_CODE_HOST_SESSION_ID:-}"
+  if [[ "$host" =~ ^local_[A-Za-z0-9-]{1,64}$ ]]; then
+    source_args+=(-H "X-Nubrix-Host-Session: $host")
+  fi
   return 0
 }
 
@@ -211,6 +215,11 @@ case "$event" in
     [ -n "$branch" ] && source_args+=(-H "X-Nubrix-Branch: $branch")
     remote="$(nubrix_remote "$work_dir")"
     [ -n "$remote" ] && source_args+=(-H "X-Nubrix-Remote: $remote")
+    tty_name="$(/bin/ps -o tty= -p $$ 2>/dev/null | tr -d '[:space:]')"
+    [[ "$tty_name" =~ ^ttys[0-9]{1,4}$ ]] || tty_name="$(/bin/ps -o tty= -p "$PPID" 2>/dev/null | tr -d '[:space:]')"
+    if [[ "$tty_name" =~ ^ttys[0-9]{1,4}$ ]]; then
+      source_args+=(-H "X-Nubrix-TTY: $tty_name")
+    fi
     ;;
 esac
 

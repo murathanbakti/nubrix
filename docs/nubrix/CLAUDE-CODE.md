@@ -26,7 +26,17 @@ It registers `nubrix-hook` for SessionStart, UserPromptSubmit, PreToolUse, PostT
 
 ## Source label, branch and jump
 
-The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch and the GitHub repository (`owner/repo`, parsed from `git remote get-url origin`; only `github.com` https, ssh and `git@github.com:` remotes count, credentials in the URL are never forwarded, anything else sends nothing). Nothing else is read from your project.
+The hook script sends the app that launched Claude Code (`CLAUDE_CODE_ENTRYPOINT`, `__CFBundleIdentifier`, `TERM_PROGRAM`) and, on SessionStart, UserPromptSubmit and Stop, the current git branch and the GitHub repository (`owner/repo`, parsed from `git remote get-url origin`; only `github.com` https, ssh and `git@github.com:` remotes count, credentials in the URL are never forwarded, anything else sends nothing). It also sends the desktop app's session id (`CLAUDE_CODE_HOST_SESSION_ID`, only in the `local_...` form) and, on those three events, the terminal device name (`ttys003`, from `ps`). Nothing else is read from your project.
+
+### Opening a session
+
+Clicking a session row, a Claude banner on the closed notch or "Open" on a permission card opens that session:
+
+- **Claude desktop app:** Nubrix opens `claude://code/continue?session=local_...`, which the desktop app handles by showing that session. If the session was archived or deleted, the app shows its Code home.
+- **Terminal and iTerm:** Nubrix asks the running app, with AppleScript, for the tab whose `tty` matches the session's terminal device, selects it and raises its window. macOS asks once whether Nubrix may control Terminal or iTerm. If you deny it, or no tab matches, the app is only brought to the front. Nubrix never starts a terminal that is not running.
+- **Other terminals and editors** (Ghostty, Warp, VS Code, Cursor, ...): the app is brought to the front.
+
+Sessions started before you re-ran the hook installer have no session id or terminal device yet; they get one with the next prompt.
 
 ## Usage, context and cost
 

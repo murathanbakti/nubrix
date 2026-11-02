@@ -49,7 +49,7 @@ Other install methods are under [Install](#install); the hook setup is explained
 
 **Claude Code sessions** (notch tab "Claude")
 - Shows each Claude Code session as Working, Needs you, Failed, Done or Idle, fed by Claude Code hooks
-- Works with the Claude Code CLI, the desktop app and the VS Code extension; each row shows where the session runs (Desktop, Terminal · iTerm, VS Code, Cursor, ...) and its git branch, and clicking a row brings that app to the front
+- Works with the Claude Code CLI, the desktop app and the VS Code extension; each row shows where the session runs (Desktop, Terminal · iTerm, VS Code, Cursor, ...) and its git branch. Clicking a row, or a Claude banner on the closed notch, opens that session: a desktop app session opens directly in Claude, a Terminal or iTerm session brings its own tab to the front, and other apps are brought to the front
 - Context window bar and token count per row (cost in the row tooltip and the header's Today line), and your 5-hour and weekly plan usage as percentages ([details](#usage-context-and-cost))
 - Approve or deny Claude Code permission requests from the notch (Allow needs a real mouse click and risky requests need a second click; see [Approving permissions from the notch](#approving-permissions-from-the-notch))
 - A done, failed or needs-you event shows a banner on the closed notch and an inbox entry
@@ -209,7 +209,7 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 | Calendars (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | Calendar and meeting features |
 | Camera* | Mirror preview | When you open Mirror |
 | Accessibility* | Intercept volume and brightness keys to replace the system HUDs. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" |
-| Automation (Apple Events) | Control Spotify and Apple Music, the only two apps Nubrix is allowed to script | When you pick those sources in Settings, Media |
+| Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal or iTerm. These four are the only apps Nubrix is allowed to script | When you pick those sources in Settings, Media, or first click a Terminal or iTerm session |
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin |
 | Pasteboard access | On recent macOS versions macOS may ask whether Nubrix may read what other apps copy. Vitrin cannot capture anything while access is denied | When Vitrin starts capturing |
 | Keychain | Stores the optional GitHub token | When you save a token |
