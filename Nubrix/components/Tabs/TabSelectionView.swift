@@ -20,7 +20,8 @@ let tabs = [
     TabModel(label: "Shelf", icon: "tray.fill", view: .shelf),
     TabModel(label: "Vitrin", icon: "square.stack.3d.up.fill", view: .vitrin),
     TabModel(label: "Claude", icon: "sparkle", view: .agents),
-    TabModel(label: "Dev", icon: "terminal.fill", view: .dev)
+    TabModel(label: "Dev", icon: "terminal.fill", view: .dev),
+    TabModel(label: "Notifications", icon: "bell.fill", view: .notifications)
 ]
 
 struct TabSelectionView: View {
@@ -28,9 +29,11 @@ struct TabSelectionView: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @Namespace var animation
     var body: some View {
+        let visibleTabs = tabs.filter { ($0.view != .shelf || Defaults[.nubrixShelf]) && ($0.view != .vitrin || Defaults[.vitrinEnabled]) && ($0.view != .dev || Defaults[.devEnabled]) && ($0.view != .notifications || Defaults[.systemNotificationsEnabled]) }
+        let padding: CGFloat = visibleTabs.count >= 6 ? 6 : 8
         HStack(spacing: 0) {
-            ForEach(tabs.filter { ($0.view != .shelf || Defaults[.nubrixShelf]) && ($0.view != .vitrin || Defaults[.vitrinEnabled]) && ($0.view != .dev || Defaults[.devEnabled]) }) { tab in
-                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view, badge: inbox.severity(for: tab.view)?.tint) {
+            ForEach(visibleTabs) { tab in
+                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view, badge: inbox.severity(for: tab.view)?.tint, horizontalPadding: padding) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
                         }

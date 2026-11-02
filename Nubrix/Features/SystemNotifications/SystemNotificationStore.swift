@@ -9,6 +9,7 @@ final class SystemNotificationStore: ObservableObject {
     @Published private(set) var status: SystemNotificationStatus = .off
     @Published private(set) var banner: SystemNotificationBanner?
     @Published private(set) var knownApps: [String] = []
+    @Published private(set) var history: [SystemNotificationRecord] = []
 
     private var started = false
     private var sleeping = false
@@ -50,6 +51,10 @@ final class SystemNotificationStore: ObservableObject {
         } else {
             status = .off
             dismissBanner()
+            history = []
+            if NubrixCoordinator.shared.currentView == .notifications {
+                NubrixCoordinator.shared.currentView = .home
+            }
         }
     }
 
@@ -82,13 +87,24 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func openSource(_ banner: SystemNotificationBanner) {
-        let bundleID = banner.bundleID
+        open(bundleID: banner.bundleID)
+        dismissBanner()
+    }
+
+    func removeRecord(_ id: UUID) {
+        history.removeAll { $0.id == id }
+    }
+
+    func clearHistory() {
+        history = []
+    }
+
+    func open(bundleID: String) {
         if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
             running.activate()
         } else if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
         }
-        dismissBanner()
         NubrixInbox.shared.markRead(.system)
     }
 
@@ -164,7 +180,12 @@ final class SystemNotificationStore: ObservableObject {
             let title = item.title.isEmpty ? name : item.title
             let message = [item.subtitle, item.body].filter { !$0.isEmpty }.joined(separator: " ")
             NubrixInbox.shared.system(title: title, message: message.isEmpty ? name : message)
+            let record = SystemNotificationRecord(bundleID: item.bundleID, appName: name, title: title,
+                                                  subtitle: item.subtitle, body: item.body,
+                                                  date: item.date > 0 ? Date(timeIntervalSince1970: item.date) : Date())
+            history.insert(record, at: 0)
         }
+        if history.count > 50 { history.removeLast(history.count - 50) }
         if let newest = visible.last { show(newest) }
     }
 

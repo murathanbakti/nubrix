@@ -6,7 +6,7 @@ extension InboxSource {
         switch self {
         case .claude: return .agents
         case .notchctl, .github: return .dev
-        case .system: return .home
+        case .system: return .notifications
         }
     }
 
@@ -32,7 +32,8 @@ extension InboxSource {
         switch tab {
         case .agents: return [.claude]
         case .dev: return [.notchctl, .github]
-        case .home: return [.system]
+        case .notifications: return [.system]
+        case .home: return []
         default: return []
         }
     }

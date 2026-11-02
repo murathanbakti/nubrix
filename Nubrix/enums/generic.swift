@@ -30,6 +30,7 @@ public enum NotchViews {
     case vitrin
     case agents
     case dev
+    case notifications
 }
 
 enum SettingsEnum {

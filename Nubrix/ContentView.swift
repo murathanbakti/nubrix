@@ -455,6 +455,8 @@ struct ContentView: View {
                         AgentSessionsView()
                     case .dev:
                         DevTabView()
+                    case .notifications:
+                        SystemNotificationsTabView()
                     }
                 }
                 .transition(

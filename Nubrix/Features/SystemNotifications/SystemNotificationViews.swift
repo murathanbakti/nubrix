@@ -90,7 +90,7 @@ struct SystemNotificationSettingsSection: View {
         } header: {
             Text("Other apps")
         } footer: {
-            Text("Only the apps you tick are read. Nothing is stored, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
+            Text("Only the apps you tick are read. The Notifications tab keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

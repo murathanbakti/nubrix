@@ -5,7 +5,7 @@ Nubrix is a notch bar for macOS built for developers. It is based on [boring.not
 - **Claude Code in the notch:** live status of every session, plan usage, and permission requests you can approve from the notch
 - **Vitrin:** a clipboard and screenshot showcase that never stores text that looks like a secret
 - **Developer tools:** `notchctl` banners from any script, a localhost port watcher, and read-only GitHub PR and CI status
-- **Notifications from other apps** (optional): new WhatsApp, Slack or Mail notifications as a banner in the notch
+- **Notifications from other apps** (optional): new WhatsApp, Slack or Mail notifications as a banner in the notch, and a Notifications tab to look back at them
 
 Everything runs locally. There is no account, no cloud service, no telemetry and no auto-updater. The few optional network uses are listed under [Privacy and security](#privacy-and-security).
 
@@ -120,11 +120,12 @@ Other install methods are under [Install](#install); the hook setup is explained
 **Notifications from other apps** (optional, off by default)
 - New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; click it to open the app
 - Needs Full Disk Access, because macOS has no public way to read other apps' notifications. When you turn it on, a small guide opens next to System Settings: drag the Nubrix icon into the list, turn on its switch, and the guide confirms as soon as access works
-- Only the apps you tick are read, and nothing is stored. Notifications from the app you are using are skipped, and the message text can be hidden
+- The Notifications tab (bell icon, shown while the feature is on) lists the last 50 notifications, newest first, with a filter per app. Click a row to open its app, hover to remove one, or Clear them all. New ones put a dot on the tab
+- Only the apps you tick are read. The list is kept in memory only and is gone when Nubrix quits. Notifications from the app you are using are skipped, and the message text can be hidden
 - Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch
 
 <p align="center">
-  <img src="docs/images/notifications.png" alt="Closed-notch banners for a chat message, a Slack channel message and an email, and the Other apps settings next to the Full Disk Access guide with the drag-me Nubrix icon" width="100%">
+  <img src="docs/images/notifications.png" alt="The Notifications tab listing a WhatsApp, a Slack and a Mail notification with app filters, two closed-notch banners, and the Other apps settings next to the Full Disk Access guide with the drag-me Nubrix icon" width="100%">
 </p>
 
 ## Requirements
@@ -333,7 +334,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 - **Sealed hooks and deny rules.** See [Why sealed copies](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies). Nothing edits `~/.claude/settings.json`.
 - **Vitrin.** History is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet. The Vitrin panel is hidden from screen sharing and recording by default (Settings, Vitrin). The secret guard is a heuristic: it reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
 - **GitHub token.** Kept in the macOS Keychain only, read-only and limited to the repositories you chose.
-- **Notifications from other apps.** Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only: nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access lets Nubrix read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
+- **Notifications from other apps.** Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access lets Nubrix read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
 - **Signing.** Ad-hoc signed releases use the hardened runtime (no `get-task-allow`) and are not notarized. The app carries `disable-library-validation` because the bundled MediaRemote adapter is ad-hoc signed too. See [docs/nubrix/SUPPLY-CHAIN.md](docs/nubrix/SUPPLY-CHAIN.md) and [docs/nubrix/AUDIT-2026-10-31-release.md](docs/nubrix/AUDIT-2026-10-31-release.md) for the audit and known limits.
 
 See [SECURITY.md](SECURITY.md) for reporting problems.

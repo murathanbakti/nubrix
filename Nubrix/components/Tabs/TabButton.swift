@@ -12,12 +12,13 @@ struct TabButton: View {
     let icon: String
     let selected: Bool
     var badge: Color? = nil
+    var horizontalPadding: CGFloat = 8
     let onClick: () -> Void
     
     var body: some View {
         Button(action: onClick) {
             Image(systemName: icon)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, horizontalPadding)
                 .contentShape(Capsule())
                 .overlay(alignment: .topTrailing) {
                     if let badge {

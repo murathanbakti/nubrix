@@ -56,17 +56,76 @@
   .tilebox .d { font-size: 9.5px; color: var(--gray); }
   .wait { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--gray); }
   .btns { display: flex; justify-content: space-between; }
+  .pane { position: absolute; left: 0; top: 0; width: 1400px; overflow: hidden; --W: 1400px; --s: 2; }
+  .tabs.six .tab { padding: 0 6px; }
+  .nt-tab { padding-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+  .nt-seg { display: flex; align-items: center; gap: 4px; padding: 0 2px; }
+  .nt-seg .s { font-size: 11px; font-weight: 600; line-height: 13px; padding: 3px 10px; border-radius: 10px; color: var(--gray); white-space: nowrap; }
+  .nt-seg .s.sel { color: #fff; background: rgba(255,255,255,.14); }
+  .nt-seg .sp { flex: 1; }
+  .nt-seg .clr { font-size: 10px; color: var(--gray); padding-right: 4px; }
+  .nt-list { display: flex; flex-direction: column; gap: 4px; }
+  .nt-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.06); }
+  .nt-row .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .nt-row .l1 { font-size: 12px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nt-row .l1 b { font-weight: 600; color: #fff; }
+  .nt-row .l1 span { color: var(--gray); }
+  .nt-row .ms { font-size: 11px; line-height: 13px; color: var(--gray); }
+  .nt-row .ag { font-size: 11px; line-height: 15px; color: var(--gray); font-variant-numeric: tabular-nums; flex: none; }
 </style>
 </head>
 <body>
-<div class="scene" data-size="1400x856" style="--W:1400px;--H:856px">
-  <div class="grid" id="grid"></div>
-  <div class="setup" style="top:324px;height:532px;--H:532px">
+<div class="scene" data-size="1400x1230" style="--W:1400px;--H:1230px">
+  <div class="pane" style="--H:470px;height:470px">
+    <div class="desk"></div>
+    <div class="stage">
+      <div class="notch open" style="--nw:640px;--nh:222px">
+        <div class="notch-body">
+          <div class="nx-header">
+            <div class="nx-left">
+              <div class="tabs six">
+                <div class="tab"><i data-icon="house" data-size="15"></i></div>
+                <div class="tab"><i data-icon="tray" data-size="15"></i></div>
+                <div class="tab"><i data-icon="stack" data-size="15"></i></div>
+                <div class="tab"><i data-icon="sparkle" data-size="15"></i></div>
+                <div class="tab"><i data-icon="terminal" data-size="15"></i></div>
+                <div class="tab sel"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 2.6c-3.6 0-6.3 2.8-6.3 6.4v4.2L3.9 16c-.5.8 0 1.8 1 1.8h14.2c1 0 1.5-1 1-1.8l-1.8-2.8V9c0-3.6-2.7-6.4-6.3-6.4z" fill="currentColor"/><path d="M9.2 19.4a2.9 2.9 0 0 0 5.6 0z" fill="currentColor"/></svg></div>
+              </div>
+            </div>
+            <div class="nx-gap"></div>
+            <div class="nx-right">
+              <div class="date-pill">Mon 2</div>
+              <div class="round-btn"><i data-icon="camera" data-size="16"></i></div>
+              <div class="round-btn"><i data-icon="gear" data-size="16"></i></div>
+              <div class="battery-pct">
+                <span class="pct">64%</span>
+                <div class="battery">
+                  <svg width="31" height="15" viewBox="0 0 31 15">
+                    <rect x=".5" y=".5" width="27" height="14" rx="4.2" fill="none" stroke="#fff" stroke-opacity=".5"/>
+                    <path d="M29 5v5c1-.3 1.7-1.2 1.7-2.5S30 5.3 29 5z" fill="#fff" fill-opacity=".5"/>
+                    <rect x="2" y="2.9" width="15.4" height="9.25" rx="2.5" fill="#fff"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="nx-content" style="height:auto">
+            <div class="nt-tab">
+              <div class="nt-seg"><span class="s sel">All</span><span class="s">Mail</span><span class="s">Slack</span><span class="s">WhatsApp</span><span class="sp"></span><span class="clr">Clear</span></div>
+              <div class="nt-list" id="list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid" id="grid" style="top:482px"></div>
+  <div class="setup" style="top:698px;height:532px;--H:532px">
     <div class="stage">
       <div class="form">
         <div class="hd">Other apps</div>
         <div class="group" id="group"></div>
-        <div class="foot">Only the apps you tick are read. Nothing is stored, logged or sent anywhere, and only notifications that arrive after you turn this on are shown.</div>
+        <div class="foot">Only the apps you tick are read. The Notifications tab keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown.</div>
       </div>
       <div class="guide">
         <div class="lights"><i></i><i></i><i></i></div>
@@ -102,9 +161,17 @@
   }
   var tiles = [
     banner('chat', 'Elif', 'Are we still on for 7?'),
-    banner('team', 'Deniz · #design', 'Pushed the new icons'),
-    banner('mail', 'Can Yilmaz', 'Contract draft attached')
+    banner('team', 'Deniz · #design', 'Pushed the new icons')
   ];
+  var rows = [
+    ['chat', 'Elif', 'WhatsApp', 'Are we still on for 7? I can book the table if you are.', 'now'],
+    ['team', 'Deniz · #design', 'Slack', 'Pushed the new icons to the shared folder', '4m'],
+    ['mail', 'Can Yilmaz', 'Mail', 'Contract draft attached. Comments by Friday?', '18m']
+  ];
+  document.getElementById('list').innerHTML = rows.map(function (r) {
+    return '<div class="nt-row">' + appIcon(r[0], 20) + '<div class="tx"><div class="l1"><b>' + r[1] + '</b><span> · ' + r[2] + '</span></div>' +
+      '<div class="ms">' + r[3] + '</div></div><span class="ag">' + r[4] + '</span></div>';
+  }).join('');
   document.getElementById('grid').innerHTML = tiles.map(function (html) {
     return '<div class="tile"><div class="stage">' +
       '<div class="notch closed" style="--nw:533px;--nh:32px"><div class="notch-body">' + html + '</div></div></div></div>';

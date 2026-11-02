@@ -65,6 +65,16 @@ struct SystemNotificationBanner: Identifiable, Equatable {
     let body: String
 }
 
+struct SystemNotificationRecord: Identifiable, Equatable {
+    let id = UUID()
+    let bundleID: String
+    let appName: String
+    let title: String
+    let subtitle: String
+    let body: String
+    let date: Date
+}
+
 enum SystemNotificationStatus: Equatable {
     case off
     case waiting

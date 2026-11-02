@@ -17,7 +17,7 @@ struct NubrixHeader: View {
     var body: some View {
         HStack(spacing: 0) {
             HStack {
-                if ((!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.nubrixShelf]) || !agents.sessions.isEmpty || Defaults[.vitrinEnabled] || Defaults[.devEnabled] {
+                if ((!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.nubrixShelf]) || !agents.sessions.isEmpty || Defaults[.vitrinEnabled] || Defaults[.devEnabled] || Defaults[.systemNotificationsEnabled] {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()
