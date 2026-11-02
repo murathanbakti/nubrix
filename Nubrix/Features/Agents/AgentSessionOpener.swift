@@ -43,6 +43,7 @@ enum AgentSessionOpener {
     }
 
     private static func desktopURL(sessionID: String) -> URL? {
+        guard sessionID.wholeMatch(of: /local_[A-Za-z0-9-]{1,64}/) != nil else { return nil }
         var components = URLComponents()
         components.scheme = "claude"
         components.host = "code"
