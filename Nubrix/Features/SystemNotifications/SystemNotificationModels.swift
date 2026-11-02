@@ -64,6 +64,7 @@ enum SystemNotificationReplyStatus: String, Sendable {
     case failed
     case unconfirmed
     case gone
+    case previewsHidden
 
     static let maxBytes = 4 * 1024
 

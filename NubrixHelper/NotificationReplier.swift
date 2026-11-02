@@ -13,6 +13,7 @@ enum NotificationReplyStatus: String {
     case failed
     case unconfirmed
     case gone
+    case previewsHidden
 
     func encoded() -> Data {
         (try? JSONSerialization.data(withJSONObject: ["status": rawValue])) ?? Data()
@@ -196,6 +197,7 @@ private final class ReplySession {
     private let request: ReplyRequest
     private var ncPid: pid_t = 0
     private var openedNotificationCenter = false
+    private var previewsHidden = false
 
     init(job: ReplyJob, request: ReplyRequest) {
         self.job = job
@@ -221,15 +223,15 @@ private final class ReplySession {
         case .found(let match):
             return perform(match, app: app)
         case .blocked:
-            return .notFound
+            return missingStatus()
         case .missing:
             break
         }
 
-        guard !job.isExpired else { return .notFound }
+        guard !job.isExpired else { return missingStatus() }
         let opened = openNotificationCenter(app)
         replyLog.info("reply openNotificationCenter opened=\(opened, privacy: .public)")
-        guard opened else { return .notFound }
+        guard opened else { return missingStatus() }
 
         let pollEnd = min(Date().addingTimeInterval(Self.pollWindow), job.deadline)
         var attempt = 1
@@ -238,7 +240,7 @@ private final class ReplySession {
             case .found(let match):
                 return perform(match, app: app)
             case .blocked:
-                return .notFound
+                return missingStatus()
             case .missing:
                 break
             }
@@ -246,7 +248,12 @@ private final class ReplySession {
             Thread.sleep(forTimeInterval: Self.pollInterval)
             attempt += 1
         }
-        return .notFound
+        return missingStatus()
+    }
+
+    private func missingStatus() -> NotificationReplyStatus {
+        replyLog.info("reply previewsHidden=\(self.previewsHidden, privacy: .public)")
+        return previewsHidden ? .previewsHidden : .notFound
     }
 
     private static func pid(of bundleID: String) -> pid_t? {
@@ -509,6 +516,17 @@ private final class ReplySession {
             for index in accepted { reasons[index] = "duplicate" }
         }
 
+        var anyTitle = false
+        var anyBody = false
+        for index in candidates {
+            for text in normalizedParts[index] ?? [] {
+                if !title.isEmpty, text.contains(title) { anyTitle = true }
+                if !body.isEmpty, text.contains(body) { anyBody = true }
+            }
+        }
+        let hasReplyCandidate = candidates.contains { nodes[$0].customActions.contains(where: isReplyAction) }
+        previewsHidden = accepted.isEmpty && hasReplyCandidate && !anyTitle && !anyBody && !(title.isEmpty && body.isEmpty)
+
         for (position, index) in candidates.enumerated() where position < Self.maxCandidateLogs {
             let node = nodes[index]
             let identifier = string(node.element, kAXIdentifierAttribute) ?? ""
@@ -523,7 +541,21 @@ private final class ReplySession {
                 let eqApp = !appName.isEmpty && normalized == appName
                 let eqTitle = !title.isEmpty && normalized == title
                 let eqSubtitle = !subtitle.isEmpty && normalized == subtitle
-                replyLog.info("part pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) src=\(owned.part.source, privacy: .public) len=\(normalized.count, privacy: .public) words=\(Self.tokens(normalized).count, privacy: .public) eqApp=\(eqApp, privacy: .public) eqTitle=\(eqTitle, privacy: .public) eqSubtitle=\(eqSubtitle, privacy: .public) bodyExact=\(bodyResult.exact, privacy: .public) bodyPrefix=\(bodyResult.prefix, privacy: .public)")
+                let hasApp = !appName.isEmpty && normalized.contains(appName)
+                let hasTitle = !title.isEmpty && normalized.contains(title)
+                let hasBody = !body.isEmpty && normalized.contains(body)
+                replyLog.info("part pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) src=\(owned.part.source, privacy: .public) len=\(normalized.count, privacy: .public) words=\(Self.tokens(normalized).count, privacy: .public) eqApp=\(eqApp, privacy: .public) eqTitle=\(eqTitle, privacy: .public) eqSubtitle=\(eqSubtitle, privacy: .public) bodyExact=\(bodyResult.exact, privacy: .public) bodyPrefix=\(bodyResult.prefix, privacy: .public) hasApp=\(hasApp, privacy: .public) hasTitle=\(hasTitle, privacy: .public) hasBody=\(hasBody, privacy: .public)")
+                if owned.part.source == "self.AXDescription" || normalized.count > 60 {
+                    let segments = normalized
+                        .replacingOccurrences(of: "\n", with: ", ")
+                        .components(separatedBy: ", ")
+                    for (s, raw) in segments.prefix(20).enumerated() {
+                        let segment = raw.trimmingCharacters(in: .whitespaces)
+                        let segmentBody = Self.bodyMatch(segment, body: body)
+                        let hasDigits = segment.unicodeScalars.contains { CharacterSet.decimalDigits.contains($0) }
+                        replyLog.info("seg pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) s=\(s, privacy: .public) len=\(segment.count, privacy: .public) words=\(Self.tokens(segment).count, privacy: .public) eqApp=\(!appName.isEmpty && segment == appName, privacy: .public) eqTitle=\(!title.isEmpty && segment == title, privacy: .public) eqSubtitle=\(!subtitle.isEmpty && segment == subtitle, privacy: .public) bodyExact=\(segmentBody.exact, privacy: .public) bodyPrefix=\(segmentBody.prefix, privacy: .public) hasDigits=\(hasDigits, privacy: .public)")
+                    }
+                }
             }
             if let evaluation = evaluations[index] {
                 replyLog.info("match cand=\(index, privacy: .public) app=\(evaluation.app, privacy: .public) sender=\(evaluation.sender, privacy: .public) message=\(evaluation.message, privacy: .public) distinct=\(evaluation.distinct, privacy: .public) ownParts=\(evaluation.ownParts, privacy: .public) accepted=\(reasons[index] == "ok", privacy: .public) reason=\(reasons[index] ?? "none", privacy: .public)")

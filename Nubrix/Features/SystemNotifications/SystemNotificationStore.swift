@@ -159,14 +159,14 @@ final class SystemNotificationStore: ObservableObject {
         switch status {
         case .sent:
             break
-        case .notFound, .noAccess, .unsupported, .failed, .gone, .unconfirmed:
+        case .notFound, .noAccess, .unsupported, .failed, .gone, .unconfirmed, .previewsHidden:
             copyToPasteboard(text)
         }
         return status
     }
 
     func finishReply(_ status: SystemNotificationReplyStatus, record: SystemNotificationRecord) {
-        guard status != .sent, status != .unconfirmed,
+        guard status != .sent, status != .unconfirmed, status != .previewsHidden,
               Defaults[.systemNotificationsEnabled], Defaults[.systemNotificationQuickReply] else { return }
         if status == .noAccess {
             AccessibilityGuide.begin(resume: record)

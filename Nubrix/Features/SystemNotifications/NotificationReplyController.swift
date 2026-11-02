@@ -16,6 +16,7 @@ final class NotificationReplyController: ObservableObject {
         case missing
         case note(String)
         case unconfirmed(String)
+        case previewsHidden
     }
 
     @Published private(set) var activeRecordID: UUID?
@@ -142,6 +143,13 @@ final class NotificationReplyController: ObservableObject {
         SystemNotificationStore.shared.open(bundleID: record.bundleID)
     }
 
+    func showNotificationSettings() {
+        end(restore: false)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     func send() {
         guard Self.isEnabled, canSend, let record else { return }
         let message = trimmed
@@ -168,6 +176,8 @@ final class NotificationReplyController: ObservableObject {
                 await finish("\(record.appName) has no reply action in its notifications. Text copied.", status, record, current)
             case .gone:
                 await finish("This notification was cleared from Notification Center. Text copied.", status, record, current)
+            case .previewsHidden:
+                withAnimation(.smooth) { phase = .previewsHidden }
             case .unconfirmed:
                 withAnimation(.smooth) { phase = .unconfirmed("Sent, but Nubrix couldn't confirm it. Text copied, check \(record.appName).") }
             }
@@ -224,6 +234,7 @@ final class NotificationReplyController: ObservableObject {
                 guard let self, self.activeRecordID != nil, self.phase != .sending, self.phase != .sent else { return }
                 if case .note = self.phase { return }
                 if case .unconfirmed = self.phase { return }
+                if self.phase == .previewsHidden { return }
                 if self.activePanel?.isKeyWindow == true { return }
                 self.cancel()
             }
