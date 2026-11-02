@@ -175,7 +175,10 @@ Remaining:
   sends. Anything uncertain sends nothing: the text is copied (transient,
   concealed) and the app is opened. A send that could not be confirmed says so
   instead of asking to paste again. Needs on-device checking after macOS
-  updates.
+  updates. Needs Notification Center previews: when they are hidden the
+  reply arrow is not offered for that app (learned on the first attempt,
+  stored with the `com.apple.ncprefs` visibility values and re-offered when
+  those change or via Check again in Settings).
 - Later: Dock badge counts as a no-permission fallback.
 
 ## Feature switches and tab layout (done, not yet tried on device)

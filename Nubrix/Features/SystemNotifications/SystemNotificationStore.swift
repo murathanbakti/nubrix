@@ -166,7 +166,7 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func finishReply(_ status: SystemNotificationReplyStatus, record: SystemNotificationRecord) {
-        guard status != .sent, status != .unconfirmed, status != .previewsHidden,
+        guard status != .sent, status != .unconfirmed,
               Defaults[.systemNotificationsEnabled], Defaults[.systemNotificationQuickReply] else { return }
         if status == .noAccess {
             AccessibilityGuide.begin(resume: record)
@@ -293,6 +293,7 @@ final class SystemNotificationStore: ObservableObject {
         bannerTask?.cancel()
         withAnimation(.smooth) { self.banner = banner }
         scheduleBannerDismiss(after: 6)
+        QuickReplyAvailability.shared.refresh([item.bundleID])
     }
 
     private func setPaused(sleeping: Bool? = nil, locked: Bool? = nil) {

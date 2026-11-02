@@ -172,6 +172,22 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         }
     }
 
+    @objc func notificationPreviewFingerprint(_ bundleID: String, with reply: @escaping (String?) -> Void) {
+        systemNotificationQueue.async {
+            let domain = "com.apple.ncprefs" as CFString
+            CFPreferencesAppSynchronize(domain)
+            let global = CFPreferencesCopyAppValue("content_visibility" as CFString, domain) as? Int
+            let apps = CFPreferencesCopyAppValue("apps" as CFString, domain) as? [[String: Any]]
+            guard global != nil || apps != nil else {
+                reply(nil)
+                return
+            }
+            let entry = apps?.first { ($0["bundle-id"] as? String) == bundleID }
+            let perApp = entry?["content_visibility"] as? Int
+            reply("g=\(global ?? -1);a=\(perApp ?? -1)")
+        }
+    }
+
     // MARK: - Private helpers for DisplayServices / IOKit access
     private func displayServicesGetBrightness(displayID: CGDirectDisplayID, out: inout Float) -> Bool {
         guard let sym = dlsym(DisplayServicesHandle.handle, "DisplayServicesGetBrightness") else { return false }

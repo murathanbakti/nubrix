@@ -306,6 +306,20 @@ final class XPCHelperClient: NSObject {
         }
     }
 
+    @MainActor func notificationPreviewFingerprint(bundleID: String) async -> String? {
+        do {
+            let service = ensureRemoteService()
+            let value: String = try await service.withContinuation { service, continuation in
+                service.notificationPreviewFingerprint(bundleID) { fingerprint in
+                    continuation.resume(returning: fingerprint ?? "")
+                }
+            }
+            return value.isEmpty ? nil : value
+        } catch {
+            return nil
+        }
+    }
+
     @MainActor func replyToNotification(recID: Int64, bundleID: String, appName: String, title: String, subtitle: String, body: String, text: String) async -> SystemNotificationReplyStatus {
         struct Payload: Encodable {
             let recID: Int64

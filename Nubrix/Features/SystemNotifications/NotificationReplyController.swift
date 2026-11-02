@@ -16,7 +16,6 @@ final class NotificationReplyController: ObservableObject {
         case missing
         case note(String)
         case unconfirmed(String)
-        case previewsHidden
     }
 
     @Published private(set) var activeRecordID: UUID?
@@ -70,7 +69,8 @@ final class NotificationReplyController: ObservableObject {
     }
 
     func openAndBegin(record: SystemNotificationRecord, vm preferred: NubrixViewModel? = nil) {
-        guard Self.isEnabled, let vm = preferred ?? preferredModel() else { return }
+        guard Self.isEnabled, QuickReplyAvailability.shared.isReplyAvailable(record.bundleID),
+              let vm = preferred ?? preferredModel() else { return }
         NubrixCoordinator.shared.currentView = .notifications
         if vm.notchState != .open {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) { vm.open() }
@@ -82,7 +82,7 @@ final class NotificationReplyController: ObservableObject {
     }
 
     func begin(record: SystemNotificationRecord, vm preferred: NubrixViewModel? = nil) {
-        guard Self.isEnabled else { return }
+        guard Self.isEnabled, QuickReplyAvailability.shared.isReplyAvailable(record.bundleID) else { return }
         if activeRecordID != nil { end(restore: true) }
         guard let vm = preferred ?? preferredModel() else { return }
         generation += 1
@@ -143,13 +143,6 @@ final class NotificationReplyController: ObservableObject {
         SystemNotificationStore.shared.open(bundleID: record.bundleID)
     }
 
-    func showNotificationSettings() {
-        end(restore: false)
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
     func send() {
         guard Self.isEnabled, canSend, let record else { return }
         let message = trimmed
@@ -177,7 +170,8 @@ final class NotificationReplyController: ObservableObject {
             case .gone:
                 await finish("This notification was cleared from Notification Center. Text copied.", status, record, current)
             case .previewsHidden:
-                withAnimation(.smooth) { phase = .previewsHidden }
+                await QuickReplyAvailability.shared.markHidden(record.bundleID)
+                await finish("Previews are off for \(record.appName), so your text was copied.", status, record, current)
             case .unconfirmed:
                 withAnimation(.smooth) { phase = .unconfirmed("Sent, but Nubrix couldn't confirm it. Text copied, check \(record.appName).") }
             }
@@ -234,7 +228,6 @@ final class NotificationReplyController: ObservableObject {
                 guard let self, self.activeRecordID != nil, self.phase != .sending, self.phase != .sent else { return }
                 if case .note = self.phase { return }
                 if case .unconfirmed = self.phase { return }
-                if self.phase == .previewsHidden { return }
                 if self.activePanel?.isKeyWindow == true { return }
                 self.cancel()
             }

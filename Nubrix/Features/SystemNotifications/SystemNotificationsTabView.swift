@@ -43,6 +43,7 @@ struct SystemNotificationsTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 4)
+        .onAppear { QuickReplyAvailability.shared.refresh(apps.map(\.id)) }
     }
 
     private var topRow: some View {
@@ -136,6 +137,7 @@ struct SystemNotificationRow: View {
     @EnvironmentObject var vm: NubrixViewModel
     @Default(.systemNotificationQuickReply) var quickReply
     @ObservedObject private var reply = NotificationReplyController.shared
+    @ObservedObject private var availability = QuickReplyAvailability.shared
     @FocusState private var focused: Bool
     @State private var hovering = false
 
@@ -192,7 +194,7 @@ struct SystemNotificationRow: View {
             if replying {
                 EmptyView()
             } else if hovering {
-                if quickReply {
+                if quickReply, availability.isReplyAvailable(record.bundleID) {
                     Button {
                         reply.begin(record: record, vm: vm)
                     } label: {
@@ -280,24 +282,6 @@ struct SystemNotificationRow: View {
                 .lineLimit(2)
         case .unconfirmed(let text):
             bar(text, "Open \(record.appName)") { reply.openApp() }
-        case .previewsHidden:
-            HStack(spacing: 8) {
-                Text("Notification Center hides message previews, so Nubrix can't tell which chat to reply to. Text copied.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.gray)
-                    .lineLimit(2)
-                Spacer(minLength: 6)
-                Button("Open \(record.appName)") { reply.openApp() }
-                    .controlSize(.small)
-                Button("Show Settings") { reply.showNotificationSettings() }
-                    .controlSize(.small)
-                Button { reply.cancel() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.gray)
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
