@@ -100,10 +100,12 @@ struct InboxSettings: View {
             } header: {
                 Text("Sources")
             } footer: {
-                Text("Done, failed and needs-you events from Claude Code sessions, and notifications sent with notchctl. Other apps' notifications cannot be read. Turning a source off also clears its unread items.")
+                Text("Done, failed and needs-you events from Claude Code sessions, and notifications sent with notchctl. Notifications from other apps are set up under Other apps below. Turning a source off also clears its unread items.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+
+            SystemNotificationSettingsSection()
 
             Section {
                 Defaults.Toggle(key: .claudeNotchApprovals) {

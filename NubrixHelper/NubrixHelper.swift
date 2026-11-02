@@ -145,6 +145,22 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         }
     }
 
+    private let systemNotificationReader = SystemNotificationReader()
+    private let systemNotificationQueue = DispatchQueue(label: "dev.nubrix.helper.systemNotifications", qos: .utility)
+
+    @objc func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void) {
+        let allowed = Set(allowedApps.prefix(200))
+        systemNotificationQueue.async {
+            reply(self.systemNotificationReader.fetch(after: cursor, allowed: allowed).encoded())
+        }
+    }
+
+    @objc func fetchSystemNotificationApps(with reply: @escaping (Data) -> Void) {
+        systemNotificationQueue.async {
+            reply(self.systemNotificationReader.apps().encoded())
+        }
+    }
+
     // MARK: - Private helpers for DisplayServices / IOKit access
     private func displayServicesGetBrightness(displayID: CGDirectDisplayID, out: inout Float) -> Bool {
         guard let sym = dlsym(DisplayServicesHandle.handle, "DisplayServicesGetBrightness") else { return false }

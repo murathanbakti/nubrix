@@ -259,6 +259,38 @@ final class XPCHelperClient: NSObject {
             return .failure(.failed)
         }
     }
+
+    nonisolated func fetchSystemNotifications(after cursor: Int64, allowedApps: [String]) async -> SystemNotificationFetch {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            let data: Data = try await service.withContinuation { service, continuation in
+                service.fetchSystemNotifications(after: cursor, allowedApps: allowedApps) { data in
+                    continuation.resume(returning: data)
+                }
+            }
+            return SystemNotificationFetch.decode(data)
+        } catch {
+            return .failed
+        }
+    }
+
+    nonisolated func fetchSystemNotificationApps() async -> SystemNotificationAppsFetch {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            let data: Data = try await service.withContinuation { service, continuation in
+                service.fetchSystemNotificationApps { data in
+                    continuation.resume(returning: data)
+                }
+            }
+            return SystemNotificationAppsFetch.decode(data)
+        } catch {
+            return .failed
+        }
+    }
 }
 
 extension Notification.Name {

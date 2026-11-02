@@ -21,5 +21,7 @@ import Foundation
     func currentScreenBrightness(with reply: @escaping (NSNumber?) -> Void)
     func setScreenBrightness(_ value: Float, with reply: @escaping (Bool) -> Void)
     func fetchClaudePlanUsage(with reply: @escaping (Data) -> Void)
+    func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void)
+    func fetchSystemNotificationApps(with reply: @escaping (Data) -> Void)
 }
 

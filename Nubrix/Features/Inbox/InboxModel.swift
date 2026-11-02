@@ -4,6 +4,7 @@ enum InboxSource: String, CaseIterable {
     case claude
     case notchctl
     case github
+    case system
 }
 
 enum InboxSeverity: Int, Comparable {
@@ -79,6 +80,12 @@ struct InboxLedger {
     @discardableResult
     mutating func recordNotice(title: String, message: String, date: Date = Date()) -> Bool {
         insert(InboxEntry(source: .notchctl, severity: .notice, title: title, message: message, date: date, sessionID: nil))
+        return true
+    }
+
+    @discardableResult
+    mutating func recordSystem(title: String, message: String, date: Date = Date()) -> Bool {
+        insert(InboxEntry(source: .system, severity: .notice, title: title, message: message, date: date, sessionID: nil))
         return true
     }
 

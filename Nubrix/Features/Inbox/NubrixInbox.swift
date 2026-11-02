@@ -6,6 +6,7 @@ extension InboxSource {
         switch self {
         case .claude: return .agents
         case .notchctl, .github: return .dev
+        case .system: return .home
         }
     }
 
@@ -14,6 +15,7 @@ extension InboxSource {
         case .claude: return "Claude Code"
         case .notchctl: return "notchctl"
         case .github: return "GitHub"
+        case .system: return "Notifications"
         }
     }
 
@@ -22,6 +24,7 @@ extension InboxSource {
         case .claude: return Defaults[.inboxClaudeEnabled]
         case .notchctl: return Defaults[.inboxNotchctlEnabled]
         case .github: return Defaults[.inboxGithubEnabled]
+        case .system: return Defaults[.systemNotificationsEnabled]
         }
     }
 
@@ -29,6 +32,7 @@ extension InboxSource {
         switch tab {
         case .agents: return [.claude]
         case .dev: return [.notchctl, .github]
+        case .home: return [.system]
         default: return []
         }
     }
@@ -102,6 +106,11 @@ final class NubrixInbox: ObservableObject {
     func notchctl(title: String?, message: String) {
         guard InboxSource.notchctl.isEnabled else { return }
         update { $0.recordNotice(title: title ?? "notchctl", message: message) }
+    }
+
+    func system(title: String, message: String) {
+        guard InboxSource.system.isEnabled else { return }
+        update { $0.recordSystem(title: title, message: message) }
     }
 
     func github(_ event: GitHubEvent) {

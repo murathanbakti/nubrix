@@ -22,6 +22,7 @@ struct ContentView: View {
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
+    @ObservedObject var systemNotifications = SystemNotificationStore.shared
     @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
     @ObservedObject var inbox = NubrixInbox.shared
     @ObservedObject var meetings = MeetingWatcher.shared
@@ -84,7 +85,7 @@ struct ContentView: View {
     }
 
     private var bannerShowing: Bool {
-        permissionShowing || screenshotBanner.banner != nil || agents.banner != nil || devNotifications.banner != nil || meetings.banner != nil
+        permissionShowing || screenshotBanner.banner != nil || agents.banner != nil || devNotifications.banner != nil || systemNotifications.banner != nil || meetings.banner != nil
     }
 
     private var meetingCountdownShowing: Bool {
@@ -182,6 +183,8 @@ struct ContentView: View {
                             devNotifications.dismissBanner()
                             inbox.markRead(.notchctl)
                             inbox.markRead(.github)
+                        } else if vm.notchState == .closed, let banner = systemNotifications.banner {
+                            systemNotifications.openSource(banner)
                         } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()
@@ -361,6 +364,9 @@ struct ContentView: View {
                               .transition(.opacity)
                       } else if let banner = devNotifications.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           DevBannerView(banner: banner)
+                              .transition(.opacity)
+                      } else if let banner = systemNotifications.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                          SystemNotificationBannerView(banner: banner)
                               .transition(.opacity)
                       } else if let banner = meetings.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           MeetingBannerView(banner: banner)

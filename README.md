@@ -110,6 +110,11 @@ Other install methods are under [Install](#install); the hook setup is explained
 - Meeting countdown in the closed notch, and a meeting card with a Join button on the Home tab when the event has a Zoom, Google Meet, Teams, Webex, Whereby or Slack Huddle link
 - Mirror: a camera preview that splits out of the notch (Control-Option-M)
 
+**Notifications from other apps** (optional, off by default)
+- New notifications from the apps you pick (for example WhatsApp, Slack or Mail) appear as a banner on the closed notch with the app icon, sender and message; click it to open the app
+- Needs Full Disk Access, because macOS has no public way to read other apps' notifications (see [Permissions](#permissions)). Only the apps you tick are read, and nothing is stored
+- Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch
+
 <p align="center">
   <img src="docs/images/calendar.png" alt="The calendar sheet with the November month grid and the day panel listing today's events" width="100%">
 </p>
@@ -192,8 +197,9 @@ Nubrix asks for access only when you use the feature that needs it (the onboardi
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin |
 | Pasteboard access | On recent macOS versions macOS may ask whether Nubrix may read what other apps copy. Vitrin cannot capture anything while access is denied | When Vitrin starts capturing |
 | Keychain | Stores the optional GitHub token | When you save a token |
+| Full Disk Access | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only | Only if you turn on Settings, Notifications, Other apps |
 
-Nubrix does not use the macOS notification centre. Its banners are drawn in the notch. There is no Full Disk Access and no Screen Recording permission.
+Nubrix's own banners are drawn in the notch; it does not post to the macOS notification centre. Full Disk Access is only needed for notifications from other apps; everything else works without it. There is no Screen Recording permission.
 
 ## Claude Code setup
 
@@ -299,7 +305,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | Vitrin | Capture toggles, screenshot folder and preview, retention, excluded apps, hide from screen sharing, clear history |
 | Dev | Which localhost ports are watched |
 | GitHub | Token, watched repositories, notification toggles |
-| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notch approvals, plan usage, Home usage card, meeting countdown |
+| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, notch approvals, plan usage, Home usage card, meeting countdown |
 | Shortcuts | Global keyboard shortcuts (defaults: Control-Option-V Vitrin, Control-Option-K calendar, Control-Option-M mirror) |
 | Advanced | Additional options |
 | About | Version, credits and licenses |
@@ -319,6 +325,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 - **Sealed hooks and deny rules.** See [Why sealed copies](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies). Nothing edits `~/.claude/settings.json`.
 - **Vitrin.** History is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet. The Vitrin panel is hidden from screen sharing and recording by default (Settings, Vitrin). The secret guard is a heuristic: it reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
 - **GitHub token.** Kept in the macOS Keychain only, read-only and limited to the repositories you chose.
+- **Notifications from other apps.** Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only: nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access lets Nubrix read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
 - **Signing.** Ad-hoc signed releases use the hardened runtime (no `get-task-allow`) and are not notarized. The app carries `disable-library-validation` because the bundled MediaRemote adapter is ad-hoc signed too. See [docs/nubrix/SUPPLY-CHAIN.md](docs/nubrix/SUPPLY-CHAIN.md) and [docs/nubrix/AUDIT-2026-10-31-release.md](docs/nubrix/AUDIT-2026-10-31-release.md) for the audit and known limits.
 
 See [SECURITY.md](SECURITY.md) for reporting problems.
@@ -344,6 +351,8 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 **Music is not detected.** Pick the source in Settings, Media. "Now Playing" uses the bundled MediaRemote adapter (run through `/usr/bin/perl`); on macOS versions where that access was removed, Nubrix selects Apple Music instead and you can use the Spotify, Apple Music or YouTube Music controllers. Spotify and Apple Music need the Automation permission (System Settings, Privacy & Security, Automation). YouTube Music needs the desktop app's API server on `localhost:26538`.
 
 **The notch is not visible.** Check Settings, General: "Show on all displays" and "Automatically switch displays" decide which display shows it. On a Mac without a notch the bar is a strip at the top centre; its height is set there too. Settings, Media, "Full screen behavior" can hide it while an app is fullscreen. If you turned off the menu bar icon ("Show menu bar icon"), the Settings window may be hard to reach, so check that first.
+
+**Notifications from other apps do not appear.** Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. "Full Disk Access needed" means Nubrix is not on (or was dropped from) the list in System Settings, Privacy & Security, Full Disk Access; ad-hoc signed updates can drop it, so add Nubrix again and wait a few seconds. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
 
 **The volume and brightness HUDs did not change.** "Replace system HUD" needs Accessibility access for Nubrix's helper (System Settings, Privacy & Security, Accessibility). If access is missing at launch, Nubrix turns the option off.
 
