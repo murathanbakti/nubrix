@@ -19,7 +19,8 @@ struct ContentView: View {
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
-    @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var agentActivity = AgentActivity.shared
+    let agents = AgentSessionStore.shared
     @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
     @ObservedObject var systemNotifications = SystemNotificationStore.shared
@@ -85,7 +86,7 @@ struct ContentView: View {
     }
 
     private var bannerShowing: Bool {
-        permissionShowing || screenshotBanner.banner != nil || agents.banner != nil || devNotifications.banner != nil || systemNotifications.banner != nil || meetings.banner != nil
+        permissionShowing || screenshotBanner.banner != nil || agentActivity.banner != nil || devNotifications.banner != nil || systemNotifications.banner != nil || meetings.banner != nil
     }
 
     private var meetingCountdownShowing: Bool {
@@ -109,7 +110,7 @@ struct ContentView: View {
 
     private var inboxWingShowing: Bool {
         vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
-            && inboxKeepIcon && inbox.unreadCount > 0 && !bannerShowing && !agents.needsAttention
+            && inboxKeepIcon && inbox.unreadCount > 0 && !bannerShowing && !agentActivity.needsAttention
             && !musicActivityShowing && !meetingCountdownShowing
     }
 
@@ -186,13 +187,13 @@ struct ContentView: View {
                         } else if vm.notchState == .closed, let banner = systemNotifications.banner {
                             systemNotifications.openSource(banner)
                             return
-                        } else if vm.notchState == .closed, let banner = agents.banner, let session = agents.session(banner.sessionID),
+                        } else if vm.notchState == .closed, let banner = agentActivity.banner, let session = agents.session(banner.sessionID),
                                   AgentSessionOpener.canOpen(session.source) {
                             AgentSessionOpener.open(session.source)
                             agents.dismissBanner()
                             inbox.markRead(.claude)
                             return
-                        } else if vm.notchState == .closed && (agents.banner != nil || agents.needsAttention) {
+                        } else if vm.notchState == .closed && (agentActivity.banner != nil || agentActivity.needsAttention) {
                             coordinator.currentView = .agents
                             agents.dismissBanner()
                             inbox.markRead(.claude)
@@ -366,7 +367,7 @@ struct ContentView: View {
                       } else if let banner = screenshotBanner.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           ScreenshotBannerView(banner: banner)
                               .transition(.opacity)
-                      } else if let banner = agents.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                      } else if let banner = agentActivity.banner, vm.notchState == .closed, !vm.hideOnClosed {
                           AgentBannerView(banner: banner)
                               .transition(.opacity)
                       } else if let banner = devNotifications.banner, vm.notchState == .closed, !vm.hideOnClosed {
@@ -381,7 +382,7 @@ struct ContentView: View {
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
-                      } else if !coordinator.expandingView.show && vm.notchState == .closed && agents.needsAttention && !vm.hideOnClosed {
+                      } else if !coordinator.expandingView.show && vm.notchState == .closed && agentActivity.needsAttention && !vm.hideOnClosed {
                           AgentLiveActivity()
                       } else if meetingCountdownShowing {
                           MeetingLiveActivity()
@@ -390,7 +391,7 @@ struct ContentView: View {
                               .frame(alignment: .center)
                       } else if inboxWingShowing {
                           InboxLiveActivity()
-                      } else if !coordinator.expandingView.show && vm.notchState == .closed && agents.isWorking && !vm.hideOnClosed {
+                      } else if !coordinator.expandingView.show && vm.notchState == .closed && agentActivity.isWorking && !vm.hideOnClosed {
                           AgentLiveActivity()
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           NubrixFaceAnimation()

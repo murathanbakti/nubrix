@@ -100,6 +100,9 @@ struct DevSettings: View {
         .onDisappear {
             DevPortMonitor.shared.setActive("settings", false)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .settingsWindowDidShow)) { _ in
+            DevPortMonitor.shared.setActive("settings", true)
+        }
     }
 
     private func applyPorts() {

@@ -144,6 +144,11 @@ enum ClaudePlanPolicy {
     static let batteryFactor = 2.0
     static let lowPowerFactor = 4.0
 
+    static func isDormant(lastActivity: Date?, now: Date) -> Bool {
+        guard let lastActivity else { return true }
+        return now.timeIntervalSince(lastActivity) > dormantAfter
+    }
+
     static func baseInterval(lastActivity: Date?, now: Date) -> TimeInterval {
         guard let lastActivity else { return idleInterval }
         let age = now.timeIntervalSince(lastActivity)
@@ -164,7 +169,8 @@ enum ClaudePlanPolicy {
         return onBattery ? base * batteryFactor : base
     }
 
-    static func timerDelay(lastActivity: Date?, now: Date, failures: Int, onBattery: Bool, lowPower: Bool) -> TimeInterval {
+    static func timerDelay(lastActivity: Date?, now: Date, failures: Int, onBattery: Bool, lowPower: Bool) -> TimeInterval? {
+        guard !isDormant(lastActivity: lastActivity, now: now) else { return nil }
         let base = effectiveBase(lastActivity: lastActivity, now: now, onBattery: onBattery, lowPower: lowPower)
         return min(maxDelay, delay(base: base, failures: failures))
     }

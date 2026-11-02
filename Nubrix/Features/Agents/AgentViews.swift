@@ -4,7 +4,7 @@ import SwiftUI
 
 struct AgentLiveActivity: View {
     @EnvironmentObject var vm: NubrixViewModel
-    @ObservedObject var agents = AgentSessionStore.shared
+    @ObservedObject var agents = AgentActivity.shared
 
     var body: some View {
         let side = max(0, vm.effectiveClosedNotchHeight - 12)

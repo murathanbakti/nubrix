@@ -9,6 +9,10 @@ import AppKit
 import SwiftUI
 import Defaults
 
+extension Notification.Name {
+    static let settingsWindowDidShow = Notification.Name("dev.nubrix.settingsWindowDidShow")
+}
+
 class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
     
@@ -82,6 +86,7 @@ class SettingsWindowController: NSWindowController {
         DispatchQueue.main.async { [weak self] in
             self?.window?.makeKeyAndOrderFront(nil)
         }
+        NotificationCenter.default.post(name: .settingsWindowDidShow, object: nil)
     }
     
     override func close() {
@@ -91,6 +96,8 @@ class SettingsWindowController: NSWindowController {
     
     private func relinquishFocus() {
         window?.orderOut(nil)
+        XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
+        DevPortMonitor.shared.setActive("settings", false)
         
         // Set app back to accessory mode immediately
         NSApp.setActivationPolicy(.accessory)

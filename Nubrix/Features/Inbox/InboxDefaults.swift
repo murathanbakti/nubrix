@@ -9,6 +9,7 @@ extension Defaults.Keys {
     static let homeShowClaudeUsage = Key<Bool>("homeShowClaudeUsage", default: true)
     static let claudePlanUsageEnabled = Key<Bool>("claudePlanUsageEnabled", default: true)
     static let claudePlanUsageCache = Key<Data?>("claudePlanUsageCache", default: nil)
+    static let claudeLastActivity = Key<Date?>("claudeLastActivity", default: nil)
     static let claudePlanAlertKeys = Key<[String]>("claudePlanAlertKeys", default: [])
     static let inboxNotchctlEnabled = Key<Bool>("inboxNotchctlEnabled", default: true)
 }

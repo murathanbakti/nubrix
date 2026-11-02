@@ -180,14 +180,15 @@ final class SystemNotificationStore: ObservableObject {
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self, self.isEnabled, !self.isPaused else { return }
-                await self.poll()
+                let unwatched = self.status == .ready && Defaults[.systemNotificationApps].isEmpty
+                if unwatched { self.cursor = -1 } else { await self.poll() }
                 if Task.isCancelled { return }
                 let interval: Double
                 switch self.status {
                 case .noAccess, .notFound, .unsupported: interval = self.fastRecheck ? 1.5 : 10
-                default: interval = 2
+                default: interval = unwatched ? 5 : 2
                 }
-                try? await Task.sleep(for: .seconds(interval))
+                try? await Task.sleep(for: .seconds(interval), tolerance: .seconds(interval / 4))
             }
         }
     }
@@ -284,6 +285,10 @@ final class SystemNotificationStore: ObservableObject {
         }
         watch(workspace, NSWorkspace.willSleepNotification) { $0.setPaused(sleeping: true) }
         watch(workspace, NSWorkspace.didWakeNotification) { $0.setPaused(sleeping: false) }
+        watch(workspace, NSWorkspace.screensDidSleepNotification) { $0.setPaused(sleeping: true) }
+        watch(workspace, NSWorkspace.screensDidWakeNotification) { $0.setPaused(sleeping: false) }
+        watch(workspace, NSWorkspace.sessionDidResignActiveNotification) { $0.setPaused(locked: true) }
+        watch(workspace, NSWorkspace.sessionDidBecomeActiveNotification) { $0.setPaused(locked: false) }
         watch(distributed, Notification.Name("com.apple.screenIsLocked")) { $0.setPaused(locked: true) }
         watch(distributed, Notification.Name("com.apple.screenIsUnlocked")) { $0.setPaused(locked: false) }
     }

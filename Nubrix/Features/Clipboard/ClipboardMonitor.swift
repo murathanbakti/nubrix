@@ -18,6 +18,10 @@ final class ClipboardMonitor {
 
     static let pollInterval: TimeInterval = 0.5
     static let pollTolerance: TimeInterval = 0.25
+    static let idlePollInterval: TimeInterval = 2
+    static let idlePollTolerance: TimeInterval = 0.5
+    static let idleThreshold: TimeInterval = 30
+    private static let anyInputEvent = CGEventType(rawValue: ~0)
 
     static let skippedTypes: Set<NSPasteboard.PasteboardType> = [
         "org.nspasteboard.ConcealedType",
@@ -35,6 +39,7 @@ final class ClipboardMonitor {
     private nonisolated static let captureQueue = DispatchQueue(label: "dev.nubrix.vitrin.capture", qos: .utility)
 
     private var timer: Timer?
+    private var idleCadence = false
     private var lastChangeCount: Int?
     private var wanted = false
     private var screensAsleep = false
@@ -73,17 +78,30 @@ final class ClipboardMonitor {
         if shouldPoll {
             guard timer == nil else { return }
             lastChangeCount = NSPasteboard.general.changeCount
-            let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.tick() }
-            }
-            timer.tolerance = Self.pollTolerance
-            RunLoop.main.add(timer, forMode: .common)
-            self.timer = timer
+            scheduleTimer(idle: false)
         } else {
             timer?.invalidate()
             timer = nil
+            idleCadence = false
             lastChangeCount = nil
         }
+    }
+
+    private func scheduleTimer(idle: Bool) {
+        timer?.invalidate()
+        idleCadence = idle
+        let timer = Timer(timeInterval: idle ? Self.idlePollInterval : Self.pollInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        timer.tolerance = idle ? Self.idlePollTolerance : Self.pollTolerance
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func adaptCadence() {
+        guard let anyInput = Self.anyInputEvent else { return }
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput) > Self.idleThreshold
+        if idle != idleCadence { scheduleTimer(idle: idle) }
     }
 
     private func registerObservers() {
@@ -110,6 +128,7 @@ final class ClipboardMonitor {
     }
 
     private func tick() {
+        adaptCadence()
         let pb = NSPasteboard.general
         let count = pb.changeCount
         guard count != lastChangeCount else { return }

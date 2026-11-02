@@ -14,6 +14,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         await fetchFavoriteStateIfSupported()
     }
 
+    private static let timestampFormatter = ISO8601DateFormatter()
+
     // MARK: - Properties
     @Published private(set) var playbackState: PlaybackState = .init(
         bundleIdentifier: "com.apple.Music"
@@ -288,7 +290,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         }
 
         if let dateString = payload.timestamp,
-           let date = ISO8601DateFormatter().date(from: dateString) {
+           let date = Self.timestampFormatter.date(from: dateString) {
             newPlaybackState.lastUpdated = date
         } else if !diff {
             newPlaybackState.lastUpdated = Date()

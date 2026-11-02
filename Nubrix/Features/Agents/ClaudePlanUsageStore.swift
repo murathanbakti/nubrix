@@ -50,7 +50,7 @@ final class ClaudePlanUsageStore: ObservableObject {
 
     init(fetcher: ClaudePlanFetching = XPCClaudePlanFetcher(),
          lastActivity: @escaping @MainActor () -> Date? = {
-             AgentSessionStore.shared.sessions.map(\.updatedAt).max()
+             [AgentSessionStore.shared.sessions.map(\.updatedAt).max(), Defaults[.claudeLastActivity]].compactMap { $0 }.max()
          }) {
         self.fetcher = fetcher
         self.lastActivity = lastActivity
@@ -98,12 +98,19 @@ final class ClaudePlanUsageStore: ObservableObject {
         beginIfNeeded(initialDelay: 3)
     }
 
+    func noteActivity() {
+        let now = Date()
+        guard started, isEnabled, !isPaused, loop == nil, shouldRefreshNow(now: now) else { return }
+        restartLoop(initialDelay: 2)
+    }
+
     private func beginIfNeeded(initialDelay: TimeInterval) {
         guard !started else { return }
         started = true
         restoreCache()
         registerObservers()
         registerPowerSource()
+        guard !ClaudePlanPolicy.isDormant(lastActivity: lastActivity(), now: Date()) else { return }
         restartLoop(initialDelay: initialDelay)
     }
 
@@ -187,8 +194,12 @@ final class ClaudePlanUsageStore: ObservableObject {
     private func rescheduleLoop() {
         let now = Date()
         guard started, isEnabled, !isPaused else { return }
-        restartLoop(initialDelay: ClaudePlanPolicy.resumeWait(lastAttempt: lastAttempt, delay: timerDelay(now: now),
-                                                              now: now, minimum: 5))
+        guard let delay = timerDelay(now: now) else {
+            loop?.cancel()
+            loop = nil
+            return
+        }
+        restartLoop(initialDelay: ClaudePlanPolicy.resumeWait(lastAttempt: lastAttempt, delay: delay, now: now, minimum: 5))
     }
 
     private func restartLoop(initialDelay: TimeInterval) {
@@ -200,15 +211,21 @@ final class ClaudePlanUsageStore: ObservableObject {
                 guard let self, self.isEnabled, !self.isPaused else { return }
                 await self.refresh()
                 if Task.isCancelled { return }
-                try? await Task.sleep(for: .seconds(self.timerDelay(now: Date())))
+                guard let delay = self.timerDelay(now: Date()) else {
+                    self.loop = nil
+                    return
+                }
+                try? await Task.sleep(for: .seconds(delay))
             }
         }
     }
 
-    private func timerDelay(now: Date) -> TimeInterval {
+    private func timerDelay(now: Date) -> TimeInterval? {
+        let activity = lastActivity()
+        guard !ClaudePlanPolicy.isDormant(lastActivity: activity, now: now) else { return nil }
         if failure?.isHard == true { return ClaudePlanPolicy.hardRetryInterval }
-        return ClaudePlanPolicy.timerDelay(lastActivity: lastActivity(), now: now, failures: failures,
-                                    onBattery: Self.onBattery, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+        return ClaudePlanPolicy.timerDelay(lastActivity: activity, now: now, failures: failures,
+                                           onBattery: Self.onBattery, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
     }
 
     func refresh() async {

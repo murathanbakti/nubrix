@@ -209,12 +209,7 @@ class NubrixCoordinator: ObservableObject {
             let value = CGFloat((formatter.number(from: decodedData.value) ?? 0.0).floatValue)
             let icon = decodedData.icon
 
-            print("Decoded: \(decodedData), Parsed value: \(value)")
-
             toggleSneakPeek(status: decodedData.show, type: contentType, value: value, icon: icon)
-
-        } else {
-            print("Failed to decode JSON data")
         }
     }
 
@@ -231,10 +226,7 @@ class NubrixCoordinator: ObservableObject {
         }
         Task { @MainActor in
             withAnimation(.smooth) {
-                self.sneakPeek.show = status
-                self.sneakPeek.type = type
-                self.sneakPeek.value = value
-                self.sneakPeek.icon = icon
+                self.sneakPeek = .init(show: status, type: type, value: value, icon: icon)
             }
         }
 
