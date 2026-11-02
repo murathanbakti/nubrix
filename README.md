@@ -137,7 +137,7 @@ Nubrix works on Macs with and without a notch. Without a notch it draws the bar 
 
 ## Install
 
-Each release on [GitHub Releases](https://github.com/murathanbakti/nubrix/releases) has a `Nubrix-<version>.zip` (a universal arm64 and x86_64 `Nubrix.app`) and a `.sha256` checksum, both built by GitHub Actions. Each release's notes say whether that build is ad-hoc signed or signed with a Developer ID and notarized by Apple. Homebrew and the install script avoid the Gatekeeper block either way; for a zip you download with a browser, see [First launch and Gatekeeper](#first-launch-and-gatekeeper).
+Each release on [GitHub Releases](https://github.com/murathanbakti/nubrix/releases) has a `Nubrix-<version>.zip` (a universal arm64 and x86_64 `Nubrix.app`) and a `.sha256` checksum, both built by GitHub Actions. From 0.1.1 on, releases are signed with a Developer ID and notarized by Apple, so macOS opens them without a Gatekeeper prompt however you install. 0.1.0 was ad-hoc signed; each release's notes say which kind it is.
 
 ### Homebrew (recommended)
 
@@ -149,7 +149,7 @@ brew install --cask nubrix
 
 `brew trust` is needed because Homebrew 7 only installs from third-party taps you have trusted. The cask needs Homebrew 5.1.14 or later; `brew install` updates Homebrew first unless `HOMEBREW_NO_AUTO_UPDATE` is set.
 
-After installing, the cask removes the quarantine flag from `Nubrix.app` (`/usr/bin/xattr -dr com.apple.quarantine`), so macOS opens it without a "Nubrix was blocked" prompt, also after `brew upgrade`. The trade-off: Gatekeeper then does not run Apple's malware check on this one app. You trust the `murathanbakti/tap` tap and the GitHub release it downloads (its SHA-256 is pinned in the cask) instead. Gatekeeper stays on for everything else.
+The cask pins the release's SHA-256 and leaves the quarantine flag in place, so Gatekeeper checks the Developer ID signature and Apple's notarization ticket on first launch, as for any other app.
 
 ### Install script
 
@@ -159,7 +159,7 @@ curl -fsSL https://raw.githubusercontent.com/murathanbakti/nubrix/main/scripts/i
 
 The script downloads the latest release zip and its `.sha256`, verifies the checksum, the bundle identifier and the code signature, and installs `Nubrix.app` to `/Applications`. Options: `NUBRIX_VERSION` (a specific version), `NUBRIX_INSTALL_DIR` (default `/Applications`) and `NUBRIX_SHA256` (a checksum you copied from the release page, checked as well).
 
-Files downloaded with `curl` carry no quarantine flag, so there is no Gatekeeper prompt; trust rests on HTTPS to GitHub, the checksum and the signature check. Piping a script into a shell runs whatever the server sends, so read it first if you can:
+Files downloaded with `curl` carry no quarantine flag, so there is no Gatekeeper prompt; trust rests on HTTPS to GitHub, the checksum and the signature check, and the script tells you whether the version it installed is notarized. Piping a script into a shell runs whatever the server sends, so read it first if you can:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/murathanbakti/nubrix/main/scripts/install.sh
@@ -181,7 +181,7 @@ If your Mac has an Apple Development or Developer ID Application certificate (an
 
 ## First launch and Gatekeeper
 
-Homebrew and install script users can skip this. It is for a `Nubrix-<version>.zip` you downloaded with a browser, when that release is not notarized:
+Releases from 0.1.1 on are notarized and open normally. This section is only for a zip of 0.1.0, or another release that is not notarized, downloaded with a browser:
 
 1. Open Nubrix (Spotlight or `/Applications`). macOS says "Nubrix" was blocked or cannot be verified. Click **Done** (**Cancel** on macOS 14 Sonoma). Do **not** click **Move to Trash**: that deletes the app.
 2. Open Privacy & Security:
@@ -337,17 +337,17 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 - **Vitrin.** History is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet. The Vitrin panel is hidden from screen sharing and recording by default (Settings, Vitrin). The secret guard is a heuristic: it reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
 - **GitHub token.** Kept in the macOS Keychain only, read-only and limited to the repositories you chose.
 - **Notifications from other apps.** Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access lets Nubrix read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
-- **Signing.** Ad-hoc signed releases use the hardened runtime (no `get-task-allow`) and are not notarized. The app carries `disable-library-validation` because the bundled MediaRemote adapter is ad-hoc signed too. See [docs/nubrix/SUPPLY-CHAIN.md](docs/nubrix/SUPPLY-CHAIN.md) and [docs/nubrix/AUDIT-2026-10-31-release.md](docs/nubrix/AUDIT-2026-10-31-release.md) for the audit and known limits.
+- **Signing.** From 0.1.1 on, GitHub Actions builds each release without access to any signing key, then a separate job, which only `v*` tags can start, signs every piece of code with a Developer ID, notarizes the app with Apple and staples the ticket (see [CONTRIBUTING.md](CONTRIBUTING.md#signing-and-notarization)). 0.1.0 was ad-hoc signed and not notarized. All releases use the hardened runtime without `get-task-allow`. The app carries `disable-library-validation` so that `/usr/bin/perl` can load the bundled MediaRemote adapter. See [docs/nubrix/SUPPLY-CHAIN.md](docs/nubrix/SUPPLY-CHAIN.md) and [docs/nubrix/AUDIT-2026-10-31-release.md](docs/nubrix/AUDIT-2026-10-31-release.md) for the audit and known limits.
 
 See [SECURITY.md](SECURITY.md) for reporting problems.
 
 ## Troubleshooting
 
-**macOS says Nubrix cannot be opened or is "damaged" or from an unidentified developer.** Click "Done" ("Cancel" on macOS 14), not "Move to Trash", then see [First launch and Gatekeeper](#first-launch-and-gatekeeper). With Homebrew this should not happen; run `brew reinstall --cask nubrix` to remove the quarantine flag again.
+**macOS says Nubrix cannot be opened or is "damaged" or from an unidentified developer.** Click "Done" ("Cancel" on macOS 14), not "Move to Trash", then see [First launch and Gatekeeper](#first-launch-and-gatekeeper). This should not happen with 0.1.1 or later; run `brew upgrade --cask nubrix` or install the latest release.
 
 **I clicked "Move to Trash" and Nubrix is gone.** Run `brew reinstall --cask nubrix` (Homebrew still lists it as installed), or install again with the method you used before. Your settings and the hooks in `~/.config/nubrix` are kept.
 
-**The Keychain asks for your password, or Camera, Calendar, Accessibility or Full Disk Access is asked again after an update.** Ad-hoc signed builds get a new code identity with every version, and macOS ties Keychain access and permission grants to it. Click "Always Allow" for the Keychain item, and grant the permissions again if macOS asks. Your GitHub token is not lost. If you build from source, sign with your own certificate to stop this (see [From source](#from-source)); after switching, macOS asks one last time.
+**The Keychain asks for your password, or Camera, Calendar, Accessibility or Full Disk Access is asked again after an update.** macOS ties Keychain access and permission grants to the app's code identity. Releases from 0.1.1 on keep the same Developer ID identity across updates, so this happens once when you update from 0.1.0 (ad-hoc signed, a new identity with every build) and not again. Click "Always Allow" for the Keychain item, and grant the permissions again if macOS asks. Your GitHub token is not lost. If you build from source, sign with your own certificate to stop this (see [From source](#from-source)); after switching, macOS asks one last time.
 
 **The Home card or Claude tab says "Claude sign-in needed: claude auth login".** The Claude Code CLI is signed out. Run `claude auth login` in a terminal; the card updates on the next refresh (open the notch on Home or the Claude tab). "Plan usage needs a Claude subscription" means an API-key login or an account without plan limits; "Claude Code not found" means `claude` is not in one of the [fixed locations](docs/nubrix/CLAUDE-CODE.md#official-plan-usage-claude-usage) Nubrix checks; "Update Claude Code to see plan usage" means your CLI version has no free local `/usage` command.
 
@@ -363,7 +363,7 @@ See [SECURITY.md](SECURITY.md) for reporting problems.
 
 **The notch is not visible.** Check Settings, General: "Show on all displays" and "Automatically switch displays" decide which display shows it. On a Mac without a notch the bar is a strip at the top centre; its height is set there too. Settings, Media, "Full screen behavior" can hide it while an app is fullscreen. If you turned off the menu bar icon ("Show menu bar icon"), the Settings window may be hard to reach, so check that first.
 
-**Notifications from other apps do not appear.** Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant Access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. Ad-hoc signed updates can drop the grant: remove Nubrix from the list with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
+**Notifications from other apps do not appear.** Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant Access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. Updating from 0.1.0 can drop the grant: remove Nubrix from the list with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
 
 **The volume and brightness HUDs did not change.** "Replace system HUD" needs Accessibility access for Nubrix's helper (System Settings, Privacy & Security, Accessibility). If access is missing at launch, Nubrix turns the option off.
 

@@ -103,14 +103,23 @@ rm -rf "$target"
 mv "$staged" "$target"
 codesign --verify --strict --deep "$target" >/dev/null 2>&1 || fail "installed app does not verify"
 
+if spctl --assess --type execute --verbose=2 "$target" 2>&1 | grep -q 'source=Notarized Developer ID'; then
+  signer="$(codesign -dvv "$target" 2>&1 | awk -F= '/^Authority=Developer ID Application/ { print $2; exit }')"
+  signing_note="Nubrix is signed with a Developer ID ($signer) and notarized by Apple.
+Integrity comes from HTTPS, the published SHA-256, the code signature and
+Apple's notarization ticket. Set NUBRIX_SHA256 to pin the expected hash."
+else
+  signing_note="This version of Nubrix is ad-hoc signed and not notarized by Apple. Because
+curl downloaded it, the app carries no quarantine flag and macOS will not show
+the Gatekeeper prompt. Integrity comes from HTTPS, the published SHA-256 and
+the code signature check done above. Set NUBRIX_SHA256 to pin the expected hash."
+fi
+
 cat <<TXT
 
 Installed $target ($version)
 
-Nubrix is ad-hoc signed and not notarized by Apple. Because curl downloaded
-it, the app carries no quarantine flag and macOS will not show the Gatekeeper
-prompt. Integrity comes from HTTPS, the published SHA-256 and the code
-signature check done above. Set NUBRIX_SHA256 to pin the expected hash.
+$signing_note
 
 Optional next step, Claude Code hooks (prints a snippet for ~/.claude/settings.json,
 never edits it):
