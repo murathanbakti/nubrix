@@ -84,6 +84,7 @@ private struct ReplyRequest {
     let appName: String
     let title: String
     let body: String
+    let subtitle: String
     let text: String
     let recID: Int64?
     let bundleID: String
@@ -94,6 +95,7 @@ private struct ReplyRequest {
         var appName: String?
         var title: String?
         var body: String?
+        var subtitle: String?
         var text: String?
     }
 
@@ -105,13 +107,18 @@ private struct ReplyRequest {
         let body = String((raw.body ?? "").prefix(500))
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 || !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return ReplyRequest(appName: String((raw.appName ?? "").prefix(500)), title: title, body: body, text: text, recID: raw.recID, bundleID: String((raw.bundleID ?? "").prefix(500)))
+        return ReplyRequest(appName: String((raw.appName ?? "").prefix(500)), title: title, body: body, subtitle: String((raw.subtitle ?? "").prefix(500)), text: text, recID: raw.recID, bundleID: String((raw.bundleID ?? "").prefix(500)))
     }
 }
 
 private struct TextPart {
     let source: String
     let text: String
+}
+
+private struct OwnedPart {
+    let part: TextPart
+    let owner: Int
 }
 
 private struct AXNode {
@@ -130,7 +137,6 @@ private struct NotificationMatch {
     let element: AXUIElement
     let actions: [String]
     let subrole: String
-    let text: String
 }
 
 private enum LocateResult {
@@ -356,116 +362,159 @@ private final class ReplySession {
             return .missing
         }
 
-        var texts = [[TextPart]](repeating: [], count: nodes.count)
+        var texts = [[OwnedPart]](repeating: [], count: nodes.count)
         for (index, node) in nodes.enumerated() where node.isCandidate {
             for name in [kAXDescriptionAttribute, kAXTitleAttribute, kAXValueAttribute] {
-                if let text = string(node.element, name), !text.isEmpty { texts[index].append(TextPart(source: "self.\(name)", text: text)) }
+                if let text = string(node.element, name), !text.isEmpty {
+                    texts[index].append(OwnedPart(part: TextPart(source: "self.\(name)", text: text), owner: index))
+                }
             }
         }
-        for node in nodes where !node.parts.isEmpty {
+        for node in nodes where !node.parts.isEmpty && !node.isCandidate {
             var ancestor = node.parent
             var distance = 1
             while ancestor >= 0, distance <= 10 {
-                if nodes[ancestor].isCandidate { texts[ancestor].append(contentsOf: node.parts) }
+                if nodes[ancestor].isCandidate {
+                    texts[ancestor].append(contentsOf: node.parts.map { OwnedPart(part: $0, owner: ancestor) })
+                    break
+                }
                 ancestor = nodes[ancestor].parent
                 distance += 1
             }
         }
 
         let title = Self.normalize(request.title)
+        let subtitle = Self.normalize(request.subtitle)
         let body = Self.normalize(request.body)
-        let bodyKey = String(body.prefix(min(40, body.count)))
         let appName = Self.normalize(request.appName)
-        let titleTokens = Self.tokens(title)
-        let bodyTokens = Array(Self.tokens(body).prefix(8))
 
-        var matches: [Int] = []
-        var combined: [Int: String] = [:]
-        var candidateCount = 0
+        struct Evaluation {
+            var app = false
+            var sender = false
+            var message = false
+            var distinct = false
+            var ownParts = false
+            var appIndex: Int?
+            var base: Bool { app && sender && message && distinct && ownParts }
+        }
+
+        var candidates: [Int] = []
+        var evaluations: [Int: Evaluation] = [:]
+        var normalizedParts: [Int: [String]] = [:]
         for (index, node) in nodes.enumerated() where node.isCandidate {
-            candidateCount += 1
-            let text = Self.normalize(texts[index].map(\.text).joined(separator: " "))
-            let textTokens = Set(Self.tokens(text))
-            let titleMatched = !title.isEmpty && (text.contains(title) || titleTokens.allSatisfy { textTokens.contains($0) })
-            let bodyMatched = !bodyKey.isEmpty && (text.contains(bodyKey) || (!bodyTokens.isEmpty && bodyTokens.allSatisfy { textTokens.contains($0) }))
-            if candidateCount <= Self.maxCandidateLogs {
-                let identifier = string(node.element, kAXIdentifierAttribute) ?? ""
-                let roleDescription = string(node.element, kAXRoleDescriptionAttribute) ?? ""
-                let childCount = elements(node.element, kAXChildrenAttribute).count
-                let actionNames = node.customActions.map { Self.displayName(of: $0) }.joined(separator: "|")
-                let ancestors = ancestorSummary(nodes, from: index)
-                replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .public) actions=[\(actionNames, privacy: .public)] parts=\(texts[index].count, privacy: .public) textLen=\(text.count, privacy: .public) titleMatched=\(titleMatched, privacy: .public) bodyMatched=\(bodyMatched, privacy: .public) roleDesc=\(roleDescription, privacy: .public) hasChildren=\(childCount > 0, privacy: .public) children=\(childCount, privacy: .public) anc=[\(ancestors, privacy: .public)]")
-                for (k, part) in texts[index].enumerated() {
-                    let normalized = Self.normalize(part.text)
-                    let partTokens = Self.tokens(normalized)
-                    let partSet = Set(partTokens)
-                    let titleHits = titleTokens.filter { partSet.contains($0) }.count
-                    let bodyHits = bodyTokens.filter { partSet.contains($0) }.count
-                    let eqTitle = !title.isEmpty && normalized == title
-                    let hasTitle = !title.isEmpty && normalized.contains(title)
-                    let hasBody = !bodyKey.isEmpty && normalized.contains(bodyKey)
-                    let isApp = !appName.isEmpty && normalized == appName
-                    replyLog.info("part pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) src=\(part.source, privacy: .public) len=\(normalized.count, privacy: .public) words=\(partTokens.count, privacy: .public) titleWordHits=\(titleHits, privacy: .public)/\(titleTokens.count, privacy: .public) bodyWordHits=\(bodyHits, privacy: .public)/\(bodyTokens.count, privacy: .public) eqTitle=\(eqTitle, privacy: .public) hasTitle=\(hasTitle, privacy: .public) hasBody=\(hasBody, privacy: .public) isApp=\(isApp, privacy: .public)")
-                }
+            candidates.append(index)
+            let owned = texts[index]
+            let norm = owned.map { Self.normalize($0.part.text) }
+            normalizedParts[index] = norm
+            var evaluation = Evaluation()
+            if !appName.isEmpty { evaluation.appIndex = norm.firstIndex(of: appName) }
+            evaluation.app = evaluation.appIndex != nil
+            let titleIndexes = norm.indices.filter { !title.isEmpty && norm[$0] == title }
+            evaluation.sender = !titleIndexes.isEmpty && (subtitle.isEmpty || norm.contains(subtitle))
+            let bodyIndexes = norm.indices.filter {
+                let result = Self.bodyMatch(norm[$0], body: body)
+                return result.exact || result.prefix
             }
-            guard !text.isEmpty else { continue }
-            if !title.isEmpty, !titleMatched { continue }
-            if !bodyKey.isEmpty, !bodyMatched { continue }
-            matches.append(index)
-            combined[index] = text
+            evaluation.message = !bodyIndexes.isEmpty
+            let pairs = titleIndexes.flatMap { t in bodyIndexes.filter { $0 != t }.map { (t, $0) } }
+            evaluation.distinct = !pairs.isEmpty
+            evaluation.ownParts = pairs.contains { owned[$0.0].owner == index && owned[$0.1].owner == index }
+            evaluations[index] = evaluation
         }
 
-        func finish(_ result: LocateResult, _ label: String) -> LocateResult {
-            replyLog.info("locate pass=\(pass, privacy: .public) windows=\(windows.count, privacy: .public) nodes=\(nodes.count, privacy: .public) candidates=\(candidateCount, privacy: .public) matches=\(matches.count, privacy: .public) result=\(label, privacy: .public)")
-            return result
+        let baseMatches = candidates.filter { evaluations[$0]?.base == true }
+
+        func isStack(_ index: Int) -> Bool { nodes[index].subrole.contains("Stack") }
+
+        func stackReason(_ index: Int) -> String {
+            guard baseMatches.count == 1 else { return "stackNotUnique" }
+            guard texts[index].count <= 6 else { return "tooManyParts" }
+            guard let norm = normalizedParts[index], let appIndex = evaluations[index]?.appIndex else { return "noApp" }
+            let after = norm.indices.filter { $0 > appIndex && !norm[$0].isEmpty && norm[$0] != appName }
+            guard let first = after.first, norm[first] == title else { return "titleNotFirst" }
+            let rest = after.filter { norm[$0] != title && (subtitle.isEmpty || norm[$0] != subtitle) }
+            guard let next = rest.first else { return "bodyNotNext" }
+            let nextMatch = Self.bodyMatch(norm[next], body: body)
+            guard nextMatch.exact || nextMatch.prefix else { return "bodyNotNext" }
+            var known: Set<String> = [appName, title, subtitle]
+            for word in Self.replyWords + Self.sendWords { known.insert(Self.normalize(word)) }
+            for word in Self.closeWords.union(Self.clearAllWords) { known.insert(Self.normalize(word)) }
+            for action in nodes[index].customActions { known.insert(Self.normalize(Self.displayName(of: action))) }
+            for text in norm where !text.isEmpty && !known.contains(text) {
+                let match = Self.bodyMatch(text, body: body)
+                if !(match.exact || match.prefix) { return "otherText" }
+            }
+            return "ok"
         }
 
-        guard !matches.isEmpty else { return finish(.missing, "missing") }
-
-        var hasMatchingDescendant = Set<Int>()
-        for index in matches {
-            var ancestor = nodes[index].parent
-            while ancestor >= 0 {
-                hasMatchingDescendant.insert(ancestor)
-                ancestor = nodes[ancestor].parent
-            }
-        }
-        var innermost = matches.filter { !hasMatchingDescendant.contains($0) }
-        let individual = innermost.filter { !nodes[$0].subrole.contains("Stack") }
-        if !individual.isEmpty {
-            if individual.count != innermost.count {
-                replyLog.info("stack pass=\(pass, privacy: .public) stackAccepted=false reason=individualPresent")
-            }
-            innermost = individual
-        } else {
-            let anyIndividualMatch = matches.contains { !nodes[$0].subrole.contains("Stack") }
+        var accepted: [Int] = []
+        var reasons: [Int: String] = [:]
+        for index in candidates {
+            guard let evaluation = evaluations[index] else { continue }
             let reason: String
-            if anyIndividualMatch {
-                reason = "individualDescendant"
-            } else if innermost.count != 1 {
-                reason = "multipleStacks(\(innermost.count))"
-            } else if texts[innermost[0]].count > 6 {
-                reason = "tooManyParts(\(texts[innermost[0]].count))"
+            if !evaluation.app {
+                reason = "noApp"
+            } else if !evaluation.sender {
+                reason = "noSender"
+            } else if !evaluation.message {
+                reason = "noMessage"
+            } else if !evaluation.distinct {
+                reason = "notDistinct"
+            } else if !evaluation.ownParts {
+                reason = "notOwnParts"
+            } else if isStack(index) {
+                reason = stackReason(index)
             } else {
                 reason = "ok"
             }
-            let accepted = reason == "ok"
-            replyLog.info("stack pass=\(pass, privacy: .public) stackAccepted=\(accepted, privacy: .public) reason=\(reason, privacy: .public)")
-            guard accepted else { return finish(.blocked, "blocked reason=stack") }
+            reasons[index] = reason
+            if reason == "ok" { accepted.append(index) }
+        }
+        if accepted.count > 1 {
+            for index in accepted { reasons[index] = "duplicate" }
         }
 
-        if !appName.isEmpty {
-            let withApp = innermost.filter { combined[$0]?.contains(appName) == true }
-            if !withApp.isEmpty { innermost = withApp }
+        for (position, index) in candidates.enumerated() where position < Self.maxCandidateLogs {
+            let node = nodes[index]
+            let identifier = string(node.element, kAXIdentifierAttribute) ?? ""
+            let roleDescription = string(node.element, kAXRoleDescriptionAttribute) ?? ""
+            let childCount = elements(node.element, kAXChildrenAttribute).count
+            let actionNames = node.customActions.map { Self.displayName(of: $0) }.joined(separator: "|")
+            let ancestors = ancestorSummary(nodes, from: index)
+            replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .public) actions=[\(actionNames, privacy: .public)] parts=\(texts[index].count, privacy: .public) roleDesc=\(roleDescription, privacy: .public) hasChildren=\(childCount > 0, privacy: .public) children=\(childCount, privacy: .public) anc=[\(ancestors, privacy: .public)]")
+            for (k, owned) in texts[index].enumerated() {
+                let normalized = normalizedParts[index]?[k] ?? ""
+                let bodyResult = Self.bodyMatch(normalized, body: body)
+                let eqApp = !appName.isEmpty && normalized == appName
+                let eqTitle = !title.isEmpty && normalized == title
+                let eqSubtitle = !subtitle.isEmpty && normalized == subtitle
+                replyLog.info("part pass=\(pass, privacy: .public) cand=\(index, privacy: .public) k=\(k, privacy: .public) src=\(owned.part.source, privacy: .public) len=\(normalized.count, privacy: .public) words=\(Self.tokens(normalized).count, privacy: .public) eqApp=\(eqApp, privacy: .public) eqTitle=\(eqTitle, privacy: .public) eqSubtitle=\(eqSubtitle, privacy: .public) bodyExact=\(bodyResult.exact, privacy: .public) bodyPrefix=\(bodyResult.prefix, privacy: .public)")
+            }
+            if let evaluation = evaluations[index] {
+                replyLog.info("match cand=\(index, privacy: .public) app=\(evaluation.app, privacy: .public) sender=\(evaluation.sender, privacy: .public) message=\(evaluation.message, privacy: .public) distinct=\(evaluation.distinct, privacy: .public) ownParts=\(evaluation.ownParts, privacy: .public) accepted=\(reasons[index] == "ok", privacy: .public) reason=\(reasons[index] ?? "none", privacy: .public)")
+            }
         }
 
-        guard let first = innermost.first else { return finish(.missing, "missing") }
-        let firstText = combined[first] ?? ""
-        for index in innermost where combined[index] != firstText { return finish(.blocked, "blocked reason=ambiguous") }
+        func finish(_ result: LocateResult, _ label: String) -> LocateResult {
+            replyLog.info("locate pass=\(pass, privacy: .public) windows=\(windows.count, privacy: .public) nodes=\(nodes.count, privacy: .public) candidates=\(candidates.count, privacy: .public) matches=\(baseMatches.count, privacy: .public) accepted=\(accepted.count, privacy: .public) result=\(label, privacy: .public)")
+            return result
+        }
 
-        let node = nodes[first]
-        return finish(.found(NotificationMatch(element: node.element, actions: node.customActions,
-                                               subrole: node.subrole, text: firstText)), "found")
+        guard !baseMatches.isEmpty else { return finish(.missing, "missing") }
+        guard accepted.count == 1, let chosen = accepted.first else { return finish(.blocked, "blocked reason=\(accepted.isEmpty ? "rejected" : "duplicate")") }
+
+        let node = nodes[chosen]
+        return finish(.found(NotificationMatch(element: node.element, actions: node.customActions, subrole: node.subrole)), "found")
+    }
+
+    private static func bodyMatch(_ part: String, body: String) -> (exact: Bool, prefix: Bool) {
+        guard !body.isEmpty, !part.isEmpty else { return (false, false) }
+        if part == body { return (true, false) }
+        for mark in ["…", "..."] where part.hasSuffix(mark) {
+            let stem = String(part.dropLast(mark.count)).trimmingCharacters(in: .whitespaces)
+            if stem.count >= 12, body.hasPrefix(stem) { return (false, true) }
+        }
+        return (false, false)
     }
 
     private func isReplyAction(_ action: String) -> Bool {

@@ -144,7 +144,7 @@ final class SystemNotificationStore: ObservableObject {
 
     func reply(to record: SystemNotificationRecord, text: String) async -> SystemNotificationReplyStatus {
         let status = await XPCHelperClient.shared.replyToNotification(
-            recID: record.recID, bundleID: record.bundleID, appName: record.appName, title: record.title, body: record.body, text: text)
+            recID: record.recID, bundleID: record.bundleID, appName: record.appName, title: record.title, subtitle: record.subtitle, body: record.body, text: text)
         switch status {
         case .sent, .unconfirmed:
             break

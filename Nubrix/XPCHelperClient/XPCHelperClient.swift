@@ -306,16 +306,17 @@ final class XPCHelperClient: NSObject {
         }
     }
 
-    @MainActor func replyToNotification(recID: Int64, bundleID: String, appName: String, title: String, body: String, text: String) async -> SystemNotificationReplyStatus {
+    @MainActor func replyToNotification(recID: Int64, bundleID: String, appName: String, title: String, subtitle: String, body: String, text: String) async -> SystemNotificationReplyStatus {
         struct Payload: Encodable {
             let recID: Int64
             let bundleID: String
             let appName: String
             let title: String
+            let subtitle: String
             let body: String
             let text: String
         }
-        guard let request = try? JSONEncoder().encode(Payload(recID: recID, bundleID: bundleID, appName: appName, title: title, body: body, text: text)) else {
+        guard let request = try? JSONEncoder().encode(Payload(recID: recID, bundleID: bundleID, appName: appName, title: title, subtitle: subtitle, body: body, text: text)) else {
             return .failed
         }
         do {
