@@ -124,9 +124,10 @@ final class SystemNotificationStore: ObservableObject {
 
     func finishReply(_ status: SystemNotificationReplyStatus, record: SystemNotificationRecord) {
         guard status != .sent else { return }
-        open(bundleID: record.bundleID)
         if status == .noAccess {
-            Task { _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true) }
+            AccessibilityGuide.begin(resume: record)
+        } else {
+            open(bundleID: record.bundleID)
         }
     }
 

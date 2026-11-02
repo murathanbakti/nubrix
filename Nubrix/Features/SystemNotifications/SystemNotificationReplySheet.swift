@@ -42,6 +42,7 @@ struct SystemNotificationReplyContent: View {
     @Environment(\.notchExtensionDismiss) private var dismiss
     @State private var text = ""
     @State private var phase: Phase = .idle
+    @State private var access: Bool?
     @FocusState private var focused: Bool
 
     private enum Phase: Equatable {
@@ -52,7 +53,7 @@ struct SystemNotificationReplyContent: View {
     }
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canSend: Bool { phase == .idle && !trimmed.isEmpty }
+    private var canSend: Bool { phase == .idle && access == true && !trimmed.isEmpty }
     private var target: String { record.title.isEmpty ? record.appName : record.title }
 
     var body: some View {
@@ -72,25 +73,46 @@ struct SystemNotificationReplyContent: View {
                 }
                 .buttonStyle(.plain)
             }
-            HStack(spacing: 8) {
-                TextField("Reply to \(target)", text: $text)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .focused($focused)
-                    .disabled(phase != .idle)
-                    .onSubmit(send)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.1)))
-                trailing
+            if access == false {
+                HStack(spacing: 8) {
+                    Text("Replying from the notch needs Accessibility.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.gray)
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Button("Allow…") {
+                        AccessibilityGuide.begin(resume: record)
+                        dismiss()
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.1)))
+                Spacer(minLength: 0)
+            } else {
+                HStack(spacing: 8) {
+                    TextField("Reply to \(target)", text: $text)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .focused($focused)
+                        .disabled(phase != .idle || access == nil)
+                        .onSubmit(send)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.1)))
+                    trailing
+                }
+                statusLine
+                    .frame(height: 14, alignment: .leading)
             }
-            statusLine
-                .frame(height: 14, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, SystemNotificationReplyMetrics.sideInset)
         .padding(.top, 4)
         .task {
+            access = await XPCHelperClient.shared.isAccessibilityAuthorized()
+            guard access == true else { return }
             try? await Task.sleep(for: .milliseconds(250))
             focused = true
         }
