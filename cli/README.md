@@ -53,6 +53,6 @@ Nubrix writes its loopback port, a random token and its process id to `~/.config
 (directory mode 0700, file mode 0600). `notchctl` checks that the file is owned by you with mode 0600 and that its
 process id belongs to a running `Nubrix.app` of yours, then posts JSON to `/v1/notify` with that bearer token; the token
 and the message are passed to `curl` through file descriptors, never on its command line.
-If Nubrix is not running (or the endpoint file is stale), `notchctl` prints an error to stderr and exits 1.
+If Nubrix is not running (or the endpoint file is stale), `notchctl` prints an error to stderr and exits 1. It does the same when the Dev tab is turned off in Nubrix (Settings, Dev): the notification is refused instead of being dropped silently.
 `NUBRIX_ENDPOINT_FILE` is honoured only together with `NUBRIX_DEV=1`, which also skips the owner, mode and process
 checks (tests only).

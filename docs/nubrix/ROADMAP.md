@@ -177,3 +177,29 @@ Remaining:
   instead of asking to paste again. Needs on-device checking after macOS
   updates.
 - Later: Dock badge counts as a no-permission fallback.
+
+## Feature switches and tab layout (done, not yet tried on device)
+
+- Every feature that needs a permission or controls another app has a master
+  switch, applied at runtime through `Defaults.publisher` inside its store:
+  Claude Code integration (`claudeEnabled`), opening sessions
+  (`claudeOpenSession`), notch approvals, plan usage, GitHub (`githubEnabled`,
+  keeps the token), Dev tab, Vitrin and screenshots, mirror, calendar
+  (`showCalendar`, also gates the meeting watcher), HUD replacement, media
+  control (`mediaControlEnabled`) and notifications from other apps. Keys live
+  in `Nubrix/Features/FeatureToggles/FeatureDefaults.swift` and next to each
+  feature.
+- Off means no prompt and no background work: the event server runs only for
+  Claude or Dev and refuses the routes of a disabled feature (`/v1/notify`
+  answers 503 when Dev is off), Vitrin closes its database and releases the
+  screenshot folder, media control stops the adapter process, AppleScript and
+  websocket, the calendar manager and meeting watcher do not touch EventKit.
+  Settings, Calendar no longer requests access on open; the HUD switch no
+  longer prompts at launch; onboarding can skip media control.
+- Settings, Tabs (`Nubrix/Features/Tabs/`): drag-and-drop order and a Show
+  switch per tab (`notchTabOrder`, `notchHiddenTabs`). Unknown and new tabs go
+  last, at least one tab stays visible, the coordinator moves off a hidden or
+  disabled tab to the first visible one, tabs of a disabled feature are greyed
+  out. The 6/8 pt tab padding rule is kept.
+- The legacy webcam preview (`WebcamManager`, `WebcamView`) was dead code and
+  was removed; Mirror is the camera feature.

@@ -16,6 +16,7 @@ The README images are rendered from HTML mockups in [`mockups/`](mockups), not c
 | `shelf.png` | `shelf.html` | The shelf tab with the quick-share zone and files |
 | `calendar.png` | `calendar.html` | The calendar sheet with the month grid and the day panel |
 | `notifications.png` | `notifications.html` | The Notifications tab with app filters, two closed-notch banners, and the Other apps settings next to the Full Disk Access guide |
+| `tabs.png` | `tabs.html` | Settings, Tabs: reordered tabs, a hidden tab and a tab whose feature is off, next to the resulting notch tab bar |
 
 ## Rendering
 

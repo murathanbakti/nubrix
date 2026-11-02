@@ -134,6 +134,16 @@ Other install methods are under [Install](#install); the hook setup is explained
   <img src="docs/images/notifications.png" alt="The Notifications tab listing a WhatsApp, a Slack and a Mail notification with app filters, two closed-notch banners, and the Other apps settings next to the Full Disk Access guide with the drag-me Nubrix icon" width="100%">
 </p>
 
+**Feature switches and tab layout**
+- Every feature that needs a permission or controls another app has its own switch in Settings: Claude Code integration, opening a session from the notch, notch approvals, plan usage, GitHub, the Dev tab and port watcher, Vitrin and screenshots, mirror, calendar and meeting countdown, HUD replacement, media control, and notifications from other apps with quick reply. The table under [Permissions](#permissions) lists where each one is
+- When a switch is off, Nubrix does not ask for that permission and runs nothing for it in the background: no polling, no server route, no helper call, no AppleScript. Its banners, unread dots and notch tab disappear, and turning it back on works right away, without a restart
+- Settings, Tabs: drag the notch tabs into the order you like and hide the ones you do not use. Hiding a tab only removes it from the notch; the feature keeps running. To stop a feature, turn it off in its own settings
+- A tab whose feature is off is greyed out in the list with a note saying where to turn it on. At least one tab always stays visible, new tabs are added at the end, and Restore Defaults brings back the original order
+
+<p align="center">
+  <img src="docs/images/tabs.png" alt="Settings, Tabs: tabs reordered by drag, Shelf hidden and Notifications greyed out because its feature is off, next to the notch tab bar showing only the visible tabs" width="100%">
+</p>
+
 ## Requirements
 
 - macOS 14 Sonoma or later, Apple silicon or Intel
@@ -203,24 +213,26 @@ If you verified the download's origin and checksum yourself, `xattr -d com.apple
 
 ## Permissions
 
-Nubrix asks for access only when you use the feature that needs it (the onboarding screen also offers the ones marked with an asterisk):
+Nubrix asks for access only when you use the feature that needs it (the onboarding screen also offers the ones marked with an asterisk, and every onboarding step can be skipped):
 
-| Permission | Why | When |
-|---|---|---|
-| Calendars (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | Calendar and meeting features |
-| Camera* | Mirror preview | When you open Mirror |
-| Accessibility* | Intercept volume and brightness keys to replace the system HUDs, and type quick replies into a notification's Reply box in Notification Center. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" or send a quick reply |
-| Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal or iTerm. These four are the only apps Nubrix is allowed to script | When you pick those sources in Settings, Media, or first click a Terminal or iTerm session |
-| Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin |
-| Pasteboard access | On recent macOS versions macOS may ask whether Nubrix may read what other apps copy. Vitrin cannot capture anything while access is denied | When Vitrin starts capturing |
-| Keychain | Stores the optional GitHub token | When you save a token |
-| Full Disk Access* | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only. Nubrix shows a guide for granting it | Only if you turn on Settings, Notifications, Other apps |
+| Permission | Why | When | Turn off in Settings |
+|---|---|---|---|
+| Calendars (full access)* | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | When you click Allow in onboarding, Settings, Calendar or the calendar sheet | Calendar, "Calendar" (also stops the meeting countdown) |
+| Camera* | Mirror preview | When you open Mirror | Appearance, "Enable mirror" |
+| Accessibility* | Intercept volume and brightness keys to replace the system HUDs, and type quick replies into a notification's Reply box in Notification Center. Granted to the helper process `NubrixHelper`, which is not sandboxed | Only if you turn on "Replace system HUD" or send a quick reply | HUDs, "Replace system HUD"; Notifications, "Quick reply from the notch" |
+| Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal or iTerm. These four are the only apps Nubrix is allowed to script | When you pick those sources in Settings, Media, or first click a Terminal or iTerm session | Media, "Media control"; Notifications, "Open the session when you click it" |
+| Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin | Vitrin, "Capture screenshots" or "Enable Vitrin" |
+| Pasteboard access | On recent macOS versions macOS may ask whether Nubrix may read what other apps copy. Vitrin cannot capture anything while access is denied | When Vitrin starts capturing | Vitrin, "Enable Vitrin" |
+| Keychain | Stores the optional GitHub token | When you save a token | GitHub, "GitHub integration" (the token stays in the Keychain but is not read) |
+| Full Disk Access* | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only. Nubrix shows a guide for granting it | Only if you turn on Settings, Notifications, Other apps | Notifications, "Show notifications from other apps" |
+
+Turning a switch off stops the feature; it does not revoke a permission you already granted. To take a permission back, use System Settings, Privacy & Security.
 
 Nubrix's own banners are drawn in the notch; it does not post to the macOS notification centre. Full Disk Access is only needed for notifications from other apps; everything else works without it. There is no Screen Recording permission.
 
 ## Claude Code setup
 
-Nubrix listens on a loopback HTTP server, and small hook scripts forward Claude Code hook events to it. The event hooks are asynchronous, have a short timeout and always exit 0, so they never block or slow down Claude Code. `nubrix-permission` is the one synchronous hook: it waits for your answer on the approval card (12 seconds in a terminal, 110 seconds for the Claude desktop app, the VS Code extension and SDK sessions) and then falls back to Claude Code's own permission dialog. If Nubrix is not running, the hooks do nothing.
+Nubrix listens on a loopback HTTP server, and small hook scripts forward Claude Code hook events to it. Settings, Notifications, Claude Code, "Claude Code integration" turns all of it off: Nubrix stops answering Claude Code hooks (the server keeps running only while the Dev tab is on, for `notchctl`), and the hooks then do nothing. The event hooks are asynchronous, have a short timeout and always exit 0, so they never block or slow down Claude Code. `nubrix-permission` is the one synchronous hook: it waits for your answer on the approval card (12 seconds in a terminal, 110 seconds for the Claude desktop app, the VS Code extension and SDK sessions) and then falls back to Claude Code's own permission dialog. If Nubrix is not running, the hooks do nothing.
 
 **1. Install the hook scripts.**
 
@@ -292,6 +304,7 @@ Nubrix reads GitHub with a **fine-grained, read-only personal access token** for
 - The token is kept only in the macOS Keychain and only sent to `api.github.com`.
 - Nubrix never writes to GitHub, and it does not use your `gh` login or SSH keys, which can write.
 - It polls every 2 minutes (every 30 seconds while the GitHub section is open), respects rate limits and pauses while the Mac sleeps.
+- Settings, GitHub, "GitHub integration" stops it without removing the token: no Keychain read, no requests, and GitHub banners and the Dev tab's GitHub section disappear.
 
 Requests, polling rules and why this kind of token: [docs/nubrix/GITHUB.md](docs/nubrix/GITHUB.md).
 
@@ -304,7 +317,7 @@ The hook installer puts a sealed copy at `~/.config/nubrix/bin/notchctl`:
 ~/.config/nubrix/bin/notchctl ping
 ```
 
-See [cli/README.md](cli/README.md) for styles, duration, putting it on your `PATH` and more examples.
+See [cli/README.md](cli/README.md) for styles, duration, putting it on your `PATH` and more examples. `notchctl` needs the Dev tab to be on (Settings, Dev); otherwise it exits with "the Dev tab is turned off".
 
 ## Settings
 
@@ -313,16 +326,17 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | Tab | What it controls |
 |---|---|
 | General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, gestures, haptics |
-| Appearance | Accent colour, settings icon in the notch, spectrogram and album-art options, custom Lottie visualizers, mirror options |
-| Media | Music source (Now Playing, Apple Music, Spotify, YouTube Music), lyrics, full screen behavior |
-| Calendar | Calendars shown in the notch, on the Home tab and in the calendar sheet |
+| Appearance | Accent colour, settings icon in the notch, spectrogram and album-art options, custom Lottie visualizers, mirror switch and options |
+| Tabs | Order of the notch tabs (drag and drop), which tabs are shown, Restore Defaults |
+| Media | Media control switch, music source (Now Playing, Apple Music, Spotify, YouTube Music), lyrics, full screen behavior |
+| Calendar | Calendar switch, calendar access, calendars shown in the notch, on the Home tab and in the calendar sheet |
 | HUDs | Replace the system volume, display and keyboard-brightness HUDs (needs Accessibility) |
 | Battery | Power and charging notifications in the notch |
 | Shelf | File shelf behaviour |
 | Vitrin | Capture toggles, screenshot folder and preview, retention, excluded apps, hide from screen sharing, clear history |
-| Dev | Which localhost ports are watched |
-| GitHub | Token, watched repositories, notification toggles |
-| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, notch approvals, plan usage, Home usage card, meeting countdown |
+| Dev | Dev tab switch (also notchctl), which localhost ports are watched |
+| GitHub | GitHub integration switch, token, watched repositories, notification toggles |
+| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notifications from other apps and quick reply, Claude Code integration switch, opening sessions, notch approvals, plan usage, Home usage card, meeting countdown |
 | Shortcuts | Global keyboard shortcuts (defaults: Control-Option-V Vitrin, Control-Option-K calendar, Control-Option-M mirror) |
 | Advanced | Additional options |
 | About | Version, credits and licenses |
