@@ -477,7 +477,8 @@ struct HUD: View {
     @Default(.hudReplacement) var hudReplacement
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @State private var accessibilityAuthorized = false
-    
+    @State private var requestedAccessibility = false
+
     var body: some View {
         Form {
             Section {
@@ -500,15 +501,29 @@ struct HUD: View {
                 
                 if !accessibilityAuthorized {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Accessibility access is required to replace the system HUD.")
+                        Text("Nubrix needs Accessibility access to show its own volume and brightness HUDs.")
                             .font(.subheadline)
+
+                        Text("The access goes to NubrixHelper, a small part of Nubrix. It only sees the volume and brightness keys. Nothing is recorded or sent.")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         HStack(spacing: 12) {
-                            Button("Request Accessibility") {
+                            Button("Allow Accessibility…") {
+                                requestedAccessibility = true
                                 XPCHelperClient.shared.requestAccessibilityAuthorization()
                             }
                             .buttonStyle(.borderedProminent)
+
+                            Button("Open Accessibility Settings") {
+                                if let settingsURL = URL(
+                                    string:
+                                        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                                ) {
+                                    NSWorkspace.shared.open(settingsURL)
+                                }
+                            }
                         }
                     }
                     .padding(.top, 6)
@@ -596,6 +611,10 @@ struct HUD: View {
         .onReceive(NotificationCenter.default.publisher(for: .accessibilityAuthorizationChanged)) { notification in
             if let granted = notification.userInfo?["granted"] as? Bool {
                 accessibilityAuthorized = granted
+                if granted && requestedAccessibility {
+                    requestedAccessibility = false
+                    hudReplacement = true
+                }
             }
         }
     }
@@ -785,7 +804,7 @@ struct CalendarSettings: View {
                         }
                     }
                 case .notDetermined:
-                    Text("Nubrix has not asked for calendar access yet.")
+                    Text("Nubrix asks for calendar access only to show and add your events. They stay on your Mac.")
                         .foregroundStyle(.secondary)
                     Button("Allow Calendar Access") {
                         Task { await calendarManager.checkCalendarAuthorization() }

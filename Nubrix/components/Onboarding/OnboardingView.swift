@@ -9,14 +9,10 @@ import SwiftUI
 
 enum OnboardingStep {
     case welcome
-    case calendarPermission
-    case accessibilityPermission
-    case notificationsFromApps
+    case permissionsInfo
     case musicPermission
     case finished
 }
-
-private let calendarService = CalendarService.shared
 
 struct OnboardingView: View {
     @State var step: OnboardingStep = .welcome
@@ -29,74 +25,17 @@ struct OnboardingView: View {
             case .welcome:
                 WelcomeView {
                     withAnimation(.easeInOut(duration: 0.6)) {
-                        step = .calendarPermission
+                        step = .permissionsInfo
                     }
                 }
                 .transition(.opacity)
 
-            case .calendarPermission:
-                PermissionRequestView(
-                    icon: Image(systemName: "calendar"),
-                    title: "Enable Calendar Access",
-                    description: "Nubrix can show all your upcoming events in one place. Access to your calendar is needed to display your schedule.",
-                    privacyNote: "Your calendar data is only used to show your events and is never shared.",
-                    onAllow: {
-                        Task {
-                                await requestCalendarPermission()
-                                withAnimation(.easeInOut(duration: 0.6)) {
-                                    step = .accessibilityPermission
-                                }
-                        }
-                    },
-                    onSkip: {
-                            withAnimation(.easeInOut(duration: 0.6)) {
-                                step = .accessibilityPermission
-                            }
+            case .permissionsInfo:
+                PermissionsInfoView {
+                    withAnimation(.easeInOut(duration: 0.6)) {
+                        step = .musicPermission
                     }
-                )
-                .transition(.opacity)
-
-            case .accessibilityPermission:
-                PermissionRequestView(
-                    icon: Image(systemName: "hand.raised.fill"),
-                    title: "Enable Accessibility Access",
-                    description: "Accessibility access is required to replace system notifications with the Nubrix HUD. This allows the app to intercept media and brightness events to display custom HUD overlays.",
-                    privacyNote: "Accessibility access is used only to improve media and brightness notifications. No data is collected or shared.",
-                    onAllow: {
-                        Task {
-                            await requestAccessibilityPermission()
-                            withAnimation(.easeInOut(duration: 0.6)) {
-                                step = .notificationsFromApps
-                            }
-                        }
-                    },
-                    onSkip: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            step = .notificationsFromApps
-                        }
-                    }
-                )
-                .transition(.opacity)
-                
-            case .notificationsFromApps:
-                PermissionRequestView(
-                    icon: Image(systemName: "bell.badge"),
-                    title: "Notifications in the Notch",
-                    description: "Optionally see new notifications from WhatsApp, Slack, Mail and other apps in the notch. This needs Full Disk Access, which you give in System Settings. Nubrix shows you how.",
-                    privacyNote: "Only the apps you choose are read. Nothing is stored or sent anywhere.",
-                    allowTitle: "Set Up",
-                    onAllow: {
-                        FullDiskAccessGuide.begin()
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            step = .musicPermission
-                        }
-                    },
-                    onSkip: {
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            step = .musicPermission
-                        }
-                    }
-                )
+                }
                 .transition(.opacity)
 
             case .musicPermission:
@@ -116,14 +55,67 @@ struct OnboardingView: View {
         }
         .frame(width: 400, height: 600)
     }
+}
 
-    // MARK: - Permission Request Logic
+private struct PermissionsInfoView: View {
+    let onContinue: () -> Void
 
-    func requestCalendarPermission() async {
-        _ = try? await calendarService.requestAccess(to: .event)
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "lock.shield")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 70, height: 56)
+                .foregroundColor(.effectiveAccent)
+                .padding(.top, 32)
+
+            Text("Permissions When You Need Them")
+                .font(.title)
+                .fontWeight(.semibold)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            Text("Nubrix asks for access only the first time you use a feature that needs it. You can say no and allow it later.")
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            VStack(alignment: .leading, spacing: 14) {
+                row(symbol: "calendar", name: "Calendar", detail: "When you open the calendar from the notch")
+                row(symbol: "web.camera", name: "Camera", detail: "When you open Mirror")
+                row(symbol: "hand.raised.fill", name: "Accessibility", detail: "When you turn on the custom volume and brightness HUDs")
+                row(symbol: "bell.badge", name: "Full Disk Access", detail: "When you turn on notifications from other apps")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 32)
+
+            Text("Everything stays on your Mac.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Button("Continue") { onContinue() }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .background(
+            VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+                .ignoresSafeArea()
+        )
     }
 
-    func requestAccessibilityPermission() async {
-        _ = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
+    private func row(symbol: String, name: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .foregroundColor(.effectiveAccent)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .fontWeight(.semibold)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }

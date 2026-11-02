@@ -5,6 +5,7 @@ struct MeetingSettingsSection: View {
     @Default(.showCalendar) private var calendarOn
     @Default(.meetingCountdownEnabled) private var countdownOn
     @Default(.meetingLeadMinutes) private var lead
+    @ObservedObject private var calendarManager = CalendarManager.shared
 
     private var enabled: Bool { calendarOn && countdownOn }
 
@@ -24,6 +25,27 @@ struct MeetingSettingsSection: View {
                 Text("Show banner at 1 minute")
             }
             .disabled(!enabled)
+            if enabled && calendarManager.calendarAuthorizationStatus != .fullAccess {
+                HStack {
+                    Text("The countdown needs calendar access.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if calendarManager.calendarAuthorizationStatus == .notDetermined {
+                        Button("Allow Calendar Access") {
+                            Task { await calendarManager.checkCalendarAuthorization() }
+                        }
+                    } else {
+                        Button("Open Calendar Settings") {
+                            if let settingsURL = URL(
+                                string:
+                                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+                            ) {
+                                NSWorkspace.shared.open(settingsURL)
+                            }
+                        }
+                    }
+                }
+            }
         } header: {
             Text("Meetings")
         } footer: {
@@ -31,6 +53,7 @@ struct MeetingSettingsSection: View {
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }
+        .task { await calendarManager.refreshAuthorizationStatus() }
     }
 
     private var leadBinding: Binding<Int> {
