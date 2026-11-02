@@ -56,6 +56,8 @@ private struct ScrollMonitor: NSViewRepresentable {
         private let threshold: CGFloat
         private let action: (CGFloat, NSEvent.Phase) -> Void
         private var monitor: Any?
+        private weak var hostView: NSView?
+        private var blocked = false
         private var accumulated: CGFloat = 0
         private var active = false
             private var endTask: Task<Void, Never>?
@@ -86,6 +88,7 @@ private struct ScrollMonitor: NSViewRepresentable {
 
         func installMonitor(on view: NSView) {
             removeMonitor()
+            hostView = view
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel]) { [weak self, weak view] event in
                 guard let self = self, event.window === view?.window else { return event }
                 self.handleScroll(event)
@@ -100,11 +103,61 @@ private struct ScrollMonitor: NSViewRepresentable {
             }
             accumulated = 0
             active = false
+            blocked = false
             endTask?.cancel()
             endTask = nil
         }
 
+        private func isBlocked(by event: NSEvent) -> Bool {
+            guard let contentView = hostView?.window?.contentView else { return false }
+            let point = contentView.superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow
+            var current: NSView? = contentView.hitTest(point)
+            while let view = current {
+                if let scrollView = view as? NSScrollView, canScroll(scrollView) { return true }
+                current = view.superview
+            }
+            return containsScrollableView(contentView, windowPoint: event.locationInWindow)
+        }
+
+        private func containsScrollableView(_ view: NSView, windowPoint: NSPoint) -> Bool {
+            for sub in view.subviews where !sub.isHidden {
+                let local = sub.convert(windowPoint, from: nil)
+                guard sub.bounds.contains(local) else { continue }
+                if let scrollView = sub as? NSScrollView, canScroll(scrollView) { return true }
+                if containsScrollableView(sub, windowPoint: windowPoint) { return true }
+            }
+            return false
+        }
+
+        private func canScroll(_ scrollView: NSScrollView) -> Bool {
+            guard let document = scrollView.documentView else { return false }
+            let visible = scrollView.documentVisibleRect
+            let bounds = document.bounds
+            let tolerance: CGFloat = 1
+            let revealsLater = direction.sign < 0
+            if direction.isHorizontal {
+                return revealsLater ? visible.maxX < bounds.maxX - tolerance : visible.minX > bounds.minX + tolerance
+            }
+            if document.isFlipped {
+                return revealsLater ? visible.maxY < bounds.maxY - tolerance : visible.minY > bounds.minY + tolerance
+            }
+            return revealsLater ? visible.minY > bounds.minY + tolerance : visible.maxY < bounds.maxY - tolerance
+        }
+
         private func handleScroll(_ event: NSEvent) {
+            let phase = event.phase
+            let momentum = event.momentumPhase
+            if phase.isEmpty && momentum.isEmpty {
+                blocked = isBlocked(by: event)
+            } else if phase.contains(.began) {
+                blocked = isBlocked(by: event)
+            }
+            if blocked {
+                accumulated = 0
+                if momentum.contains(.ended) || momentum.contains(.cancelled) { blocked = false }
+                return
+            }
+
             if event.phase == .ended || event.momentumPhase == .ended {
                 if active {
                     action(accumulated.magnitude, .ended)
