@@ -328,7 +328,7 @@ final class XPCHelperClient: NSObject {
             }
             return SystemNotificationReplyStatus.decode(data)
         } catch {
-            return .failed
+            return .unconfirmed
         }
     }
 }

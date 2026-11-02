@@ -143,19 +143,21 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     func reply(to record: SystemNotificationRecord, text: String) async -> SystemNotificationReplyStatus {
+        guard Defaults[.systemNotificationsEnabled], Defaults[.systemNotificationQuickReply] else { return .failed }
         let status = await XPCHelperClient.shared.replyToNotification(
             recID: record.recID, bundleID: record.bundleID, appName: record.appName, title: record.title, subtitle: record.subtitle, body: record.body, text: text)
         switch status {
-        case .sent, .unconfirmed:
+        case .sent:
             break
-        case .notFound, .noAccess, .unsupported, .failed, .gone:
+        case .notFound, .noAccess, .unsupported, .failed, .gone, .unconfirmed:
             copyToPasteboard(text)
         }
         return status
     }
 
     func finishReply(_ status: SystemNotificationReplyStatus, record: SystemNotificationRecord) {
-        guard status != .sent else { return }
+        guard status != .sent, status != .unconfirmed,
+              Defaults[.systemNotificationsEnabled], Defaults[.systemNotificationQuickReply] else { return }
         if status == .noAccess {
             AccessibilityGuide.begin(resume: record)
         } else {
@@ -165,12 +167,16 @@ final class SystemNotificationStore: ObservableObject {
 
     private func copyToPasteboard(_ text: String) {
         let pasteboard = NSPasteboard.general
+        pasteboard.prepareForNewContents(with: .currentHostOnly)
         let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
         let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
-        pasteboard.declareTypes([.string, transient, concealed], owner: nil)
         pasteboard.setString(text, forType: .string)
         pasteboard.setData(Data(), forType: transient)
         pasteboard.setData(Data(), forType: concealed)
+        let changeCount = pasteboard.changeCount
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+            if NSPasteboard.general.changeCount == changeCount { NSPasteboard.general.clearContents() }
+        }
     }
 
     func appName(for bundleID: String) -> String {

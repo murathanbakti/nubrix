@@ -278,6 +278,8 @@ struct SystemNotificationRow: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.gray)
                 .lineLimit(2)
+        case .unconfirmed(let text):
+            bar(text, "Open \(record.appName)") { reply.openApp() }
         }
     }
 

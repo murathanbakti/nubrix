@@ -161,10 +161,8 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         }
     }
 
-    private let notificationReplier = NotificationReplier()
-
     @objc func replyToNotification(_ request: Data, with reply: @escaping (Data) -> Void) {
-        notificationReplier.reply(request, completion: reply)
+        NotificationReplier.shared.reply(request, completion: reply)
     }
 
     @objc func notificationExists(_ recID: Int64, with reply: @escaping (NSNumber?) -> Void) {

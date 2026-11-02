@@ -35,6 +35,13 @@ enum AccessibilityGuide {
         panel?.close()
     }
 
+    static func shutdown() {
+        resumeRecord = nil
+        pollTask?.cancel()
+        pollTask = nil
+        close()
+    }
+
     static func openSettings() {
         if let settingsURL { NSWorkspace.shared.open(settingsURL) }
     }
@@ -42,6 +49,7 @@ enum AccessibilityGuide {
     private static func resume() {
         let record = resumeRecord
         resumeRecord = nil
+        guard NotificationReplyController.isEnabled else { return }
         if let record { NotificationReplyController.shared.openAndBegin(record: record) }
     }
 

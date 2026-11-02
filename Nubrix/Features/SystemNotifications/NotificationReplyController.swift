@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Defaults
 import SwiftUI
 
 @MainActor
@@ -14,6 +15,7 @@ final class NotificationReplyController: ObservableObject {
         case needsAccess
         case missing
         case note(String)
+        case unconfirmed(String)
     }
 
     @Published private(set) var activeRecordID: UUID?
@@ -35,7 +37,28 @@ final class NotificationReplyController: ObservableObject {
     private var resignObserver: NSObjectProtocol?
     private var task: Task<Void, Never>?
 
-    private init() {}
+    private var featureCancellables = Set<AnyCancellable>()
+
+    static var isEnabled: Bool {
+        Defaults[.systemNotificationsEnabled] && Defaults[.systemNotificationQuickReply]
+    }
+
+    private init() {
+        Defaults.publisher(.systemNotificationsEnabled, options: [])
+            .map { _ in () }
+            .merge(with: Defaults.publisher(.systemNotificationQuickReply, options: []).map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                guard !Self.isEnabled else { return }
+                self?.shutDown()
+            }
+            .store(in: &featureCancellables)
+    }
+
+    private func shutDown() {
+        if activeRecordID != nil { end(restore: true) }
+        AccessibilityGuide.shutdown()
+    }
 
     var trimmed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
     var canSend: Bool { phase == .ready && !trimmed.isEmpty }
@@ -46,7 +69,7 @@ final class NotificationReplyController: ObservableObject {
     }
 
     func openAndBegin(record: SystemNotificationRecord, vm preferred: NubrixViewModel? = nil) {
-        guard let vm = preferred ?? preferredModel() else { return }
+        guard Self.isEnabled, let vm = preferred ?? preferredModel() else { return }
         NubrixCoordinator.shared.currentView = .notifications
         if vm.notchState != .open {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) { vm.open() }
@@ -58,6 +81,7 @@ final class NotificationReplyController: ObservableObject {
     }
 
     func begin(record: SystemNotificationRecord, vm preferred: NubrixViewModel? = nil) {
+        guard Self.isEnabled else { return }
         if activeRecordID != nil { end(restore: true) }
         guard let vm = preferred ?? preferredModel() else { return }
         generation += 1
@@ -119,7 +143,7 @@ final class NotificationReplyController: ObservableObject {
     }
 
     func send() {
-        guard canSend, let record else { return }
+        guard Self.isEnabled, canSend, let record else { return }
         let message = trimmed
         let current = generation
         phase = .sending
@@ -145,7 +169,7 @@ final class NotificationReplyController: ObservableObject {
             case .gone:
                 await finish("This notification was cleared from Notification Center. Text copied.", status, record, current)
             case .unconfirmed:
-                await finish("Sent, but Nubrix couldn't confirm it. Check \(record.appName).", status, record, current)
+                withAnimation(.smooth) { phase = .unconfirmed("Sent, but Nubrix couldn't confirm it. Text copied, check \(record.appName).") }
             }
         }
     }
@@ -199,6 +223,7 @@ final class NotificationReplyController: ObservableObject {
             Task { @MainActor in
                 guard let self, self.activeRecordID != nil, self.phase != .sending, self.phase != .sent else { return }
                 if case .note = self.phase { return }
+                if case .unconfirmed = self.phase { return }
                 if self.activePanel?.isKeyWindow == true { return }
                 self.cancel()
             }

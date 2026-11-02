@@ -20,22 +20,43 @@ enum NotificationReplyStatus: String {
 }
 
 final class NotificationReplier {
+    static let shared = NotificationReplier()
+
     private static let timeout: TimeInterval = 9
     private static let maxRequestBytes = 16 * 1024
     private let queue = DispatchQueue(label: "dev.nubrix.helper.notificationReply", qos: .userInitiated)
+    private let flightLock = NSLock()
+    private var inFlight = false
+
+    private init() {}
+
+    private func claim() -> Bool {
+        flightLock.lock()
+        defer { flightLock.unlock() }
+        if inFlight { return false }
+        inFlight = true
+        return true
+    }
+
+    private func release() {
+        flightLock.lock()
+        inFlight = false
+        flightLock.unlock()
+    }
 
     func reply(_ data: Data, completion: @escaping (Data) -> Void) {
         let job = ReplyJob(deadline: Date().addingTimeInterval(Self.timeout), completion: completion)
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + Self.timeout) {
-            job.finish(job.isSubmitted ? .unconfirmed : .failed)
-        }
-        guard data.count <= Self.maxRequestBytes, let request = ReplyRequest.parse(data) else {
+        guard data.count <= Self.maxRequestBytes, let request = ReplyRequest.parse(data), claim() else {
             job.finish(.failed)
             return
+        }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + Self.timeout) {
+            job.finish(job.isSubmitted ? .unconfirmed : .failed)
         }
         queue.async {
             let status = ReplySession(job: job, request: request).run()
             job.finish(status)
+            self.release()
         }
     }
 }
@@ -61,10 +82,12 @@ private final class ReplyJob: @unchecked Sendable {
         return submitted
     }
 
-    func markSubmitted() {
+    func beginSubmit() -> Bool {
         lock.lock()
+        defer { lock.unlock() }
+        if finished { return false }
         submitted = true
-        lock.unlock()
+        return true
     }
 
     func finish(_ status: NotificationReplyStatus) {
@@ -422,7 +445,15 @@ private final class ReplySession {
             evaluations[index] = evaluation
         }
 
-        let baseMatches = candidates.filter { evaluations[$0]?.base == true }
+        func deduped(_ indexes: [Int]) -> [Int] {
+            var unique: [Int] = []
+            for index in indexes where !unique.contains(where: { CFEqual(nodes[$0].element, nodes[index].element) }) {
+                unique.append(index)
+            }
+            return unique
+        }
+
+        let baseMatches = deduped(candidates.filter { evaluations[$0]?.base == true })
 
         func isStack(_ index: Int) -> Bool { nodes[index].subrole.contains("Stack") }
 
@@ -451,6 +482,10 @@ private final class ReplySession {
         var reasons: [Int: String] = [:]
         for index in candidates {
             guard let evaluation = evaluations[index] else { continue }
+            if accepted.contains(where: { CFEqual(nodes[$0].element, nodes[index].element) }) {
+                reasons[index] = "sameElement"
+                continue
+            }
             let reason: String
             if !evaluation.app {
                 reason = "noApp"
@@ -481,7 +516,7 @@ private final class ReplySession {
             let childCount = elements(node.element, kAXChildrenAttribute).count
             let actionNames = node.customActions.map { Self.displayName(of: $0) }.joined(separator: "|")
             let ancestors = ancestorSummary(nodes, from: index)
-            replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .public) actions=[\(actionNames, privacy: .public)] parts=\(texts[index].count, privacy: .public) roleDesc=\(roleDescription, privacy: .public) hasChildren=\(childCount > 0, privacy: .public) children=\(childCount, privacy: .public) anc=[\(ancestors, privacy: .public)]")
+            replyLog.info("cand pass=\(pass, privacy: .public) i=\(index, privacy: .public) depth=\(node.depth, privacy: .public) role=\(node.role, privacy: .public) subrole=\(node.subrole, privacy: .public) id=\(identifier, privacy: .private) actions=[\(actionNames, privacy: .private)] parts=\(texts[index].count, privacy: .public) roleDesc=\(roleDescription, privacy: .private) hasChildren=\(childCount > 0, privacy: .public) children=\(childCount, privacy: .public) anc=[\(ancestors, privacy: .public)]")
             for (k, owned) in texts[index].enumerated() {
                 let normalized = normalizedParts[index]?[k] ?? ""
                 let bodyResult = Self.bodyMatch(normalized, body: body)
@@ -520,13 +555,13 @@ private final class ReplySession {
     private func isReplyAction(_ action: String) -> Bool {
         let name = Self.normalize(Self.displayName(of: action))
         guard !name.isEmpty else { return false }
-        return Self.replyWords.contains { name == $0 || name.hasPrefix($0) }
+        return Self.replyWords.contains(name)
     }
 
     private func perform(_ match: NotificationMatch, app: AXUIElement) -> NotificationReplyStatus {
         let names = match.actions.map { Self.displayName(of: $0) }.joined(separator: "|")
         let replyAction = match.actions.first(where: isReplyAction)
-        replyLog.info("perform replyActionFound=\(replyAction != nil, privacy: .public) actions=[\(names, privacy: .public)]")
+        replyLog.info("perform replyActionFound=\(replyAction != nil, privacy: .public) actions=[\(names, privacy: .private)]")
         guard let action = replyAction else { return .unsupported }
         guard !job.isExpired else { return .failed }
         let pressed = AXUIElementPerformAction(match.element, action as CFString) == .success
@@ -547,9 +582,12 @@ private final class ReplySession {
             return .failed
         }
 
-        job.markSubmitted()
+        guard job.beginSubmit() else {
+            _ = AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, "" as CFString)
+            return .failed
+        }
         let path = submit(field: field, notification: match.element)
-        let sent = awaitSent(field)
+        let sent = awaitSent(field, viaAction: path != "return")
         replyLog.info("perform submitPath=\(path, privacy: .public) confirmed=\(sent, privacy: .public)")
         if sent { cleanup(match) }
         return sent ? .sent : .unconfirmed
@@ -605,17 +643,30 @@ private final class ReplySession {
 
     private func awaitTextField(notification: AXUIElement, app: AXUIElement) -> AXUIElement? {
         let limit = min(Date().addingTimeInterval(1.5), job.deadline)
+        var first = true
         repeat {
             let nodes = collect(roots: [notification], maxNodes: 400, maxDepth: 10, gatherParts: false)
             if let node = nodes.first(where: isEditable) { return node.element }
-            if let focused = elementAttribute(app, kAXFocusedUIElementAttribute) {
+            if !first, let focused = elementAttribute(app, kAXFocusedUIElementAttribute), isInside(focused, container: notification) {
                 let role = string(focused, kAXRoleAttribute) ?? ""
                 let node = AXNode(element: focused, parent: -1, depth: 0, role: role, subrole: "", customActions: [], parts: [])
                 if isEditable(node) { return focused }
             }
+            first = false
             Thread.sleep(forTimeInterval: 0.1)
         } while Date() < limit
         return nil
+    }
+
+    private func isInside(_ element: AXUIElement, container: AXUIElement) -> Bool {
+        var current: AXUIElement? = element
+        var hops = 0
+        while let candidate = current, hops < 30 {
+            if CFEqual(candidate, container) { return true }
+            current = elementAttribute(candidate, kAXParentAttribute)
+            hops += 1
+        }
+        return false
     }
 
     private func setText(_ field: AXUIElement) -> Bool {
@@ -629,19 +680,9 @@ private final class ReplySession {
     }
 
     private func submit(field: AXUIElement, notification: AXUIElement) -> String {
-        var roots = [notification]
-        var ancestor = elementAttribute(field, kAXParentAttribute)
-        var hops = 0
-        while let current = ancestor, hops < 3 {
-            roots.append(current)
-            ancestor = elementAttribute(current, kAXParentAttribute)
-            hops += 1
-        }
-        for root in roots {
-            let nodes = collect(roots: [root], maxNodes: 300, maxDepth: 8, gatherParts: false)
-            for node in nodes where node.role == "AXButton" && isSendButton(node.element) {
-                if AXUIElementPerformAction(node.element, kAXPressAction as CFString) == .success { return "button" }
-            }
+        let nodes = collect(roots: [notification], maxNodes: 300, maxDepth: 8, gatherParts: false)
+        for node in nodes where node.role == "AXButton" && isSendButton(node.element) {
+            if AXUIElementPerformAction(node.element, kAXPressAction as CFString) == .success { return "button" }
         }
         if actionNames(field).contains(kAXConfirmAction as String),
            AXUIElementPerformAction(field, kAXConfirmAction as CFString) == .success {
@@ -655,7 +696,7 @@ private final class ReplySession {
         for name in [kAXTitleAttribute, kAXDescriptionAttribute] {
             guard let label = string(button, name) else { continue }
             let normalized = Self.normalize(label)
-            if !normalized.isEmpty, Self.sendWords.contains(where: { normalized == $0 || normalized.hasPrefix($0) }) {
+            if !normalized.isEmpty, Self.sendWords.contains(normalized) {
                 return true
             }
         }
@@ -670,12 +711,12 @@ private final class ReplySession {
         }
     }
 
-    private func awaitSent(_ field: AXUIElement) -> Bool {
+    private func awaitSent(_ field: AXUIElement, viaAction: Bool) -> Bool {
         let limit = min(Date().addingTimeInterval(1.5), job.deadline)
         repeat {
             var role: CFTypeRef?
             let error = AXUIElementCopyAttributeValue(field, kAXRoleAttribute as CFString, &role)
-            if error == .invalidUIElement { return true }
+            if error == .invalidUIElement { return viaAction }
             if error == .success, let value = string(field, kAXValueAttribute), value.isEmpty { return true }
             Thread.sleep(forTimeInterval: 0.1)
         } while Date() < limit
@@ -685,17 +726,7 @@ private final class ReplySession {
     private func findClockItem(_ controlCenter: AXUIElement) -> AXUIElement? {
         guard let bar = elementAttribute(controlCenter, "AXExtrasMenuBar") else { return nil }
         let items = elements(bar, kAXChildrenAttribute)
-        if let byID = items.first(where: { string($0, kAXIdentifierAttribute) == "com.apple.menuextra.clock" }) {
-            return byID
-        }
-        guard let pattern = try? NSRegularExpression(pattern: "\\d{1,2}[:.]\\d{2}") else { return nil }
-        return items.first { item in
-            guard (string(item, kAXRoleAttribute) ?? "") == "AXMenuBarItem" else { return false }
-            return [kAXDescriptionAttribute, kAXTitleAttribute, kAXValueAttribute].contains { name in
-                guard let text = string(item, name) else { return false }
-                return pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
-            }
-        }
+        return items.first(where: { string($0, kAXIdentifierAttribute) == "com.apple.menuextra.clock" })
     }
 
     private func controlCenterElement() -> AXUIElement? {
@@ -709,15 +740,15 @@ private final class ReplySession {
         guard let controlCenter = controlCenterElement(), let clock = findClockItem(controlCenter) else { return false }
         let before = elements(app, kAXWindowsAttribute).count
         guard AXUIElementPerformAction(clock, kAXPressAction as CFString) == .success else { return false }
-        openedNotificationCenter = true
         let limit = min(Date().addingTimeInterval(1.5), job.deadline)
         repeat {
             Thread.sleep(forTimeInterval: 0.1)
             if elements(app, kAXWindowsAttribute).count > before {
+                openedNotificationCenter = true
                 return true
             }
         } while Date() < limit
-        return true
+        return false
     }
 
     private func closeNotificationCenterIfOpened() {
