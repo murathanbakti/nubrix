@@ -139,6 +139,8 @@ Published:
 Remaining:
 - An update mechanism (none exists; Sparkle was removed).
 - Encryption at rest for Vitrin (possible now that releases keep one signing identity).
+- Sign releases with the team designated requirement (`anchor apple generic and identifier "dev.nubrix.app" and certificate leaf[subject.OU] = "<team>"`), so a grant made by a release also survives a local build. Decision for v0.1.2.
+- Verify Vitrin's pasteboard behavior ("Paste from Other Apps" set to Ask, Allow, Deny) on macOS 26.
 
 ## Notch extensions
 
@@ -170,6 +172,17 @@ Remaining:
   without message previews Notification Center gives no safe way to know
   which chat a reply belongs to, and failures left the notch open.
 - Later: Dock badge counts as a no-permission fallback.
+
+## Permission prompts (done on branch `permissions-d41051`, not yet released)
+
+- Nothing is asked at launch. Each permission is asked when its feature is first used, through one `PermissionClient` (`Nubrix/Features/Permissions/`). Status is read without asking.
+- Settings, Permissions: live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm) and Paste from Other Apps, with Grant or Open System Settings buttons.
+- The Apple Music source is no longer chosen automatically when Now Playing is unavailable; Nubrix asks once which source to use. Automation is asked only after that choice.
+- Full Disk Access: "Quit & Reopen" brings you back to the place you started (notch Notifications, Settings, Notifications or Settings, Permissions) with an "Access granted" panel. Onboarding is marked as seen when it appears, so quitting during it never restarts it.
+- Vitrin respects "Paste from Other Apps" set to Ask (pill with "Save Copied Item").
+- Accessibility and Full Disk Access are documented under "Nubrix", not `NubrixHelper`.
+- Debug builds and the test host use `dev.nubrix.app.debug` ("Nubrix Debug"); `install-local.sh` signs with a team-based designated requirement so local grants survive a release of the same team.
+- v0.1.1 still has the old onboarding; users get this only with the next release.
 
 ## Feature switches and tab layout (done, not yet tried on device)
 
