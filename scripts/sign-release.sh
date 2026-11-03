@@ -28,9 +28,36 @@ is_macho() {
   esac
 }
 
+local_team=""
+if [ "$local_mode" = 1 ] && [ "$identity" != "-" ]; then
+  probe="$work/probe"
+  cp /usr/bin/true "$probe"
+  probe_args=(--force --sign "$identity" --timestamp=none)
+  [ -z "$keychain" ] || probe_args+=(--keychain "$keychain")
+  codesign "${probe_args[@]}" "$probe" >/dev/null 2>&1 || fail "could not sign a probe binary with $identity"
+  probe_team="$(codesign -dv "$probe" 2>&1 | sed -n 's/^TeamIdentifier=//p' | head -n 1)"
+  if [[ "$probe_team" =~ ^[A-Z0-9]{10}$ ]]; then local_team="$probe_team"; fi
+fi
+
+requirement_for() {
+  local id
+  id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null)" || return 1
+  [[ "$id" =~ ^[A-Za-z0-9.-]+$ ]] || return 1
+  printf 'designated => anchor apple generic and identifier "%s" and certificate leaf[subject.OU] = "%s"' "$id" "$local_team"
+}
+
 sign() {
   local target="$1" ent="$work/entitlements.plist"
   local args=(--force --sign "$identity" --options runtime)
+  if [ -n "$local_team" ]; then
+    case "$target" in
+      "$app" | "$app"/Contents/XPCServices/*.xpc)
+        local req
+        req="$(requirement_for "$target")" || fail "cannot read CFBundleIdentifier of $target"
+        args+=("-r=$req")
+        ;;
+    esac
+  fi
   if [ "$identity" = "-" ] || [ "$local_mode" = 1 ]; then
     args+=(--timestamp=none)
   else
@@ -69,6 +96,12 @@ shopt -u nullglob
 sign "$app"
 
 codesign --verify --strict --deep --verbose=2 "$app" >/dev/null 2>&1 || fail "codesign --verify failed after signing"
+
+if [ -n "$local_team" ]; then
+  app_req="$(requirement_for "$app")" || fail "cannot read CFBundleIdentifier of $app"
+  codesign -v -R="${app_req#designated => }" "$app" >/dev/null 2>&1 || fail "designated requirement check failed for $app"
+  echo "Designated requirement: team $local_team"
+fi
 
 hook_files=(
   "scripts/install-hooks.sh"

@@ -3,7 +3,7 @@ import XCTest
 
 final class SmokeTests: XCTestCase {
     func testHostedInsideNubrixApp() {
-        XCTAssertEqual(Bundle.main.bundleIdentifier, "dev.nubrix.app")
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "dev.nubrix.app.debug")
     }
 
     func testClipInsightDetectsJSON() {

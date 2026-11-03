@@ -23,6 +23,9 @@ struct SettingsView: View {
                 NavigationLink(value: "General") {
                     Label("General", systemImage: "gear")
                 }
+                NavigationLink(value: "Permissions") {
+                    Label("Permissions", systemImage: "lock.shield")
+                }
                 NavigationLink(value: "Appearance") {
                     Label("Appearance", systemImage: "eye")
                 }
@@ -75,6 +78,8 @@ struct SettingsView: View {
                 switch selectedTab {
                 case "General":
                     GeneralSettings()
+                case "Permissions":
+                    PermissionsSettings()
                 case "Appearance":
                     Appearance()
                 case "Tabs":
@@ -504,7 +509,7 @@ struct HUD: View {
                         Text("Nubrix needs Accessibility access to show its own volume and brightness HUDs.")
                             .font(.subheadline)
 
-                        Text("The access goes to NubrixHelper, a small part of Nubrix. It only sees the volume and brightness keys. Nothing is recorded or sent.")
+                        Text("The access is listed as Nubrix in System Settings. It is used only for the volume and brightness keys. Nothing is recorded or sent.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -512,7 +517,7 @@ struct HUD: View {
                         HStack(spacing: 12) {
                             Button("Allow Accessibility…") {
                                 requestedAccessibility = true
-                                XPCHelperClient.shared.requestAccessibilityAuthorization()
+                                Task { _ = await Permissions.client.request(.accessibility) }
                             }
                             .buttonStyle(.borderedProminent)
 

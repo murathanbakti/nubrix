@@ -98,7 +98,7 @@ final class NubrixCalendarStore: ObservableObject {
 
     func requestAccess() async {
         guard let eventStore else { return }
-        _ = try? await eventStore.store.requestFullAccessToEvents()
+        _ = await Permissions.client.request(.calendar)
         access = Self.currentAccess()
         dirty = true
         reload()

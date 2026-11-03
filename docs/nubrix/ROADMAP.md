@@ -144,6 +144,8 @@ Published:
 
 Remaining:
 - Testing on Intel and notch-less Macs.
+- Sign releases with the team designated requirement (`anchor apple generic and identifier "dev.nubrix.app" and certificate leaf[subject.OU] = "<team>"`), so a grant made by a release also survives a local build. Decision for v0.1.2.
+- Verify Vitrin's pasteboard behavior ("Paste from Other Apps" set to Ask, Allow, Deny) on macOS 26.
 
 ## Notch extensions
 
@@ -188,6 +190,17 @@ Remaining:
   `NubrixTests/DockBadges/`. Plan: `docs/nubrix/plans/dock-badges.md`.
 - Later: fill in counts for apps that are not running via the Dock's
   `AXStatusLabel`, only for users whose helper already has Accessibility.
+
+## Permission prompts (done, not yet released or tried on device)
+
+- Nothing is asked at launch. Each permission is asked when its feature is first used, through one `PermissionClient` (`Nubrix/Features/Permissions/`). Status is read without asking.
+- Settings, Permissions: live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm, Ghostty) and Paste from Other Apps, with Grant or Open System Settings buttons.
+- The Apple Music source is no longer chosen automatically when Now Playing is unavailable; Nubrix asks once which source to use. Automation is asked only after that choice.
+- Full Disk Access: "Quit & Reopen" brings you back to the place you started (notch Notifications, Settings, Notifications or Settings, Permissions) with an "Access granted" panel. Onboarding is marked as seen when it appears, so quitting during it never restarts it.
+- Vitrin respects "Paste from Other Apps" set to Ask (pill with "Save Copied Item").
+- Accessibility and Full Disk Access are documented under "Nubrix", not `NubrixHelper`.
+- Debug builds and the test host use `dev.nubrix.app.debug` ("Nubrix Debug"); `install-local.sh` signs with a team-based designated requirement so local grants survive a release of the same team.
+- v0.1.1 still has the old onboarding; users get this only with the next release.
 
 ## Feature switches and tab layout (done, not yet tried on device)
 

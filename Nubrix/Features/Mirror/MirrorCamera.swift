@@ -83,12 +83,11 @@ final class MirrorCamera: ObservableObject {
         }
         let current = generation
         state = .starting
-        AVCaptureDevice.requestAccess(for: .video) { granted in
-            Task { @MainActor [weak self] in
-                completion()
-                guard let self, self.generation == current else { return }
-                if granted { self.run(current) } else { self.state = .denied }
-            }
+        Task { @MainActor [weak self] in
+            let result = await Permissions.client.request(.camera)
+            completion()
+            guard let self, self.generation == current else { return }
+            if result == .granted { self.run(current) } else { self.state = .denied }
         }
     }
 

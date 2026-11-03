@@ -14,9 +14,39 @@ Run `brew reinstall --cask nubrix` (Homebrew still lists it as installed), or in
 
 ## Keychain or permission prompts after an update
 
-The Keychain asks for your password, or Camera, Calendar, Accessibility or Full Disk Access is asked again.
+The Keychain asks for your password, or Camera, Calendar, Accessibility, Automation or Full Disk Access is asked again. Or Full Disk Access looks on in System Settings but does not work.
 
-macOS ties Keychain access and permission grants to the app's code identity. Releases from 0.1.1 on keep the same Developer ID identity across updates, so this happens once when you update from 0.1.0 (ad-hoc signed, a new identity with every build) and not again. Click "Always Allow" for the Keychain item, and grant the permissions again if macOS asks. Your GitHub token is not lost. If you build from source, sign with your own certificate to stop this (see [From source](INSTALL.md#from-source)); after switching, macOS asks one last time.
+macOS ties every grant, and the Keychain access of the GitHub token, to the app's code signature. These are different signatures:
+
+- a Developer ID release (from GitHub or Homebrew)
+- a local build from `scripts/install-local.sh` (Apple Development certificate)
+- an Xcode Debug build
+
+If you switch between them, macOS treats the grant as missing: dialogs come back and Full Disk Access shows as on without working. Releases from 0.1.1 on keep the same Developer ID signature across updates, so updating a release over a release does not do this. Updating from 0.1.0 (ad-hoc signed, a new signature with every build) does it once.
+
+Fix: in System Settings, Privacy & Security, turn the switch for Nubrix off and on again (or remove Nubrix with the minus button and add it again). For the Keychain item, click "Always Allow". Your GitHub token is not lost.
+
+Debug builds and the unit-test host use their own bundle id `dev.nubrix.app.debug` and show as "Nubrix Debug". They have their own container (`~/Library/Containers/dev.nubrix.app.debug`), preferences and grants, so they never disturb the installed app.
+
+Local builds made with `scripts/install-local.sh` are signed with a team-based designated requirement (`anchor apple generic and identifier "dev.nubrix.app" and certificate leaf[subject.OU] = "<team>"`). A grant made by a local build keeps working after you install a release of the same team. The other direction (release grant, then a local build) still needs a re-toggle until releases are signed with the same requirement.
+
+To check which signature is installed:
+
+```sh
+codesign -d -r- /Applications/Nubrix.app
+```
+
+To see why macOS asks or ignores a grant, watch the permission daemon while you use the feature:
+
+```sh
+log stream --predicate 'subsystem == "com.apple.TCC" AND (eventMessage CONTAINS "AUTHREQ_PROMPTING" OR eventMessage CONTAINS "Failed to match")'
+```
+
+"Failed to match existing code requirement" means the grant belongs to another signature. "AUTHREQ_PROMPTING" is a real dialog for the permission that follows.
+
+Last resort, if toggling does not help: `tccutil reset All dev.nubrix.app` forgets every grant of the app (for a Debug build, `dev.nubrix.app.debug`). macOS then asks again for each permission.
+
+Version 0.1.1 still has the old onboarding, which asks for camera, calendar, Accessibility and Full Disk Access up front, and restarts when you use "Quit & Reopen" during it. The fix ships in the next release.
 
 ## Claude sign-in needed
 
@@ -54,11 +84,11 @@ The key "Nubrix Vitrin history key" was missing from the login keychain, for exa
 
 ## Nothing new appears in Vitrin
 
-Check that Vitrin and the capture type are on, the frontmost app is not in the excluded list, and, on macOS versions that ask, that pasteboard access for Nubrix is allowed. Text that looks like a credential is never stored.
+Check that Vitrin and the capture type are on and the frontmost app is not in the excluded list. On macOS 15.4 and later, check System Settings, Privacy & Security, Paste from Other Apps: with "Ask", Vitrin shows a pill with "Save Copied Item" and "Allow in Settings…" instead of reading in the background; with "Deny" it saves nothing. Text that looks like a credential is never stored.
 
 ## Music is not detected
 
-Pick the source in Settings, Media. "Now Playing" uses the bundled MediaRemote adapter (run through `/usr/bin/perl`); on macOS versions where that access was removed, Nubrix selects Apple Music instead and you can use the Spotify, Apple Music or YouTube Music controllers. Spotify and Apple Music need the Automation permission (System Settings, Privacy & Security, Automation). YouTube Music needs the desktop app's API server on `localhost:26538`.
+Pick the source in Settings, Media. "Now Playing" uses the bundled MediaRemote adapter (run through `/usr/bin/perl`); on macOS versions where that access was removed, Nubrix does not switch to Apple Music by itself. It asks once which music source to use; you can change it later in Settings, Media. Spotify and Apple Music need the Automation permission (System Settings, Privacy & Security, Automation), which macOS asks for only after you pick that source. Settings, Permissions shows whether it is granted (only while that app is running). YouTube Music needs the desktop app's API server on `localhost:26538`.
 
 ## The notch is not visible
 
@@ -66,12 +96,12 @@ Check Settings, General: "Show on all displays" and "Automatically switch displa
 
 ## Nubrix asks for Accessibility although it is already on
 
-macOS ties the switch to the exact build of the app that was added. After you install a different build of Nubrix (for example a release over a build you made yourself), the old entry still shows as on but is not trusted. In System Settings, Privacy & Security, Accessibility, select Nubrix, remove it with the minus button and add it again with the plus button, then turn "Replace system HUD" on again if Nubrix switched it off.
+macOS ties the switch to the exact signature of the app that was added; see [Keychain or permission prompts after an update](#keychain-or-permission-prompts-after-an-update). In System Settings, Privacy & Security, Accessibility, turn Nubrix off and on again, or select it, remove it with the minus button and add it again. Then turn "Replace system HUD" on again if Nubrix switched it off. The entry is called "Nubrix", not "NubrixHelper".
 
 ## Notifications from other apps do not appear
 
-Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant Access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. Updating from 0.1.0 can drop the grant: remove Nubrix from the list with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
+Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant Access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. After you turn Nubrix on, macOS offers "Quit & Reopen"; Nubrix then reopens the place you started from with an "Access granted" panel. A different signature (see above) or updating from 0.1.0 can drop the grant: turn Nubrix off and on again, or remove it with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
 
 ## The volume and brightness HUDs did not change
 
-"Replace system HUD" needs Accessibility access for Nubrix's helper (System Settings, Privacy & Security, Accessibility). If access is missing at launch, Nubrix turns the option off.
+"Replace system HUD" needs Accessibility access for Nubrix (System Settings, Privacy & Security, Accessibility; the entry is "Nubrix", the helper does not appear separately). If access is missing at launch, Nubrix turns the option off. Settings, Permissions shows the current state.

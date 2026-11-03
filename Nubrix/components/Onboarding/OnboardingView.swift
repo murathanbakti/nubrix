@@ -47,6 +47,7 @@ struct OnboardingView: View {
                         }
                     }
                 )
+                .onAppear { LaunchFlow().musicSourceDidAppear() }
                 .transition(.opacity)
 
             case .finished:

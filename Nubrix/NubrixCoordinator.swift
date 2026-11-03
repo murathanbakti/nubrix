@@ -154,7 +154,7 @@ class NubrixCoordinator: ObservableObject {
 
                     if change.newValue {
                         self.hudEnableTask = Task { @MainActor in
-                            let granted = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
+                            let granted = await Permissions.client.request(.accessibility) == .granted
                             if Task.isCancelled { return }
 
                             if granted {
@@ -174,15 +174,19 @@ class NubrixCoordinator: ObservableObject {
         normalizeCurrentView()
 
         Task { @MainActor in
-            if Defaults[.hudReplacement] {
-                let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
-                if !authorized {
-                    Defaults[.hudReplacement] = false
-                } else {
-                    await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
-                }
+            let hudEnabled = Defaults[.hudReplacement]
+            guard hudEnabled else { return }
+            if await Self.verifyHUDAtLaunch(hudEnabled: hudEnabled, client: Permissions.client) {
+                await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
+            } else {
+                Defaults[.hudReplacement] = false
             }
         }
+    }
+
+    static func verifyHUDAtLaunch(hudEnabled: Bool, client: any PermissionClient) async -> Bool {
+        guard hudEnabled else { return true }
+        return await client.status(.accessibility) == .granted
     }
     
     @objc func sneakPeekEvent(_ notification: Notification) {

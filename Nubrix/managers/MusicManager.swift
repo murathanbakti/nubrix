@@ -246,19 +246,16 @@ class MusicManager: ObservableObject {
     }
 
     private func setActiveControllerBasedOnPreference() {
-        let preferredType = Defaults[.mediaController]
+        guard let controllerType = Self.resolvedControllerType(
+            preferred: Defaults[.mediaController],
+            nowPlayingDeprecated: isNowPlayingDeprecated
+        ), let controller = createController(for: controllerType) else { return }
+        setActiveController(controller)
+    }
 
-        // If NowPlaying is deprecated but that's the preference, use Apple Music instead
-        let controllerType = (self.isNowPlayingDeprecated && preferredType == .nowPlaying)
-            ? .appleMusic
-            : preferredType
-
-        if let controller = createController(for: controllerType) {
-            setActiveController(controller)
-        } else if controllerType != .appleMusic, let fallbackController = createController(for: .appleMusic) {
-            // Fallback to Apple Music if preferred controller couldn't be created
-            setActiveController(fallbackController)
-        }
+    static func resolvedControllerType(preferred: MediaControllerType, nowPlayingDeprecated: Bool) -> MediaControllerType? {
+        if preferred == .nowPlaying && nowPlayingDeprecated { return nil }
+        return preferred
     }
 
     private func setActiveController(_ controller: any MediaControllerProtocol) {

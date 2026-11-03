@@ -6,9 +6,8 @@ import SwiftUI
 enum FullDiskAccessGuide {
     private static var panel: NSPanel?
     private static var closeObserver: NSObjectProtocol?
-    static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
 
-    static func begin() {
+    static func begin(origin: FDAOrigin = .settings) {
         let wasEnabled = Defaults[.systemNotificationsEnabled]
         Defaults[.systemNotificationsEnabled] = true
         let store = SystemNotificationStore.shared
@@ -21,6 +20,7 @@ enum FullDiskAccessGuide {
             let status = await store.checkNow()
             guard status == .noAccess else { return }
             guard Defaults[.systemNotificationsEnabled] else { return }
+            LaunchFlow().beginFDAGrant(origin: origin)
             openSettings()
             show()
         }
@@ -31,7 +31,11 @@ enum FullDiskAccessGuide {
     }
 
     static func openSettings() {
-        if let settingsURL { NSWorkspace.shared.open(settingsURL) }
+        Permissions.client.openSystemSettings(.fullDiskAccess)
+    }
+
+    static func showReturn() {
+        show()
     }
 
     private static func show() {
@@ -97,7 +101,7 @@ struct FullDiskAccessGuideView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     step(1, "Drag Nubrix into the list")
                     step(2, "Turn on the switch next to Nubrix")
-                    step(3, "If macOS asks, choose Quit & Reopen")
+                    step(3, "Choose Quit & Reopen. Nubrix comes back here.")
                 }
                 Spacer(minLength: 0)
                 dragTile
@@ -106,7 +110,10 @@ struct FullDiskAccessGuideView: View {
             HStack {
                 Button("Open System Settings") { FullDiskAccessGuide.openSettings() }
                 Spacer()
-                Button("Close") { onClose() }
+                Button("Close") {
+                    LaunchFlow().clearFDAPending()
+                    onClose()
+                }
             }
             .controlSize(.small)
         }
@@ -120,13 +127,19 @@ struct FullDiskAccessGuideView: View {
             try? await Task.sleep(for: .seconds(20))
             if !Task.isCancelled { showRestart = true }
         }
+        .onAppear { if granted { closeAfterGrant(delay: 4) } }
         .onChange(of: granted) { _, now in
-            guard now, !closing else { return }
-            closing = true
-            Task {
-                try? await Task.sleep(for: .seconds(2))
-                onClose()
-            }
+            if now { closeAfterGrant(delay: 2) }
+        }
+    }
+
+    private func closeAfterGrant(delay: Double) {
+        LaunchFlow().clearFDAPending()
+        guard !closing else { return }
+        closing = true
+        Task {
+            try? await Task.sleep(for: .seconds(delay))
+            onClose()
         }
     }
 

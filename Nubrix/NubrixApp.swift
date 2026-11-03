@@ -73,6 +73,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if onboardingWindowController != nil { LaunchFlow().onboardingDidAppear() }
         AgentEventServer.shared.stop()
         VitrinService.stop()
         MirrorService.stop()
@@ -458,21 +459,49 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupDragDetectors()
 
-        if coordinator.firstLaunch {
+        let launchAction = LaunchFlow().initialAction(
+            musicSourceNeeded: LaunchFlow.musicSourceNeeded(
+                mediaControlEnabled: Defaults[.mediaControlEnabled],
+                nowPlayingDeprecated: MusicManager.shared.isNowPlayingDeprecated,
+                controller: Defaults[.mediaController]
+            )
+        )
+        switch launchAction {
+        case .onboarding:
             DispatchQueue.main.async {
                 self.showOnboardingWindow()
             }
             playWelcomeSound()
-        } else if Defaults[.mediaControlEnabled]
-            && MusicManager.shared.isNowPlayingDeprecated
-            && Defaults[.mediaController] == .nowPlaying
-        {
+        case .musicSource:
             DispatchQueue.main.async {
                 self.showOnboardingWindow(step: .musicPermission)
             }
+        case .fdaReturn(let origin):
+            Task { @MainActor in await self.handleFDAReturn(origin) }
+        case .none:
+            break
         }
 
         previousScreens = NSScreen.screens
+    }
+
+    private func handleFDAReturn(_ origin: FDAOrigin) async {
+        let outcome = await LaunchFlow().resolveFDAReturn(origin: origin, client: Permissions.client)
+        switch origin {
+        case .settings:
+            SettingsNavigation.shared.open("Notifications")
+        case .permissions:
+            SettingsNavigation.shared.open("Permissions")
+        case .notch:
+            coordinator.currentView = .notifications
+            if Defaults[.showOnAllDisplays], let uuid = NSScreen.main?.displayUUID, let model = viewModels[uuid] {
+                model.open()
+            } else {
+                vm.open()
+            }
+        }
+        if case .stillOff = outcome { LaunchFlow().beginFDAGrant(origin: origin) }
+        FullDiskAccessGuide.showReturn()
     }
 
     func playWelcomeSound() {
@@ -643,6 +672,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        LaunchFlow().onboardingDidAppear()
 //        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         onboardingWindowController?.window?.makeKeyAndOrderFront(nil)

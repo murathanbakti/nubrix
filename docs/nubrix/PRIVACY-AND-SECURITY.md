@@ -18,9 +18,13 @@ The complete list:
 - `localhost:26538`, the local API of the YouTube Music desktop app, when that controller is used.
 - The `claude` command-line tool, run by the helper to read your plan usage (see [Usage, context and cost](CLAUDE-CODE.md#usage-context-and-cost)); Claude itself talks to Anthropic as it always does. Turn it off in Settings, Notifications, Claude Code.
 
+## Permissions
+
+Nubrix asks for nothing at launch. Each permission is asked the first time you use the feature that needs it, and Settings, Permissions shows the state of all of them. That tab reads the status without asking, so opening it never shows a system dialog. Automation for Music or Spotify is asked only after you choose that source; Nubrix never picks Apple Music by itself. Accessibility and Full Disk Access are recorded by macOS under "Nubrix". Version 0.1.1 still asks for camera, calendar, Accessibility and Full Disk Access up front in onboarding; the change ships in the next release. Details are in [PERMISSIONS-AND-SETTINGS.md](PERMISSIONS-AND-SETTINGS.md).
+
 ## Sandbox and helper split
 
-The app is sandboxed. The only unsandboxed part is the small XPC service `NubrixHelper`, used for Accessibility-based key handling, brightness, the `claude /usage` probe and, when turned on, the read-only reader of the macOS notification database. The app can read `~/.config/nubrix/` (the sealed hook scripts) but cannot write there, so it cannot change what Claude Code runs; its only writable config location is `~/.config/nubrix-run/`.
+The app is sandboxed. The only unsandboxed part is the small XPC service `NubrixHelper`, used for Accessibility-based key handling (the Accessibility grant is recorded under "Nubrix", not the helper), brightness, the `claude /usage` probe and, when turned on, the read-only reader of the macOS notification database. The app can read `~/.config/nubrix/` (the sealed hook scripts) but cannot write there, so it cannot change what Claude Code runs; its only writable config location is `~/.config/nubrix-run/`.
 
 The entitlements allow Apple Events only to Spotify, Music, Terminal, iTerm and Ghostty. To find a Claude session's tab, the scripts get only a checked terminal device name (`/dev/ttysNNN`) and, for Ghostty, the session folder passed as a script parameter, never as script text. A Warp session link from the hook is opened only in the exact `warp…://session/<32 hex>` form and only when the app that handles it is a `dev.warp.*` app.
 
@@ -74,6 +78,8 @@ It does not protect against someone using your logged-in Mac while it is unlocke
 
 On the first start after the upgrade, existing history is encrypted in place and the old unencrypted copies, including the old search index, are deleted. This cannot reach every copy on the storage device: SQLite's write-ahead log, APFS copy-on-write and SSD wear levelling can leave remnants until the space is overwritten. FileVault protects them while the Mac is off. "Reset history and key" makes them unreadable.
 
+On macOS 15.4 and later Vitrin respects "Paste from Other Apps": with "Ask" it does not read copied items in the background and waits for you to click "Save Copied Item"; with "Deny" it saves nothing.
+
 ## GitHub token
 
 Kept in the macOS Keychain only and sent only to `api.github.com`. Nubrix only sends read requests; Settings asks you to create the token read-only and limited to the repositories you choose, which GitHub then enforces.
@@ -84,7 +90,7 @@ Mirror uses the camera only for a live preview layer in the notch panel. There i
 
 ## Notifications from other apps
 
-Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50 notifications, stacked by chat): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access lets Nubrix read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
+Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50 notifications, stacked by chat): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access is granted to Nubrix (the helper does not appear separately) and lets it read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
 
 ## Unread counts (Dock badges)
 

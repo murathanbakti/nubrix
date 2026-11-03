@@ -1102,7 +1102,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.nubrix.app.NubrixHelper;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.nubrix.app.debug.NubrixHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SKIP_INSTALL = YES;
@@ -1289,7 +1289,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Nubrix/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Nubrix;
+				INFOPLIST_KEY_CFBundleDisplayName = "Nubrix Debug";
 				INFOPLIST_KEY_CFBundleName = Nubrix;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
@@ -1305,7 +1305,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.nubrix.app;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.nubrix.app.debug;
 				PRODUCT_NAME = Nubrix;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
