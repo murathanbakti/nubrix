@@ -19,7 +19,7 @@ struct UpdaterHandle {
 }
 
 @MainActor
-final class SparkleBridge: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
+final class SparkleBridge: NSObject, SPUUpdaterDelegate, @preconcurrency SPUStandardUserDriverDelegate {
     private weak var store: UpdateStore?
     private var cancellables: Set<AnyCancellable> = []
 
