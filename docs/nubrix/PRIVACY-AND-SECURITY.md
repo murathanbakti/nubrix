@@ -21,6 +21,8 @@ The complete list:
 
 The app is sandboxed. The only unsandboxed part is the small XPC service `NubrixHelper`, used for Accessibility-based key handling, brightness, the `claude /usage` probe and, when turned on, the read-only reader of the macOS notification database. The app can read `~/.config/nubrix/` (the sealed hook scripts) but cannot write there, so it cannot change what Claude Code runs; its only writable config location is `~/.config/nubrix-run/`.
 
+The entitlements allow Apple Events only to Spotify, Music, Terminal, iTerm and Ghostty. To find a Claude session's tab, the scripts get only a checked terminal device name (`/dev/ttysNNN`) and, for Ghostty, the session folder passed as a script parameter, never as script text. A Warp session link from the hook is opened only in the exact `warp…://session/<32 hex>` form and only when the app that handles it is a `dev.warp.*` app.
+
 ## Local endpoint
 
 The event server binds to the loopback interface only (127.0.0.1) on a random port, authenticates on request headers with a random bearer token and caps connections. Port, token and process id are written to `~/.config/nubrix-run/agent-endpoint` (file 0600 in a 0700 directory). Hook scripts verify the server with an HMAC challenge before trusting an answer.

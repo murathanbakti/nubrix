@@ -235,6 +235,10 @@ case "$event" in
     if [[ "$tty_name" =~ ^ttys[0-9]{1,4}$ ]]; then
       source_args+=(-H "X-Nubrix-TTY: $tty_name")
     fi
+    focus_url="${WARP_FOCUS_URL:-}"
+    if [ "${#focus_url}" -le 64 ] && [[ "$focus_url" =~ ^warp[a-z]{0,12}://session/[0-9a-f]{32}$ ]]; then
+      source_args+=(-H "X-Nubrix-Focus-URL: $focus_url")
+    fi
     ;;
 esac
 

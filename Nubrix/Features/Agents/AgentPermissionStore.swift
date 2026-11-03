@@ -125,9 +125,10 @@ final class AgentPermissionStore: ObservableObject {
     func openInSourceApp(_ id: UUID) {
         guard let prompt = queue.first(where: { $0.id == id }) else { return }
         finish(id, answer: .none)
-        var source = AgentSessionStore.shared.session(prompt.payload.sessionID)?.source ?? AgentSourceInfo()
+        let session = AgentSessionStore.shared.session(prompt.payload.sessionID)
+        var source = session?.source ?? AgentSourceInfo()
         source.merge(prompt.payload.source)
-        AgentSessionOpener.open(source)
+        AgentSessionOpener.open(source, cwd: session?.cwd ?? prompt.payload.cwd)
     }
 
     func withdraw(_ id: UUID) {

@@ -1294,7 +1294,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nubrix uses Apple Events to control music apps and to bring the right Terminal or iTerm tab to the front.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nubrix uses Apple Events to control music apps and to bring the right Terminal, iTerm or Ghostty tab to the front.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "This app uses the calendar to display your calendar events";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Nubrix shows your upcoming events in the notch and lets you add events from its calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nubrix uses the camera only to show the Mirror preview in the notch. Nothing is recorded, saved or sent.";
@@ -1348,7 +1348,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nubrix uses Apple Events to control music apps and to bring the right Terminal or iTerm tab to the front.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nubrix uses Apple Events to control music apps and to bring the right Terminal, iTerm or Ghostty tab to the front.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "This app uses the calendar to display your calendar events";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Nubrix shows your upcoming events in the notch and lets you add events from its calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nubrix uses the camera only to show the Mirror preview in the notch. Nothing is recorded, saved or sent.";

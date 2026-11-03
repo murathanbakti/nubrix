@@ -69,6 +69,8 @@ scripts/run-tests.sh /path/to/derived-data            # own derived data path
 
 The script wraps `xcodebuild test -scheme NubrixTests -destination 'platform=macOS'`, prints a pass/fail summary and exits non-zero on failure. Anything after the optional derived data path goes to `xcodebuild`.
 
+`scripts/test-hook-headers.sh` runs the real `claude-plugin/scripts/nubrix-hook` against a one-shot local listener and checks the headers it sends (for example `X-Nubrix-Focus-URL`). It needs no build and no running Nubrix.
+
 The default derived data path is `~/Library/Caches/Nubrix/DerivedData-tests`. When you work in several branches or worktrees at once, give each one its own path (for example `~/Library/Caches/Nubrix/DerivedData-tests-<branch>`) so parallel builds do not overwrite each other. Do not put derived data inside `~/Documents` or another synced folder.
 
 The `Nubrix` and `NubrixTests` schemes are shared and committed (`Nubrix.xcodeproj/xcshareddata/xcschemes/`); other schemes stay ignored.

@@ -24,6 +24,7 @@
 		<string>com.apple.Music</string>
 		<string>com.apple.Terminal</string>
 		<string>com.googlecode.iterm2</string>
+		<string>com.mitchellh.ghostty</string>
 	</array>
 	<key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
 	<array>
