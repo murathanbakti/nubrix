@@ -30,6 +30,8 @@ if [ ! -d "$app" ]; then
   exit 1
 fi
 
+"$root/scripts/strip-sparkle-downloader.sh" "$app"
+
 identity="${NUBRIX_SIGN_IDENTITY-}"
 if [ -z "$identity" ]; then
   identities="$(security find-identity -v -p codesigning 2>/dev/null || true)"

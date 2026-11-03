@@ -47,7 +47,7 @@ requirement_for() {
 }
 
 sign() {
-  local target="$1" ent="$work/entitlements.plist"
+  local target="$1" keep_entitlements="${2:-1}" ent="$work/entitlements.plist"
   local args=(--force --sign "$identity" --options runtime)
   if [ -n "$local_team" ]; then
     case "$target" in
@@ -66,14 +66,27 @@ sign() {
   [ -z "$keychain" ] || args+=(--keychain "$keychain")
 
   rm -f "$ent"
-  codesign -d --entitlements "$ent" --xml "$target" >/dev/null 2>&1 || true
-  if [ -s "$ent" ]; then
-    /usr/libexec/PlistBuddy -c 'Delete :com.apple.security.get-task-allow' "$ent" >/dev/null 2>&1 || true
-    args+=(--entitlements "$ent")
+  if [ "$keep_entitlements" = 1 ]; then
+    codesign -d --entitlements "$ent" --xml "$target" >/dev/null 2>&1 || true
+    if [ -s "$ent" ]; then
+      /usr/libexec/PlistBuddy -c 'Delete :com.apple.security.get-task-allow' "$ent" >/dev/null 2>&1 || true
+      args+=(--entitlements "$ent")
+    fi
   fi
 
   codesign "${args[@]}" "$target" || fail "codesign failed for $target"
   if [ "$target" = "$app" ]; then echo "signed     $(basename "$app")"; else echo "signed     ${target#"$app"/}"; fi
+}
+
+sign_sparkle() {
+  local fw="$1" v="$1/Versions/B" n
+  [ -d "$v" ] || fail "Sparkle.framework has no Versions/B"
+  [ ! -e "$v/XPCServices/Downloader.xpc" ] || fail "Sparkle Downloader.xpc must be removed before signing; run scripts/strip-sparkle-downloader.sh"
+  for n in "$v/XPCServices/Installer.xpc" "$v/Autoupdate" "$v/Updater.app"; do
+    [ -e "$n" ] || fail "missing ${n#"$app"/}"
+    sign "$n" 0
+  done
+  sign "$fw" 0
 }
 
 loose=()
@@ -87,7 +100,10 @@ done
 
 shopt -s nullglob
 for fw in "$app"/Contents/Frameworks/*.framework "$app"/Contents/Frameworks/*.dylib; do
-  sign "$fw"
+  case "$(basename "$fw")" in
+    Sparkle.framework) sign_sparkle "$fw" ;;
+    *) sign "$fw" ;;
+  esac
 done
 for xpc in "$app"/Contents/XPCServices/*.xpc; do
   sign "$xpc"
@@ -123,6 +139,11 @@ while IFS= read -r -d '' f; do
   grep -q 'flags=.*runtime' <<< "$details" || fail "hardened runtime is off: ${f#"$app"/}"
   entitlements="$(codesign -d --entitlements - --xml "$f" 2>/dev/null || true)"
   ! grep -q 'com.apple.security.get-task-allow' <<< "$entitlements" || fail "get-task-allow is present: ${f#"$app"/}"
+  case "$f" in
+    "$app"/Contents/Frameworks/Sparkle.framework/*)
+      ! grep -q '<key>' <<< "$entitlements" || fail "Sparkle code must carry no entitlements: ${f#"$app"/}"
+      ;;
+  esac
   if [ "$identity" != "-" ] && [ "$local_mode" != 1 ]; then
     grep -q '^Authority=Developer ID Application: ' <<< "$details" || fail "not signed with Developer ID: ${f#"$app"/}"
     grep -qx "TeamIdentifier=$team" <<< "$details" || fail "team is not $team: ${f#"$app"/}"

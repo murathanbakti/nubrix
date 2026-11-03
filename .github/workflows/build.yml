@@ -120,6 +120,13 @@ jobs:
           shopt -s nullglob
           shellcheck -S error claude-plugin/scripts/* cli/notchctl scripts/*.sh
 
+      - name: Sparkle pins agree
+        run: |
+          resolved="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(next(p["state"]["version"] for p in d["pins"] if p["identity"]=="sparkle"))' Nubrix.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved)"
+          tools="$(sed -n 's/^version="\(.*\)"$/\1/p' scripts/sparkle-tools.sh)"
+          [ "$resolved" = "$tools" ] || { echo "::error::Package.resolved has Sparkle $resolved but sparkle-tools.sh pins $tools"; exit 1; }
+          grep -q "version = $tools;" Nubrix.xcodeproj/project.pbxproj || { echo "::error::project.pbxproj does not require Sparkle $tools exactly"; exit 1; }
+
       - name: JSON manifests
         run: |
           python3 -m json.tool claude-plugin/hooks/hooks.json > /dev/null

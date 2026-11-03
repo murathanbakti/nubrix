@@ -41,6 +41,9 @@ done
 if [ "$mode" = build ] && [ -n "${NUBRIX_SIGN_IDENTITY:-}${NOTARY_KEY_PATH:-}" ]; then
   fail "--build-only does not sign; unset NUBRIX_SIGN_IDENTITY and NOTARY_KEY_PATH"
 fi
+if [ -n "${NUBRIX_SIGN_IDENTITY:-}" ] && [ "$NUBRIX_SIGN_IDENTITY" != "-" ]; then
+  export NUBRIX_REQUIRE_SPARKLE_KEY=1
+fi
 if [ -n "${NOTARY_KEY_PATH:-}" ] && [ -z "${NUBRIX_SIGN_IDENTITY:-}" ]; then
   fail "NOTARY_KEY_PATH is set but NUBRIX_SIGN_IDENTITY is not; only Developer ID builds can be notarized"
 fi
@@ -78,6 +81,7 @@ build() {
 
   app="$derived/Build/Products/Release/Nubrix.app"
   [ -d "$app" ] || fail "build output not found: $app"
+  "$root/scripts/strip-sparkle-downloader.sh" "$app"
 }
 
 check_app() {
@@ -88,24 +92,17 @@ check_app() {
 
   "$root/scripts/verify-bundle.sh" "$app"
 
-  local binaries=(
-    "$app/Contents/MacOS/Nubrix"
-    "$app/Contents/XPCServices/NubrixHelper.xpc/Contents/MacOS/NubrixHelper"
-  )
-  local fw bin archs arch
-  for fw in "$app"/Contents/Frameworks/*.framework; do
-    binaries+=("$fw/Versions/A/$(basename "$fw" .framework)")
-  done
-  for bin in "${binaries[@]}"; do
-    [ -f "$bin" ] || fail "missing binary $bin"
+  local bin archs arch
+  while IFS= read -r -d '' bin; do
+    case "$(file -b "$bin")" in Mach-O*) ;; *) continue ;; esac
     archs="$(lipo -archs "$bin")"
     for arch in arm64 x86_64; do
       case " $archs " in
         *" $arch "*) ;;
-        *) fail "$(basename "$bin") lacks $arch (has: $archs)" ;;
+        *) fail "${bin#"$app"/} lacks $arch (has: $archs)" ;;
       esac
     done
-  done
+  done < <(find "$app" -type f -print0)
 }
 
 zip_dsyms() {
@@ -135,7 +132,7 @@ if [ "$mode" = all ]; then
 else
   check_app
   mkdir -p "$dist"
-  rm -f "$dist/Nubrix-$version.zip" "$dist/Nubrix-$version.zip.sha256" "$dist/nubrix.rb" "$dist/notary-log.json"
+  rm -f "$dist/Nubrix-$version.zip" "$dist/Nubrix-$version.zip.sha256" "$dist/nubrix.rb" "$dist/notary-log.json" "$dist/appcast.xml"
 fi
 
 signing="ad-hoc, not notarized"
