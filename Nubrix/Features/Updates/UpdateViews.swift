@@ -3,6 +3,7 @@ import SwiftUI
 
 struct UpdatesSettingsSection: View {
     @ObservedObject private var store = UpdateStore.shared
+    @ObservedObject private var hooks = HookKitStore.shared
 
     var body: some View {
         Section {
@@ -11,6 +12,7 @@ struct UpdatesSettingsSection: View {
             } else {
                 unavailableRows
             }
+            hookRows
         } header: {
             Text("Updates")
         } footer: {
@@ -18,6 +20,7 @@ struct UpdatesSettingsSection: View {
                 Text("Off until you turn it on. Nubrix then asks github.com/murathanbakti/nubrix for a signed update feed once a day. An update is installed only if its EdDSA signature and Apple Developer ID signature check out. Installed with Homebrew? brew upgrade --cask nubrix keeps working too.")
             }
         }
+        .task { await hooks.refresh() }
     }
 
     @ViewBuilder
@@ -82,6 +85,26 @@ struct UpdatesSettingsSection: View {
         }
     }
 
+    @ViewBuilder
+    private var hookRows: some View {
+        if let names = hooks.staleNames {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your installed Claude Code hook scripts are older than this Nubrix (\(names.joined(separator: ", "))).")
+                HStack(alignment: .top) {
+                    Text(hooks.installCommand)
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(hooks.installCommand, forType: .string)
+                    }
+                    Button("Check Again") { Task { await hooks.refresh() } }
+                }
+            }
+        }
+    }
+
     private var statusText: LocalizedStringKey {
         switch store.status {
         case .idle: "Version \(Bundle.main.releaseVersionNumber ?? "unknown") (\(Bundle.main.buildVersionNumber ?? "?"))"
@@ -93,8 +116,12 @@ struct UpdatesSettingsSection: View {
 
 struct UpdateMenuItems: View {
     @ObservedObject private var store = UpdateStore.shared
+    @ObservedObject private var hooks = HookKitStore.shared
 
     var body: some View {
+        if hooks.staleNames != nil {
+            Button("Refresh Claude Code Hooks…") { SettingsNavigation.shared.open(.about) }
+        }
         if store.buildKind.updatesEnabled {
             if let reminder = store.reminder {
                 Button(reminder.readyToInstall ? "Restart to Update Nubrix \(reminder.version)…" : "Update to Nubrix \(reminder.version)…") {
@@ -103,6 +130,8 @@ struct UpdateMenuItems: View {
             }
             Button("Check for Updates…") { store.checkNow() }
                 .disabled(!store.canCheckForUpdates)
+        }
+        if store.buildKind.updatesEnabled || hooks.staleNames != nil {
             Divider()
         }
     }

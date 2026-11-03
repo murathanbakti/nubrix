@@ -317,6 +317,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NubrixCalendarService.start()
         MusicManager.shared.start()
         UpdateStore.shared.start()
+        Task { await HookKitStore.shared.launchCheck() }
 
         NotificationCenter.default.addObserver(
             self,
