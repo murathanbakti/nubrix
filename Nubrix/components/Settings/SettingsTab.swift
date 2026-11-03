@@ -116,10 +116,6 @@ final class SettingsNavigation: ObservableObject {
         requested = tab
         present()
     }
-
-    func open(_ title: String) {
-        open(SettingsTab(title: title) ?? .general)
-    }
 }
 
 enum SettingsLinks {

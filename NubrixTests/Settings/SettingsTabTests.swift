@@ -73,17 +73,6 @@ final class SettingsTabTests: XCTestCase {
         XCTAssertEqual(presented, 2)
     }
 
-    @MainActor
-    func testOpenByTitleMapsToTheTabAndFallsBackToGeneral() {
-        let navigation = SettingsNavigation(present: {})
-        navigation.open("GitHub")
-        XCTAssertEqual(navigation.requested, .github)
-        navigation.open("About")
-        XCTAssertEqual(navigation.requested, .about)
-        navigation.open("Missing")
-        XCTAssertEqual(navigation.requested, .general)
-    }
-
     func testFeatureOffHintsNameExistingTabs() {
         for view in NotchViews.allCases {
             let tab = NotchTabCatalog.settingsTab(for: view)
