@@ -2,6 +2,26 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Opt-in automatic updates with Sparkle 2.10.1 in Settings, About, Updates: check automatically, install automatically, Check Now and the last check time. Nothing is checked or installed until you turn it on. Only Developer ID releases update themselves.
+- Gentle reminders for a pending update in the menu bar and the notch inbox, and a reminder when the installed Claude Code hook scripts differ from the app's.
+
+### Changed
+
+- Simplified Settings: a grouped sidebar, a Claude Code tab, Meetings in Calendar, Battery in General, and Mirror, accent and window appearance in Appearance. Dead and placeholder settings were removed.
+- Sparkle replaces the notify-only update check. Source and Debug builds never update themselves.
+
+### Removed
+
+- The GitHub-API update checker (`api.github.com` release check) and the helper's Homebrew probe.
+
+### Security
+
+- Signed appcast (`SURequireSignedFeed`), EdDSA verification before extraction and a Developer ID match for every update. One new mach-lookup temporary exception for Sparkle's installer, four new Mach-O files from Sparkle and Sparkle's Downloader service removed from the bundle.
+
 ## [0.1.2] - 2026-11-03
 
 ### Added

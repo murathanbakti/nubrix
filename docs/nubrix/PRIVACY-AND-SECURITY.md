@@ -4,14 +4,14 @@ How Nubrix keeps your data on your Mac and limits what each part can do. For a s
 
 ## Local only
 
-Everything stays on your Mac. Nubrix has no analytics, no account and sends nothing to a Nubrix server. It has no auto-updater: an optional daily check (off until you turn it on) only asks GitHub for the latest version number, and Nubrix never downloads or installs anything.
+Everything stays on your Mac. Nubrix has no analytics, no account and sends nothing to a Nubrix server. Automatic updates through Sparkle are optional and off until you turn them on in Settings, About, Updates; until then Nubrix makes no update request and installs nothing.
 
 ## Network use
 
 The complete list:
 
 - `api.github.com`, only if you add a fine-grained read-only token (off until then; see [GitHub integration](../../README.md#github-integration)). The token goes nowhere else.
-- `api.github.com/repos/murathanbakti/nubrix/releases/latest`, when you press Check now or turn on the daily update check in Settings, About, Updates (off by default). The request carries no token or cookies and nothing beyond your IP address and `User-Agent: Nubrix/<version>`. Redirects are refused and only the release's `tag_name` is read, as a version number. Nothing is downloaded or run. Stored on your Mac: the date of the last check, the latest version seen and a version you skipped.
+- `github.com/murathanbakti/nubrix/releases/latest/download/appcast.xml` (GitHub redirects to `release-assets.githubusercontent.com`), only when automatic checks are on (once a day) or you press Check Now. Off by default. Sparkle sends a plain GET with `User-Agent: Nubrix/<version> Sparkle/<version>`, no GitHub token, no cookies and no system profile (`SUEnableSystemProfiling` is off). The feed must carry a valid EdDSA signature (`SURequireSignedFeed`). When you install an update (or with "Install updates automatically"), Sparkle downloads `Nubrix-X.Y.Z.zip` from the same release, checks its EdDSA signature before unpacking (`SUVerifyUpdateBeforeExtraction`) and checks that the new app is signed with the same Developer ID. Only Developer ID release builds do any of this; source and Debug builds never start the updater. Stored on your Mac (app container defaults): `SUEnableAutomaticChecks`, `SUAutomaticallyUpdate`, `SULastCheckTime` and Sparkle's skipped-version state.
 - `lrclib.net` receives the track title and artist when lyrics are turned on (off by default).
 - LottieFiles: a visualizer animation (JSON) is downloaded when the built-in music visualizer is turned off in Settings.
 - Artwork URLs supplied by Spotify or YouTube Music are fetched to show the cover.
@@ -25,6 +25,8 @@ Nubrix asks for nothing at launch. Each permission is asked the first time you u
 ## Sandbox and helper split
 
 The app is sandboxed. The only unsandboxed part is the small XPC service `NubrixHelper`, used for Accessibility-based key handling (the Accessibility grant is recorded under "Nubrix", not the helper), brightness, the `claude /usage` probe and, when turned on, the read-only reader of the macOS notification database. The app can read `~/.config/nubrix/` (the sealed hook scripts) but cannot write there, so it cannot change what Claude Code runs; its only writable config location is `~/.config/nubrix-run/`.
+
+The app has one mach-lookup temporary exception (`dev.nubrix.app-spks` and `-spki`) so it can talk to Sparkle's installer. That installer (`Installer.xpc`, which starts `Autoupdate` and `Updater.app`) runs outside the sandbox only to replace the app bundle after you accept an update. Sparkle's Downloader service is removed from the bundle, because Nubrix has the network client entitlement and downloads itself. `NubrixHelper` no longer has the `isHomebrewInstall` method.
 
 The entitlements allow Apple Events only to Spotify, Music, Terminal, iTerm and Ghostty. To find a Claude session's tab, the scripts get only a checked terminal device name (`/dev/ttysNNN`) and, for Ghostty, the session folder passed as a script parameter, never as script text. A Warp session link from the hook is opened only in the exact `warp…://session/<32 hex>` form and only when the app that handles it is a `dev.warp.*` app.
 
@@ -98,7 +100,7 @@ Off by default ("Show unread counts"). When on, the sandboxed app reads the badg
 
 ## Signing
 
-From 0.1.1 on, GitHub Actions builds each release without access to any signing key, then a separate job, which only `v*` tags can start, signs every piece of code with a Developer ID, notarizes the app with Apple and staples the ticket (see [CONTRIBUTING.md](../../CONTRIBUTING.md#signing-and-notarization)). 0.1.0 was ad-hoc signed and not notarized. All releases use the hardened runtime without `get-task-allow`. The app carries `disable-library-validation` so that `/usr/bin/perl` can load the bundled MediaRemote adapter. See [SUPPLY-CHAIN.md](SUPPLY-CHAIN.md) and [AUDIT-2026-10-31-release.md](AUDIT-2026-10-31-release.md) for the audit and known limits.
+From 0.1.1 on, GitHub Actions builds each release without access to any signing key, then a separate job, which only `v*` tags can start, signs every piece of code with a Developer ID, notarizes the app with Apple and staples the ticket (see [CONTRIBUTING.md](../../CONTRIBUTING.md#signing-and-notarization)). 0.1.0 was ad-hoc signed and not notarized. Release bundles contain nine Mach-O files; the four from Sparkle (`Sparkle`, `Autoupdate`, `Updater`, `Installer`) are re-signed with the Developer ID and carry no entitlements. The update feed is signed by a separate job with an EdDSA key that never shares a job with the Developer ID certificate or the notary key. All releases use the hardened runtime without `get-task-allow`. The app carries `disable-library-validation` so that `/usr/bin/perl` can load the bundled MediaRemote adapter. See [SUPPLY-CHAIN.md](SUPPLY-CHAIN.md) and [AUDIT-2026-10-31-release.md](AUDIT-2026-10-31-release.md) for the audit and known limits.
 
 ## Reporting a problem
 

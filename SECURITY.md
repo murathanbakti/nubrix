@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest release receives security fixes. Nubrix has no auto-updater, so update with `brew upgrade --cask nubrix` or by running the install script again, then re-run `install-hooks.sh` (see the README).
+Only the latest release receives security fixes. Updates are opt-in (Settings, About, Updates), so update with that, with `brew upgrade --cask nubrix` or by running the install script again, then re-run `install-hooks.sh` if Nubrix says the hook copies are old (see the README).
 
 ## Reporting a vulnerability
 

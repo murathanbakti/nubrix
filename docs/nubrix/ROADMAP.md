@@ -126,7 +126,7 @@ Done locally:
   upstream credits/GPL-3.0); full rename of the Xcode project, targets, Swift
   types, preference keys, identifiers and the XPC helper (`NubrixHelper`), with a
   one-time `NubrixMigration` for old preference keys and the shelf folder.
-- Auto-updater removed: Sparkle, its entitlements and the update UI are gone. Nubrix does not update itself.
+- Sparkle 2 auto-updates (opt-in, signed feed, Developer ID builds only), replacing the notify-only check.
 - Original placeholder app icon and in-app logo.
 - README, CONTRIBUTING, SECURITY rewritten; upstream workflows, funding and
   Crowdin config removed; `.github/workflows/build.yml` (unsigned Debug build
@@ -140,7 +140,7 @@ Published:
 - GitHub repository, with README screenshots and private vulnerability reporting.
 - Logo and app icon (`docs/branding/`).
 - Releases built by CI as a zip (not a DMG): v0.1.0 ad-hoc signed, v0.1.1 and later Developer ID signed and notarized.
-- Update check (notify only): an opt-in daily check of the latest GitHub release shows the update command for your install type in Settings, About, Updates and in the menu bar. Nothing is downloaded or installed. Sparkle stays a possible later step.
+- Update check (notify only), in 0.1.2: an opt-in daily check of the latest GitHub release. Replaced by Sparkle 2 auto-updates once 0.2.0 is published.
 
 Remaining:
 - Testing on Intel and notch-less Macs.

@@ -48,6 +48,14 @@ Last resort, if toggling does not help: `tccutil reset All dev.nubrix.app` forge
 
 Version 0.1.1 and earlier had an onboarding that asked for camera, calendar, Accessibility and Full Disk Access up front, and restarted when you used "Quit & Reopen" during it. Update to 0.1.2 or later: `brew upgrade --cask nubrix`.
 
+## Check for Updates is missing or greyed out
+
+Only Developer ID release builds update themselves. A source build or a Debug build shows no update items; Settings, About, Updates says why and, for a source build, shows `git pull && scripts/install-local.sh`. If the section says "Updates are not available in this build", the app was built without a valid update key. If the item is greyed out, Sparkle is already checking or showing an update; wait for it or press Check for Updates again. If Settings shows "Couldn't check", the reason follows it; the usual cause is no network access to github.com.
+
+## An update failed to install
+
+Quit Nubrix and open it again; Sparkle retries on the next check. If it keeps failing, install the new version by hand with `brew upgrade --cask nubrix` or by running the install script again (see [Updating](../../README.md#updating)). If `/Applications/Nubrix.app` was copied there by another account, Sparkle asks for an administrator password to replace it.
+
 ## Claude sign-in needed
 
 The Home card or the Claude tab says "Claude sign-in needed: claude auth login".

@@ -1,6 +1,6 @@
 # Plan: notify-only update check
 
-Status: plan, 2026-11-03. Decision: option B1 from [research/update-mechanism.md](../research/update-mechanism.md). Nubrix only *tells* the user that a newer release exists and how to install it. It downloads, runs and replaces nothing.
+Status: superseded by [sparkle-auto-update.md](sparkle-auto-update.md). Original status: plan, 2026-11-03. Decision: option B1 from [research/update-mechanism.md](../research/update-mechanism.md). Nubrix only *tells* the user that a newer release exists and how to install it. It downloads, runs and replaces nothing.
 
 Out of scope: Sparkle, download-and-swap, signing, entitlements, `verify-bundle.sh`, the cask, `release.yml`, `Localizable.xcstrings` (new strings fall back to their English keys; translating them is a later pass, and keeping the catalog untouched avoids merge conflicts with the parallel branches).
 

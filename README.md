@@ -312,7 +312,7 @@ Every switch and where it lives: [docs/nubrix/PERMISSIONS-AND-SETTINGS.md](docs/
 
 ## Privacy and security
 
-- **Local only.** No account, no analytics, no Nubrix server and no auto-updater (an optional daily check only asks GitHub for the latest version number; it is off until you turn it on). The network is used only for GitHub (with your token), the release check above, lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
+- **Local only.** No account, no analytics and no Nubrix server. Automatic updates through Sparkle are optional and off until you turn them on. The network is used only for GitHub (with your token), the signed update feed on github.com when you turn on update checks or press Check Now, lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
 - **Encrypted history.** Vitrin encrypts what it stores with AES-GCM. The key is a keychain item that does not sync through iCloud.
 - **Sandboxed.** The app runs in the macOS sandbox. The only unsandboxed part is the small helper `NubrixHelper`, which handles keys and brightness, reads plan usage and, when you turn it on, opens the notification database read-only.
 - **Sealed hooks.** The scripts Claude Code runs are read-only copies the app itself cannot change. They talk to Nubrix over loopback only, with a random port and token, and they verify Nubrix with an HMAC challenge before trusting an answer.
@@ -354,15 +354,19 @@ You do this once per download. On macOS 14 Sonoma you can instead right-click Nu
 
 ## Updating
 
-Nubrix never downloads or installs updates itself. In Settings, About, Updates you can turn on a daily check, or press **Check now**. It asks GitHub for the latest release number, without your GitHub token. If a newer release exists, Nubrix shows the command for your install type, in Settings and in the menu bar. **Skip this version** hides that release until a newer one comes out.
+Nubrix can update itself, but only if you ask. Open Settings, About, Updates:
 
-Update with the method you installed with:
+- **Check for updates automatically** asks github.com once a day for a signed update feed. It is off until you turn it on.
+- **Install updates automatically** (needs the first) downloads in the background and installs when you quit Nubrix.
+- **Check Now**, also in the menu bar, looks right away. An update is installed only after you confirm it, unless you turned on the automatic install, and only if its EdDSA signature and its Apple Developer ID signature check out.
+
+Only Developer ID releases (Homebrew, the install script, the release zip) update themselves. A source or Debug build shows `git pull && scripts/install-local.sh` instead. Nubrix 0.1.2 and older have no updater, so update those once by hand, with the method you installed with:
 
 ```sh
 brew upgrade --cask nubrix
 ```
 
-Or run the install script again, or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again. Only a release that is not notarized (0.1.0), downloaded with a browser, needs the [First launch](#first-launch-and-gatekeeper) step.
+Or run the install script again. `brew upgrade --cask nubrix` keeps working after you turn Sparkle on. After any update, Nubrix tells you in Settings, About, Updates (and in the notch inbox) if the sealed hook copies in `~/.config/nubrix/bin/` are older than the app's, and shows the `install-hooks.sh` command to refresh them. Only a release that is not notarized (0.1.0), downloaded with a browser, needs the [First launch](#first-launch-and-gatekeeper) step.
 
 ## Uninstall
 

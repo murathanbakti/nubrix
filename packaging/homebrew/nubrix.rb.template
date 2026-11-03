@@ -31,6 +31,9 @@ cask "nubrix" do
     The script prints a snippet to add to ~/.claude/settings.json and never edits that file.
     Run it again after every upgrade to refresh the installed copies.
 
+    Nubrix can also update itself if you turn that on in Settings, About, Updates.
+    brew upgrade --cask nubrix keeps working either way.
+
     Before "brew uninstall --zap nubrix", remove the Nubrix entries from
     ~/.claude/settings.json, otherwise Claude Code keeps calling hook scripts that no longer exist.
   EOS

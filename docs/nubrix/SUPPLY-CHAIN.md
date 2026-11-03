@@ -1,4 +1,8 @@
-# Supply chain: committed `mediaremote-adapter` binaries
+# Supply chain
+
+This page covers the two pieces of third-party binary code that ship in the app: the committed `mediaremote-adapter` binaries and Sparkle.
+
+## Committed `mediaremote-adapter` binaries
 
 Nubrix reads system now-playing data through [ungive/mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) (BSD-3-Clause, see `THIRD_PARTY_LICENSES`). The built artifacts are committed in `mediaremote-adapter/`. They are built from upstream tag `v0.7.2` (commit `dc3ff1740e2035a2490ec67d3b33322449af780a`) by `scripts/build-mediaremote-adapter.sh`, for arm64 and x86_64 with a macOS 14.0 deployment target.
 
@@ -36,3 +40,13 @@ The script clones the pinned tag, checks that it resolves to the pinned commit, 
 ## Open items
 
 - Verify the SHA-256 of the framework and test client in a build phase, or build them in CI from the pinned tag.
+
+## Sparkle
+
+Nubrix embeds [Sparkle](https://sparkle-project.org) 2.10.1 for opt-in automatic updates (license in `THIRD_PARTY_LICENSES`).
+
+- **Package.** Swift Package Manager, `exactVersion` 2.10.1, revision `ab7d71291238df6e0492143b120c9b696a35f603` (`Package.resolved`). The binary framework is a zip whose SHA-256, `4c2e48a3e50ebcc2c88a58a4c7264a1a99c3c31857ce754357afb9cdb323022a`, is enforced by SwiftPM from Sparkle's own `Package.swift`.
+- **Mach-O files in the bundle.** Four: `Sparkle`, `Autoupdate`, `Updater.app/Contents/MacOS/Updater` and `XPCServices/Installer.xpc/Contents/MacOS/Installer`, all inside `Contents/Frameworks/Sparkle.framework/Versions/B`. `scripts/verify-bundle.sh` allows exactly these. Sparkle's `Downloader.xpc` is removed by `scripts/strip-sparkle-downloader.sh` when the release is packaged (and by `install-local.sh`), because Nubrix has the network client entitlement and does its own downloading; Debug builds keep it.
+- **Signing.** `scripts/sign-release.sh` signs `Installer.xpc`, `Autoupdate`, `Updater.app` and then the framework, from the inside out, without `--deep` and without entitlements. Sparkle's `Autoupdate` ships with a `com.apple.application-identifier` entitlement, which would be a restricted entitlement without a provisioning profile; dropping it matches Sparkle's documented signing commands. The script fails if any Sparkle code still carries entitlements afterwards.
+- **CLI tools.** `generate_appcast`, `sign_update` and `generate_keys` come from `Sparkle-2.10.1.tar.xz`, pinned by version and SHA-256 `1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27` in `scripts/sparkle-tools.sh`, and are never cached. They run in the `appcast` job of `release.yml`, which has no Developer ID keychain and no notary key, and where only the EdDSA key file and a write token for the draft release exist; the Sparkle tools themselves run without the GitHub token in their environment.
+- **Upgrading Sparkle.** Change both pins (the package version in Xcode and `version` plus `sha256` in `scripts/sparkle-tools.sh`; the CI step "Sparkle pins agree" fails if they differ), read Sparkle's release notes, rebuild the Mach-O inventory in `scripts/verify-bundle.sh` if the layout changed, and rerun `scripts/verify-bundle.sh` on a release build. Check the notary log of the first release after an upgrade for warnings about Sparkle's files.

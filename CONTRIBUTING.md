@@ -102,15 +102,15 @@ Nubrix started as a fork of the project named in the README's Credits section an
 
 ## Releases (maintainer)
 
-1. Bump `MARKETING_VERSION` in the Xcode project (app and helper targets) and update docs if needed. Merge to `main`.
+1. Bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in the Xcode project (app **and** helper targets). The build number must grow with every release, because Sparkle compares it and `scripts/make-appcast.sh` refuses a release whose number is not above the published one. Update docs if needed. Merge to `main`.
 2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`. To rerun a release by hand, use Run workflow with the tag selected under "Use workflow from"; runs from a branch stop.
-3. The release workflow (`.github/workflows/release.yml`) runs two jobs. `build` compiles the universal app with `scripts/package-release.sh --build-only`, including the Swift packages, with a read-only token and no signing secrets. `release` takes that app, signs and notarizes it with `scripts/package-release.sh --app`, and creates a draft GitHub release with `Nubrix-<version>.zip` and `Nubrix-<version>.zip.sha256`. It never compiles or runs third-party code. It also renders the Homebrew cask as `nubrix.rb`.
-4. Check the draft, then publish it.
+3. The release workflow (`.github/workflows/release.yml`) runs three jobs. `build` compiles the universal app with `scripts/package-release.sh --build-only`, including the Swift packages, with a read-only token and no signing secrets. `release` takes that app, signs and notarizes it with `scripts/package-release.sh --app`, and creates a draft GitHub release with `Nubrix-<version>.zip` and `Nubrix-<version>.zip.sha256`. It never compiles or runs third-party code. It also renders the Homebrew cask as `nubrix.rb`. `appcast` (Developer ID releases only) starts after `release`, in the same `release` environment but without the Developer ID keychain or the notary key. It downloads the signed zip from the draft, checks its SHA-256, runs exactly one pinned third-party tool (Sparkle's `generate_appcast` and `sign_update` from `scripts/sparkle-tools.sh`) with `SPARKLE_ED_PRIVATE_KEY` written to a temporary file, verifies the result with `scripts/make-appcast.sh`, uploads `appcast.xml` to the draft and wipes the key file.
+4. Check the draft (it must hold the zip, the `.sha256` file and `appcast.xml`), then publish it. Publishing is what ships the update to Sparkle users, because `releases/latest/download/appcast.xml` only follows published, non-draft releases.
 5. Update the cask in [murathanbakti/homebrew-tap](https://github.com/murathanbakti/homebrew-tap) with the workflow's rendered `nubrix.rb` (`Casks/nubrix.rb`) and push.
 
 ### Signing and notarization
 
-Without signing secrets the workflow builds an ad-hoc signed release that is not notarized, as before. With them it re-signs every piece of code in the bundle with a Developer ID Application certificate (hardened runtime, secure timestamp, existing entitlements kept, `get-task-allow` removed), from the inside out: `MediaRemoteAdapterTestClient`, `Lottie.framework`, `MediaRemoteAdapter.framework`, `NubrixHelper.xpc`, then `Nubrix.app`. The hook kit scripts and `notchctl` are sealed by the app signature. It then submits the app with `notarytool`, staples the ticket and checks it with `spctl`. The draft release notes say which kind of build it is.
+Without signing secrets the workflow builds an ad-hoc signed release that is not notarized, as before. With them it re-signs every piece of code in the bundle with a Developer ID Application certificate (hardened runtime, secure timestamp, existing entitlements kept, `get-task-allow` removed), from the inside out: `MediaRemoteAdapterTestClient`, `Lottie.framework`, `MediaRemoteAdapter.framework`, Sparkle (`Installer.xpc`, `Autoupdate`, `Updater.app`, then `Sparkle.framework`, with no entitlements), `NubrixHelper.xpc`, then `Nubrix.app`. The hook kit scripts and `notchctl` are sealed by the app signature. It then submits the app with `notarytool`, staples the ticket and checks it with `spctl`. The draft release notes say which kind of build it is.
 
 | Name | Kind | Value |
 | --- | --- | --- |
@@ -120,6 +120,7 @@ Without signing secrets the workflow builds an ad-hoc signed release that is not
 | `NOTARY_API_KEY_ID` | secret | the key ID of that API key |
 | `NOTARY_API_ISSUER_ID` | secret | the issuer ID shown above the App Store Connect key list |
 | `APPLE_TEAM_ID` | variable | the 10 character team ID that owns the certificate |
+| `SPARKLE_ED_PRIVATE_KEY` | secret | the Sparkle EdDSA private key, set by `scripts/setup-sparkle-key.sh`; only the `appcast` job uses it |
 
 The `release` job uses the GitHub environment `release`, which only `v*` tags can deploy to, so the secrets belong there rather than at the repository level. `scripts/setup-release-signing.sh` sets everything up without Keychain Access:
 
@@ -131,7 +132,7 @@ The private key is imported on the runner as non-extractable, into a temporary k
 
 If `DEVELOPER_ID_P12_BASE64` is set, all other entries are required and the workflow stops when one is missing. Locally, `NUBRIX_SIGN_IDENTITY=- scripts/sign-release.sh <app>` runs the same re-signing ad hoc, to test it without a certificate. It re-signs that app in place, so run it on a copy.
 
-There is no auto-updater; users update with `brew upgrade --cask nubrix` or by running the install script again.
+Updates for installed copies are signed by a separate EdDSA key. `scripts/setup-sparkle-key.sh` (run it yourself in a terminal) creates or reuses that key in your login keychain under the account `nubrix`, stores it as `SPARKLE_ED_PRIVATE_KEY` in the `release` environment without printing it, and writes the public half into `Nubrix/Info.plist` as `SUPublicEDKey`, which you then commit. Back up the key (`--backup`) like the Developer ID: if it is lost, installed copies can never update themselves again. Users who do not turn Sparkle on still update with `brew upgrade --cask nubrix` or by running the install script again.
 
 ## Reporting bugs and requesting features
 
