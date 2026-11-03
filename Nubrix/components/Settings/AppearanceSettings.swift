@@ -207,7 +207,7 @@ struct AppearanceSettings: View {
         } header: {
             Text("Mirror")
         } footer: {
-            SettingsFooter(hasCamera ? "Shows a camera preview in the open notch." : "No camera found on this Mac.")
+            SettingsFooter(hasCamera ? "Opens a camera preview from the notch." : "No camera found on this Mac.")
         }
     }
 
