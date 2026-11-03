@@ -11,6 +11,9 @@ import Defaults
 import KeyboardShortcuts
 import SwiftUI
 
+let isRunningUnderXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    || NSClassFromString("XCTestCase") != nil
+
 @main
 struct NubrixApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -18,6 +21,7 @@ struct NubrixApp: App {
     @Environment(\.openWindow) var openWindow
 
     init() {
+        guard !isRunningUnderXCTest else { return }
         NubrixMigration.run()
     }
 
@@ -294,6 +298,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !isRunningUnderXCTest else { return }
         quitOnTerminationSignal()
         AgentEventServer.shared.applyPolicy()
         GitHubStore.shared.start {

@@ -67,3 +67,6 @@ build/
 
 # Release packaging output
 dist/
+
+!Nubrix.xcodeproj/xcshareddata/xcschemes/NubrixTests.xcscheme
+!Nubrix.xcodeproj/xcshareddata/xcschemes/Nubrix.xcscheme

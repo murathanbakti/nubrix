@@ -57,6 +57,22 @@ python3 -m json.tool claude-plugin/.claude-plugin/plugin.json > /dev/null
 
 Then build with the `xcodebuild` command above. If you change anything the UI shows, run the app and try it.
 
+## Tests
+
+Unit tests live in `NubrixTests/`, one folder per feature (`NubrixTests/Clipboard/`, `NubrixTests/Agents/` and so on). The folder is a file-system synchronized group like `Nubrix/Features/`: drop a `.swift` file in and it is compiled into the `NubrixTests` target, with no `project.pbxproj` edit. Tests run inside the Nubrix app (hosted), so use `@testable import Nubrix`. When XCTest is detected the app skips its migration and launch setup (windows, servers, monitors), so a test run never prompts for permissions.
+
+```sh
+scripts/run-tests.sh                                  # all tests
+scripts/run-tests.sh -only-testing:NubrixTests/SmokeTests
+scripts/run-tests.sh /path/to/derived-data            # own derived data path
+```
+
+The script wraps `xcodebuild test -scheme NubrixTests -destination 'platform=macOS'`, prints a pass/fail summary and exits non-zero on failure. Anything after the optional derived data path goes to `xcodebuild`.
+
+The default derived data path is `~/Library/Caches/Nubrix/DerivedData-tests`. When you work in several branches or worktrees at once, give each one its own path (for example `~/Library/Caches/Nubrix/DerivedData-tests-<branch>`) so parallel builds do not overwrite each other. Do not put derived data inside `~/Documents` or another synced folder.
+
+The `Nubrix` and `NubrixTests` schemes are shared and committed (`Nubrix.xcodeproj/xcshareddata/xcschemes/`); other schemes stay ignored.
+
 ## Security-sensitive areas
 
 Nubrix runs next to Claude Code with your privileges. Take extra care, explain the threat model in the pull request, and expect a slower review for changes to:
