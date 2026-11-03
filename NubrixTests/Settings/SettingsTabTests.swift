@@ -116,3 +116,31 @@ final class SettingsTabTests: XCTestCase {
         }
     }
 }
+
+final class ClaudeCodeInstallCommandTests: XCTestCase {
+    func testDefaultLocationNeedsNoQuotes() {
+        let command = ClaudeCodeSettings.installCommand(bundleURL: URL(fileURLWithPath: "/Applications/Nubrix.app"))
+        XCTAssertEqual(command, "bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh")
+    }
+
+    func testPathWithSpacesIsQuoted() {
+        let command = ClaudeCodeSettings.installCommand(bundleURL: URL(fileURLWithPath: "/Users/me/My Apps/Nubrix.app"))
+        XCTAssertEqual(command, "bash '/Users/me/My Apps/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh'")
+    }
+
+    func testSingleQuoteInPathIsEscaped() {
+        let command = ClaudeCodeSettings.installCommand(bundleURL: URL(fileURLWithPath: "/Users/o'neil/Nubrix.app"))
+        XCTAssertEqual(command, "bash '/Users/o'\\''neil/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh'")
+    }
+
+    func testShellMetacharactersAreQuoted() {
+        XCTAssertEqual(ClaudeCodeSettings.shellQuoted("a$b"), "'a$b'")
+        XCTAssertEqual(ClaudeCodeSettings.shellQuoted("a;b"), "'a;b'")
+        XCTAssertEqual(ClaudeCodeSettings.shellQuoted(""), "''")
+    }
+
+    func testStaticCommandUsesTheRunningBundle() {
+        XCTAssertTrue(ClaudeCodeSettings.installCommand.hasPrefix("bash "))
+        XCTAssertTrue(ClaudeCodeSettings.installCommand.contains("nubrix-hooks/scripts/install-hooks.sh"))
+    }
+}

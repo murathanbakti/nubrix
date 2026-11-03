@@ -5,7 +5,22 @@ struct ClaudeCodeSettings: View {
     @Default(.claudeEnabled) var enabled
     @Default(.claudePlanUsageEnabled) var planUsageEnabled
 
-    static let installCommand = "bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh"
+    static let installCommand = installCommand(bundleURL: Bundle.main.bundleURL)
+
+    static func installCommand(bundleURL: URL) -> String {
+        let script = bundleURL
+            .appendingPathComponent("Contents/Resources/nubrix-hooks/scripts/install-hooks.sh")
+            .path
+        return "bash " + shellQuoted(script)
+    }
+
+    static func shellQuoted(_ value: String) -> String {
+        let safe = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_@%+=:,./-")
+        if !value.isEmpty, value.unicodeScalars.allSatisfy(safe.contains) {
+            return value
+        }
+        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
 
     var body: some View {
         Form {

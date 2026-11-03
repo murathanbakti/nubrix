@@ -34,14 +34,14 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | Tab | What it controls |
 |---|---|
 | General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, haptics, gestures, battery indicator and power status notifications |
-| Appearance | Accent color, settings icon in the notch, window shadow and corner radius, spectrogram and album-art options, mirror switch and options |
+| Appearance | Accent color, settings icon in the notch, window shadow and corner radius, spectrogram and album-art options, idle face animation, mirror switch |
 | Permissions | Live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm, Ghostty) and Paste from Other Apps. Each row has a Grant or Open System Settings button. Status is read without asking. Automation status is only known while that app is running |
 
 **Developer**
 
 | Tab | What it controls |
 |---|---|
-| Claude Code | Claude Code integration switch, approving permissions from the notch, opening sessions, Home usage card, plan usage, and the hook installer command with a Copy button |
+| Claude Code | Claude Code integration switch, approving permissions from the notch, opening sessions, Home usage card, plan usage, and the hook installer command (built from where Nubrix is installed) with a Copy button |
 | GitHub | GitHub integration switch, token, watched repositories, notification toggles |
 | Dev | Dev tab switch (also notchctl), which localhost ports are watched, the notchctl install command |
 
@@ -62,7 +62,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | Tab | What it controls |
 |---|---|
 | Shortcuts | Global keyboard shortcuts (defaults: Control-Option-V Vitrin, Control-Option-K calendar, Control-Option-M mirror) |
-| Advanced | Window behavior (title bar, lock screen, screen recording) and custom Lottie visualizers |
+| Advanced | Window behavior (title bar, lock screen, screen recording) |
 | About | Version, updates, credits and licenses |
 
 ### Notifications

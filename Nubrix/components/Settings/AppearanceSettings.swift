@@ -3,9 +3,7 @@ import Defaults
 import SwiftUI
 
 struct AppearanceSettings: View {
-    @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
-    @Default(.showMirror) var showMirror
     @Default(.useCustomAccentColor) var useCustomAccentColor
 
     @State private var hasCamera = true
@@ -43,6 +41,7 @@ struct AppearanceSettings: View {
             accentSection
             notchSection
             mediaSection
+            closedNotchSection
             mirrorSection
         }
         .settingsPage(.appearance)
@@ -187,23 +186,22 @@ struct AppearanceSettings: View {
         }
     }
 
+    private var closedNotchSection: some View {
+        Section {
+            Defaults.Toggle(key: .showNotHumanFace) {
+                Text("Show face animation while idle")
+            }
+        } header: {
+            Text("Closed notch")
+        }
+    }
+
     private var mirrorSection: some View {
         Section {
             Defaults.Toggle(key: .showMirror) {
                 Text("Enable mirror")
             }
             .disabled(!hasCamera)
-            Picker("Mirror shape", selection: $mirrorShape) {
-                Text("Circle")
-                    .tag(MirrorShapeEnum.circle)
-                Text("Square")
-                    .tag(MirrorShapeEnum.rectangle)
-            }
-            .disabled(!showMirror)
-            Defaults.Toggle(key: .showNotHumanFace) {
-                Text("Show face animation while idle")
-            }
-            .disabled(!showMirror)
         } header: {
             Text("Mirror")
         } footer: {
