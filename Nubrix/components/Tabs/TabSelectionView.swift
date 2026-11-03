@@ -11,6 +11,7 @@ import SwiftUI
 struct TabSelectionView: View {
     @ObservedObject var coordinator = NubrixCoordinator.shared
     @ObservedObject var inbox = NubrixInbox.shared
+    @ObservedObject var dockBadges = DockBadgeStore.shared
     @ObservedObject var layout = NotchTabLayout.shared
     @Namespace var animation
     var body: some View {
@@ -18,7 +19,7 @@ struct TabSelectionView: View {
         let padding: CGFloat = visibleTabs.count >= 6 ? 6 : 8
         HStack(spacing: 0) {
             ForEach(visibleTabs) { tab in
-                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view, badge: inbox.severity(for: tab.view)?.tint, horizontalPadding: padding) {
+                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view, badge: inbox.severity(for: tab.view)?.tint ?? (tab.view == .notifications && dockBadges.total > 0 ? InboxSeverity.notice.tint : nil), horizontalPadding: padding) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
                         }

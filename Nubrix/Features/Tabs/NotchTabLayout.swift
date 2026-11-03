@@ -58,7 +58,7 @@ final class NotchTabLayout: ObservableObject {
         cancellable = Defaults.publisher(
             keys: Defaults.Keys.notchTabOrder, Defaults.Keys.notchHiddenTabs,
             Defaults.Keys.nubrixShelf, Defaults.Keys.vitrinEnabled, Defaults.Keys.devEnabled,
-            Defaults.Keys.systemNotificationsEnabled, Defaults.Keys.claudeEnabled,
+            Defaults.Keys.systemNotificationsEnabled, Defaults.Keys.dockBadgesEnabled, Defaults.Keys.claudeEnabled,
             options: []
         )
         .receive(on: DispatchQueue.main)
@@ -72,7 +72,7 @@ final class NotchTabLayout: ObservableObject {
         case .vitrin: return Defaults[.vitrinEnabled]
         case .agents: return Defaults[.claudeEnabled]
         case .dev: return Defaults[.devEnabled]
-        case .notifications: return Defaults[.systemNotificationsEnabled]
+        case .notifications: return Defaults[.systemNotificationsEnabled] || Defaults[.dockBadgesEnabled]
         }
     }
 

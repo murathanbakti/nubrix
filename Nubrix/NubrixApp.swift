@@ -310,6 +310,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         ClaudePlanUsageStore.shared.start()
         SystemNotificationStore.shared.start()
+        DockBadgeStore.shared.start()
         VitrinService.start()
         MirrorService.start()
         NubrixCalendarService.start()

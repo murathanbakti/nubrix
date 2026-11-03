@@ -7,6 +7,7 @@ struct NotchTabSettings: View {
     @Default(.vitrinEnabled) private var vitrinEnabled
     @Default(.devEnabled) private var devEnabled
     @Default(.systemNotificationsEnabled) private var notificationsEnabled
+    @Default(.dockBadgesEnabled) private var badgesEnabled
     @Default(.claudeEnabled) private var claudeEnabled
     @Default(.notchHiddenTabs) private var hiddenTabs
 
@@ -78,7 +79,7 @@ struct NotchTabSettings: View {
         case .vitrin: return vitrinEnabled
         case .agents: return claudeEnabled
         case .dev: return devEnabled
-        case .notifications: return notificationsEnabled
+        case .notifications: return notificationsEnabled || badgesEnabled
         }
     }
 }

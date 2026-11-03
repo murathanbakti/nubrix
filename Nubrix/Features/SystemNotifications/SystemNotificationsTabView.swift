@@ -5,6 +5,8 @@ import SwiftUI
 struct SystemNotificationsTabView: View {
     @ObservedObject var store = SystemNotificationStore.shared
     @Default(.systemNotificationsShowBody) var showBody
+    @ObservedObject var badges = DockBadgeStore.shared
+    @Default(.dockBadgesEnabled) var badgesEnabled
     @State private var filter: String?
     @State private var expanded: Set<String> = []
 
@@ -47,7 +49,11 @@ struct SystemNotificationsTabView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if store.history.isEmpty {
-                emptyState
+                if !badges.summary.isEmpty {
+                    DockBadgeRowsView()
+                } else {
+                    emptyState
+                }
             } else {
                 topRow
                 ScrollView(.vertical, showsIndicators: false) {
@@ -68,9 +74,9 @@ struct SystemNotificationsTabView: View {
         HStack(spacing: 4) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
-                    chip("All", selected: activeFilter == nil) { filter = nil }
+                    chip("All", selected: activeFilter == nil, count: badges.summary.isEmpty ? nil : badges.summary.totalText) { filter = nil }
                     ForEach(apps, id: \.id) { app in
-                        chip(app.name, selected: activeFilter == app.id) { filter = app.id }
+                        chip(app.name, selected: activeFilter == app.id, count: badges.badge(for: app.id)?.label) { filter = app.id }
                     }
                 }
             }
@@ -83,12 +89,17 @@ struct SystemNotificationsTabView: View {
         .padding(.horizontal, 2)
     }
 
-    private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func chip(_ title: String, selected: Bool, count: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(selected ? Color.white : Color.gray)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(selected ? Color.white : Color.gray)
+                    .lineLimit(1)
+                if let count {
+                    DockBadgeCountCapsule(text: count)
+                }
+            }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
                 .background(Capsule().fill(Color.white.opacity(selected ? 0.14 : 0)))
@@ -99,6 +110,30 @@ struct SystemNotificationsTabView: View {
 
     @ViewBuilder
     private var emptyState: some View {
+        if store.status == .off && badgesEnabled {
+            badgeOnlyEmpty
+        } else {
+            notificationsEmptyState
+        }
+    }
+
+    private var badgeOnlyEmpty: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "app.badge")
+                .font(.title3)
+                .foregroundStyle(.gray)
+            Text("No unread messages")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            Text("Unread counts from the apps you pick appear here")
+                .font(.caption)
+                .foregroundStyle(.gray)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var notificationsEmptyState: some View {
         switch store.status {
         case .noAccess:
             VStack(spacing: 6) {
@@ -115,6 +150,15 @@ struct SystemNotificationsTabView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color.white.opacity(0.14)))
+                if !badgesEnabled {
+                    Button("Use unread counts instead") { Defaults[.dockBadgesEnabled] = true }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .ready, .waiting:
