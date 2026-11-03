@@ -15,6 +15,7 @@ extension Defaults.Keys {
     static let vitrinRetentionDays = Key<Int>("vitrinRetentionDays", default: 30)
     static let vitrinExcludedApps = Key<[String]>("vitrinExcludedApps", default: VitrinDefaultsValues.excludedApps)
     static let vitrinHideFromCapture = Key<Bool>("vitrinHideFromCapture", default: true)
+    static let vitrinKeyResetNotice = Key<Bool>("vitrinKeyResetNotice", default: false)
 }
 
 enum VitrinDefaultsValues {

@@ -1,7 +1,18 @@
 import AppKit
 import Combine
 import Defaults
+import os
 import UniformTypeIdentifiers
+
+private let storeLog = Logger(subsystem: "dev.nubrix.app", category: "vitrin")
+
+enum VitrinVaultState: Equatable {
+    case off
+    case opening
+    case ready
+    case locked(OSStatus)
+    case failed(String)
+}
 
 @MainActor
 final class ClipStore: ObservableObject {
@@ -17,11 +28,17 @@ final class ClipStore: ObservableObject {
     nonisolated static let dragCleanupDelay: TimeInterval = 300
 
     @Published private(set) var items: [ClipItem] = []
+    @Published private(set) var vaultState: VitrinVaultState = .off
 
     nonisolated let queue = DispatchQueue(label: "dev.nubrix.vitrin.database", qos: .utility)
 
     private var database: ClipDatabase?
+    private var imageVault: ClipImageVault?
     private var sweepTimer: Timer?
+    private var idleTimer: Timer?
+    private var generation = 0
+    private var directory = ClipStore.defaultDirectory
+    private var keys: VitrinKeyProviding?
     private let thumbnailCache = NSCache<NSString, NSImage>()
     private var previewCache: (id: Int64, image: NSImage)?
     private var lastTextHash: String?
@@ -36,32 +53,125 @@ final class ClipStore: ObservableObject {
     nonisolated static var defaultDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent("Nubrix", isDirectory: true).appendingPathComponent("Vitrin", isDirectory: true)
+        #if DEBUG
+        let folder = "Vitrin-Debug"
+        #else
+        let folder = "Vitrin"
+        #endif
+        return base.appendingPathComponent("Nubrix", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
     }
 
     nonisolated static var dragRoot: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(dragFolderName, isDirectory: true)
     }
 
-    func start(directory: URL = ClipStore.defaultDirectory) {
-        guard database == nil else { return }
+    func start(directory: URL = ClipStore.defaultDirectory, keys: VitrinKeyProviding? = nil) {
+        guard vaultState == .off else { return }
         let root = Self.dragRoot
         DispatchQueue.global(qos: .utility).async {
             try? FileManager.default.removeItem(at: root)
         }
-        do {
-            database = try ClipDatabase(directory: directory)
-        } catch {
+        let provider = keys ?? VitrinKeyStores.makeDefault(directory: directory)
+        self.directory = directory
+        self.keys = provider
+        beginOpen { ClipVault.open(directory: directory, keys: provider) }
+    }
+
+    private func beginOpen(_ work: @escaping @Sendable () -> ClipVaultOpenResult) {
+        generation += 1
+        let current = generation
+        vaultState = .opening
+        queue.async {
+            let result = work()
+            Task { @MainActor in ClipStore.shared.finishOpen(result, generation: current) }
+        }
+    }
+
+    private func finishOpen(_ result: ClipVaultOpenResult, generation current: Int) {
+        guard current == generation else {
+            if case .ready(let stale, _) = result {
+                queue.async { stale.close() }
+            }
             return
         }
-        enqueue { $0.runDeferredMigration() }
+        switch result {
+        case .ready(let db, let wasReset):
+            database = db
+            imageVault = db.imageVault
+            if wasReset { Defaults[.vitrinKeyResetNotice] = true }
+            vaultState = .ready
+            queue.async { _ = db.runDeferredMigration() }
+            runMigration(db)
+            Task { await reloadList() }
+            startSweepTimer()
+        case .locked(let status):
+            vaultState = .locked(status)
+        case .failed(let message):
+            vaultState = .failed(message)
+        }
+    }
+
+    private nonisolated func runMigration(_ db: ClipDatabase) {
+        queue.async { [self] in
+            guard db.isOpen else { return }
+            do {
+                if try db.migrateEncryptionBatch() {
+                    runMigration(db)
+                    return
+                }
+            } catch {
+                storeLog.error("Vitrin encryption migration stopped: \(String(describing: error), privacy: .public)")
+                return
+            }
+            _ = db.finishEncryptionMigration()
+            Task { @MainActor in ClipStore.shared.migrationFinished(db) }
+        }
+    }
+
+    private func migrationFinished(_ db: ClipDatabase) {
+        guard database === db else { return }
         sweep(reloadAlways: true)
+    }
+
+    private func startSweepTimer() {
+        sweepTimer?.invalidate()
         let timer = Timer(timeInterval: 3600, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.sweep() }
         }
         timer.tolerance = 60
         RunLoop.main.add(timer, forMode: .common)
         sweepTimer = timer
+    }
+
+    func retryUnlock() {
+        switch vaultState {
+        case .locked, .failed: break
+        default: return
+        }
+        guard let keys else { return }
+        let directory = self.directory
+        beginOpen { ClipVault.open(directory: directory, keys: keys) }
+    }
+
+    func retryIfKeychainLocked() {
+        guard vaultState == .locked(errSecInteractionNotAllowed) else { return }
+        retryUnlock()
+    }
+
+    func resetHistoryAndKey() {
+        guard let keys, vaultState != .off else { return }
+        let old = database
+        database = nil
+        imageVault = nil
+        stop()
+        clearCaches()
+        items = []
+        Defaults[.vitrinKeyResetNotice] = false
+        let directory = self.directory
+        beginOpen {
+            old?.close()
+            return ClipVault.reset(directory: directory, keys: keys)
+        }
     }
 
     func stop() {
@@ -71,15 +181,31 @@ final class ClipStore: ObservableObject {
 
     func shutdown() {
         stop()
+        idleTimer?.invalidate()
+        idleTimer = nil
+        generation += 1
+        if let old = database {
+            queue.async { old.close() }
+        }
         database = nil
+        imageVault = nil
+        vaultState = .off
         items = []
+        clearCaches()
+    }
+
+    private func clearCaches() {
         thumbnailCache.removeAllObjects()
         previewCache = nil
         lastTextHash = nil
         lastTextID = nil
     }
 
-    var isReady: Bool { database != nil }
+    var isReady: Bool { vaultState == .ready && database != nil }
+
+    func dropSearchIndex() {
+        enqueue { $0.dropSearchIndex() }
+    }
 
     private func onQueue<T: Sendable>(_ work: @escaping @Sendable (ClipDatabase) -> T) async -> T? {
         guard let database else { return nil }
@@ -124,7 +250,17 @@ final class ClipStore: ObservableObject {
 
     func search(_ query: String) async -> [ClipItem] {
         let limit = Self.searchLimit
+        restartIdleTimer()
         return await onQueue({ $0.search(query, limit: limit) }) ?? []
+    }
+
+    private func restartIdleTimer() {
+        idleTimer?.invalidate()
+        let timer = Timer(timeInterval: 60, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.dropSearchIndex() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        idleTimer = timer
     }
 
     func fullText(for item: ClipItem, maxChars: Int? = nil) async -> String? {
@@ -136,11 +272,15 @@ final class ClipStore: ObservableObject {
         return await onQueue({ $0.fullText(id: id, maxChars: maxChars) }) ?? nil
     }
 
-    func addText(_ classified: ClipClassification, hash: String, source: String?) {
+    func addText(_ classified: ClipClassification, source: String?) {
         guard database != nil else { return }
-        if hash == lastTextHash, let id = lastTextID, items.first?.id == id { return }
+        let previousHash = lastTextHash
+        let previousID = lastTextID
+        let topID = items.first?.id
         Task {
-            let item = await onQueue { db -> ClipItem? in
+            let result = await onQueue { db -> (hash: String, item: ClipItem)? in
+                guard let hash = db.textHash(classified.content) else { return nil }
+                if hash == previousHash, let previousID, previousID == topID { return nil }
                 let id: Int64
                 if let existing = db.id(forHash: hash) {
                     db.touch(id: existing)
@@ -149,24 +289,26 @@ final class ClipStore: ObservableObject {
                     guard let inserted = try? db.insert(kind: classified.kind, content: classified.content, imageFile: nil, width: 0, height: 0, hash: hash, source: source) else { return nil }
                     id = inserted
                 }
-                return db.summary(id: id)
+                guard let item = db.summary(id: id) else { return nil }
+                return (hash, item)
             } ?? nil
-            guard let item, database != nil else { return }
-            lastTextHash = hash
-            lastTextID = item.id
-            place(item)
+            guard let result, database != nil else { return }
+            lastTextHash = result.hash
+            lastTextID = result.item.id
+            place(result.item)
         }
     }
 
     @discardableResult
     func addImage(_ image: PreparedClipImage, source: String?) async -> ClipItem? {
         let created = await onQueue { db -> (item: ClipItem, isNew: Bool)? in
-            if let existing = db.id(forHash: image.hash) {
+            guard let hash = db.imageHash(image.png) else { return nil }
+            if let existing = db.id(forHash: hash) {
                 db.touch(id: existing)
                 return db.summary(id: existing).map { ($0, false) }
             }
             guard let file = try? db.writeImage(png: image.png, thumbnail: image.thumbnail) else { return nil }
-            guard let inserted = try? db.insert(kind: .image, content: nil, imageFile: file, width: image.width, height: image.height, hash: image.hash, source: source, bytes: image.bytes) else {
+            guard let inserted = try? db.insert(kind: .image, content: nil, imageFile: file, width: image.width, height: image.height, hash: hash, source: source, bytes: image.bytes) else {
                 db.removeFiles([file])
                 return nil
             }
@@ -216,24 +358,24 @@ final class ClipStore: ObservableObject {
             }
             return provider
         case .image:
-            guard let file = item.imageFile, let database else { return NSItemProvider() }
-            let url = database.directory.appendingPathComponent(file)
+            guard let file = item.imageFile, let vault = imageVault else { return NSItemProvider() }
             let name = Self.dragFileName(for: item)
             let provider = NSItemProvider()
             provider.suggestedName = (name as NSString).deletingPathExtension
             provider.registerFileRepresentation(forTypeIdentifier: UTType.png.identifier, fileOptions: [], visibility: .all) { completion in
                 do {
-                    completion(try Self.namedDragCopy(of: url, named: name), false, nil)
+                    guard let data = vault.read(named: file) else { throw CocoaError(.fileReadNoSuchFile) }
+                    completion(try Self.namedDragCopy(data: data, named: name), false, nil)
                 } catch {
                     completion(nil, false, error)
                 }
                 return nil
             }
             provider.registerDataRepresentation(forTypeIdentifier: UTType.png.identifier, visibility: .all) { completion in
-                do {
-                    completion(try Data(contentsOf: url, options: .mappedIfSafe), nil)
-                } catch {
-                    completion(nil, error)
+                if let data = vault.read(named: file) {
+                    completion(data, nil)
+                } else {
+                    completion(nil, CocoaError(.fileReadNoSuchFile))
                 }
                 return nil
             }
@@ -249,11 +391,12 @@ final class ClipStore: ObservableObject {
         return "\(prefix) \(formatter.string(from: item.createdAt)).png"
     }
 
-    nonisolated static func namedDragCopy(of source: URL, named name: String, root: URL = ClipStore.dragRoot, cleanupAfter delay: TimeInterval = ClipStore.dragCleanupDelay) throws -> URL {
+    nonisolated static func namedDragCopy(data: Data, named name: String, root: URL = ClipStore.dragRoot, cleanupAfter delay: TimeInterval = ClipStore.dragCleanupDelay) throws -> URL {
         let folder = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let destination = folder.appendingPathComponent(name)
-        try FileManager.default.copyItem(at: source, to: destination)
+        try data.write(to: destination, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
             try? FileManager.default.removeItem(at: folder)
         }
@@ -274,12 +417,11 @@ final class ClipStore: ObservableObject {
                 }
             }
         case .image:
-            guard let file = item.imageFile, let directory = database?.directory else { return }
-            let url = directory.appendingPathComponent(file)
+            guard let file = item.imageFile, let vault = imageVault else { return }
             let id = item.id
             Task {
                 let data = await Task.detached(priority: .userInitiated) {
-                    try? Data(contentsOf: url, options: .mappedIfSafe)
+                    vault.read(named: file)
                 }.value
                 guard let data else { return }
                 let pb = NSPasteboard.general
@@ -339,10 +481,9 @@ final class ClipStore: ObservableObject {
     }
 
     func thumbnail(for item: ClipItem) async -> NSImage? {
-        guard let file = item.thumbnailFile, let directory = database?.directory else { return nil }
+        guard let file = item.thumbnailFile, let vault = imageVault else { return nil }
         if let cached = thumbnailCache.object(forKey: file as NSString) { return cached }
-        let url = directory.appendingPathComponent(file)
-        guard let cgImage = await ClipImageLoader.downsample(url: url, maxPixel: Self.thumbnailPixels, on: ClipImageLoader.thumbnailQueue) else { return nil }
+        guard let cgImage = await ClipImageLoader.downsample(load: { vault.read(named: file) }, maxPixel: Self.thumbnailPixels, on: ClipImageLoader.thumbnailQueue) else { return nil }
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
         thumbnailCache.setObject(image, forKey: file as NSString, cost: ClipImageLoader.cost(of: cgImage))
         return image
@@ -355,9 +496,8 @@ final class ClipStore: ObservableObject {
 
     func previewImage(for item: ClipItem) async -> NSImage? {
         if let cached = cachedPreview(for: item) { return cached }
-        guard let file = item.imageFile, let directory = database?.directory else { return nil }
-        let url = directory.appendingPathComponent(file)
-        guard let cgImage = await ClipImageLoader.downsample(url: url, maxPixel: Self.previewPixels, on: ClipImageLoader.previewQueue) else { return nil }
+        guard let file = item.imageFile, let vault = imageVault else { return nil }
+        guard let cgImage = await ClipImageLoader.downsample(load: { vault.read(named: file) }, maxPixel: Self.previewPixels, on: ClipImageLoader.previewQueue) else { return nil }
         let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
         if !Task.isCancelled { previewCache = (item.id, image) }
         return image
