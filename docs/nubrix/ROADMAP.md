@@ -169,7 +169,20 @@ Remaining:
 - Quick reply to these notifications was built and then removed (2026-11-02):
   without message previews Notification Center gives no safe way to know
   which chat a reply belongs to, and failures left the notch open.
-- Later: Dock badge counts as a no-permission fallback.
+- Dock badge counts (done, not yet tried on device): separate switch "Show
+  unread counts" (`dockBadgesEnabled`, off by default, also offered from the
+  "needs Full Disk Access" row). No permission: the sandboxed app reads each
+  ticked app's LaunchServices `StatusLabel` through private SPI
+  (`_LSASNCreateWithPid`, `_LSCopyApplicationInformationItem`, loaded with
+  `dlsym`; hides itself if they are missing). Polls every 3 s only while a
+  ticked app is running, paused while asleep or locked, re-read on launch,
+  quit and activation. Closed-notch wing (top app icon + total) when the inbox
+  wing is not showing, counts on the tab's chips, per-app rows when there is
+  no history, dot on the bell. Badges do not feed the inbox. Running apps
+  only. Code in `Features/SystemNotifications/DockBadges/`, tests in
+  `NubrixTests/DockBadges/`. Plan: `docs/nubrix/plans/dock-badges.md`.
+- Later: fill in counts for apps that are not running via the Dock's
+  `AXStatusLabel`, only for users whose helper already has Accessibility.
 
 ## Feature switches and tab layout (done, not yet tried on device)
 

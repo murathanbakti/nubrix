@@ -19,7 +19,7 @@ Nubrix asks for access only the first time you use the feature that needs it. On
 
 Turning a switch off stops the feature; it does not revoke a permission you already granted. To take a permission back, use System Settings, Privacy & Security.
 
-Nubrix's own banners are drawn in the notch; it does not post to the macOS notification centre. Full Disk Access is only needed for notifications from other apps; everything else works without it. There is no Screen Recording permission.
+Nubrix's own banners are drawn in the notch; it does not post to the macOS notification centre. Full Disk Access is only needed for notifications from other apps; everything else works without it. "Show unread counts" (Settings, Notifications, Other apps) needs no permission: it reads the number on the Dock icon of each ticked app while that app is open. There is no Screen Recording permission.
 
 ## Settings
 
@@ -38,7 +38,7 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 | Vitrin | Capture toggles, screenshot folder and preview, retention, excluded apps, hide from screen sharing, clear history |
 | Dev | Dev tab switch (also notchctl), which localhost ports are watched |
 | GitHub | GitHub integration switch, token, watched repositories, notification toggles |
-| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, Claude Code integration switch, opening sessions, notch approvals, plan usage, Home usage card, meeting countdown |
+| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, unread counts from Dock badges, Claude Code integration switch, opening sessions, notch approvals, plan usage, Home usage card, meeting countdown |
 | Shortcuts | Global keyboard shortcuts (defaults: Control-Option-V Vitrin, Control-Option-K calendar, Control-Option-M mirror) |
 | Advanced | Additional options |
 | About | Version, credits and licenses |

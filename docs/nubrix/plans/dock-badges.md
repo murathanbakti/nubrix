@@ -29,20 +29,20 @@ one extra button only (the permissions session also edits around that row).
   `weight = count ?? 1`.
 - `enum DockBadgeLabel { static func parse(_ raw: String?) -> (label: String, count: Int?)? }`
   - nil, empty or whitespace only → nil (no badge).
-  - trimmed digits only → count; `"0"` → nil (no badge).
+  - trimmed digits only → count; `"0"` / `"0+"` → nil (no badge).
   - digits followed by `+` (`"99+"`) → count = the number, label kept as is.
   - anything else (`"•"`, `"!"`, `"new"`) → count nil, label kept (shown as a dot / raw).
   - label longer than 8 characters is cut to 8.
 - `struct DockBadgeSummary { badges sorted; total; top }` built from `[DockBadge]` and
   the chosen-app order: `total` = sum of `weight`; `top` = highest weight, ties by
   chosen-app order, then bundle ID. `totalText` = `"99+"` above 99.
-- `enum DockBadgeAppList { static func rows(known:allowed:running:badged:defaults:ownBundleID:isInstalled:) -> [String] }`
-  dedupes the union of known (FDA list), allowed (ticked), running regular apps, apps with
-  a badge right now, and installed defaults (`net.whatsapp.WhatsApp`, `desktop.WhatsApp`,
+- `enum DockBadgeAppList { static func rows(known:allowed:running:defaults:ownBundleID:isInstalled:) -> [String] }`
+  dedupes the union of known (FDA list), allowed (ticked), running regular apps
+  (a badged app is running, so it is covered), and installed defaults (`net.whatsapp.WhatsApp`, `desktop.WhatsApp`,
   `com.apple.MobileSMS`, `com.apple.mail`, `com.tinyspeck.slackmacgap`,
   `com.microsoft.teams2`, `ru.keepcoder.Telegram`, `com.hnc.Discord`); allowed are kept even
-  if not installed; defaults only if installed; own bundle ID removed. Ordering is done by
-  the view (by display name).
+  if not installed; defaults only if installed; own bundle ID removed; sorted by bundle ID
+  (the view re-sorts by display name).
 
 ### `DockBadges/DockBadgeReader.swift`
 - `protocol DockBadgeReading { var isAvailable: Bool { get }; func read(bundleIDs: [String]) -> DockBadgeReadResult; func runningRegularApps() -> [String] }`
@@ -93,8 +93,7 @@ one extra button only (the permissions session also edits around that row).
     active, `com.apple.screenIsLocked/Unlocked`, `didLaunchApplication`,
     `didTerminateApplication`, `didActivateApplication` (bundle ID from
     `NSWorkspace.applicationUserInfoKey`).
-  - `suggestedApps() -> [String]`: running regular apps plus the running ones that have a
-    badge right now (one read of running regular apps); only called from Settings while
+  - `suggestedApps() -> [String]`: running regular apps; only called from Settings while
     it is open, result not stored.
 - Idle cost: no timer when off, paused, or no chosen app running.
 
