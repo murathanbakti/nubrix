@@ -25,6 +25,34 @@ enum VitrinService {
             }
         }
         .store(in: &observers)
+        ClipStore.shared.$vaultState
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                MainActor.assumeIsolated { ScreenshotWatcher.shared.refresh() }
+            }
+            .store(in: &observers)
+        Publishers.Merge(
+            NSWorkspace.shared.notificationCenter
+                .publisher(for: NSWorkspace.sessionDidBecomeActiveNotification)
+                .map { _ in () },
+            DistributedNotificationCenter.default()
+                .publisher(for: Notification.Name("com.apple.screenIsUnlocked"))
+                .map { _ in () }
+        )
+        .receive(on: RunLoop.main)
+        .sink { _ in
+            MainActor.assumeIsolated { ClipStore.shared.retryIfKeychainLocked() }
+        }
+        .store(in: &observers)
+        DistributedNotificationCenter.default()
+            .publisher(for: Notification.Name("com.apple.screenIsLocked"))
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                MainActor.assumeIsolated { ClipStore.shared.dropSearchIndex() }
+            }
+            .store(in: &observers)
         Defaults.publisher(.vitrinRetentionDays, options: [])
             .receive(on: RunLoop.main)
             .sink { _ in

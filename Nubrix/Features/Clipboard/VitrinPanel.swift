@@ -546,6 +546,7 @@ final class VitrinPanelController {
     func close() {
         guard let panel, panel.isVisible else { return }
         panel.orderOut(nil)
+        ClipStore.shared.dropSearchIndex()
     }
 
     private func makePanel() -> VitrinPanel {

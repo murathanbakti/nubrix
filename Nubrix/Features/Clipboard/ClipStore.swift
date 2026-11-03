@@ -203,6 +203,8 @@ final class ClipStore: ObservableObject {
 
     var isReady: Bool { vaultState == .ready && database != nil }
 
+    var keyStoreLabel: String? { keys?.label }
+
     func dropSearchIndex() {
         enqueue { $0.dropSearchIndex() }
     }
