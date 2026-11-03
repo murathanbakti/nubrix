@@ -4,13 +4,14 @@ How Nubrix keeps your data on your Mac and limits what each part can do. For a s
 
 ## Local only
 
-Everything stays on your Mac. Nubrix has no analytics, no account and sends nothing to a Nubrix server. It has no auto-updater.
+Everything stays on your Mac. Nubrix has no analytics, no account and sends nothing to a Nubrix server. It has no auto-updater: an optional daily check (off until you turn it on) only asks GitHub for the latest version number, and Nubrix never downloads or installs anything.
 
 ## Network use
 
 The complete list:
 
 - `api.github.com`, only if you add a fine-grained read-only token (off until then; see [GitHub integration](../../README.md#github-integration)). The token goes nowhere else.
+- `api.github.com/repos/murathanbakti/nubrix/releases/latest`, when you press Check now or turn on the daily update check in Settings, About, Updates (off by default). The request carries no token or cookies and nothing beyond your IP address and `User-Agent: Nubrix/<version>`. Redirects are refused and only the release's `tag_name` is read, as a version number. Nothing is downloaded or run. Stored on your Mac: the date of the last check, the latest version seen and a version you skipped.
 - `lrclib.net` receives the track title and artist when lyrics are turned on (off by default).
 - LottieFiles: a visualizer animation (JSON) is downloaded when the built-in music visualizer is turned off in Settings.
 - Artwork URLs supplied by Spotify or YouTube Music are fetched to show the cover.
