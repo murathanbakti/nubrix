@@ -16,7 +16,7 @@ The complete list:
 - LottieFiles: a visualizer animation (JSON) is downloaded when the built-in music visualizer is turned off in Settings.
 - Artwork URLs supplied by Spotify or YouTube Music are fetched to show the cover.
 - `localhost:26538`, the local API of the YouTube Music desktop app, when that controller is used.
-- The `claude` command-line tool, run by the helper to read your plan usage (see [Usage, context and cost](CLAUDE-CODE.md#usage-context-and-cost)); Claude itself talks to Anthropic as it always does. Turn it off in Settings, Notifications, Claude Code.
+- The `claude` command-line tool, run by the helper to read your plan usage (see [Usage, context and cost](CLAUDE-CODE.md#usage-context-and-cost)); Claude itself talks to Anthropic as it always does. Turn it off in Settings, Claude Code.
 
 ## Permissions
 

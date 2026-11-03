@@ -62,7 +62,7 @@ Re-run the hook installer (`bash /Applications/Nubrix.app/Contents/Resources/nub
 
 ## Approvals do not appear in the notch
 
-They need the `nubrix-permission` entry under `PermissionRequest` in your settings (not part of the plugin), the toggle in Settings, Notifications, and a running Nubrix. Claude's own questions and plan approvals are intentionally not shown there. If no notch can show the card (for example the notch is hidden for a fullscreen app, see Settings, Media, "Full screen behavior"), Claude Code asks in its own dialog.
+They need the `nubrix-permission` entry under `PermissionRequest` in your settings (not part of the plugin), the "Approve permissions from the notch" toggle in Settings, Claude Code, and a running Nubrix. Claude's own questions and plan approvals are intentionally not shown there. If no notch can show the card (for example the notch is hidden for a fullscreen app, see Settings, Media, "Full screen behavior"), Claude Code asks in its own dialog.
 
 ## A screenshot is missing from Vitrin
 
@@ -100,8 +100,8 @@ macOS ties the switch to the exact signature of the app that was added; see [Key
 
 ## Notifications from other apps do not appear
 
-Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant Access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. After you turn Nubrix on, macOS offers "Quit & Reopen"; Nubrix then reopens the place you started from with an "Access granted" panel. A different signature (see above) or updating from 0.1.0 can drop the grant: turn Nubrix off and on again, or remove it with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
+Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. After you turn Nubrix on, macOS offers "Quit & Reopen"; Nubrix then reopens the place you started from with an "Access granted" panel. A different signature (see above) or updating from 0.1.0 can drop the grant: turn Nubrix off and on again, or remove it with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
 
 ## The volume and brightness HUDs did not change
 
-"Replace system HUD" needs Accessibility access for Nubrix (System Settings, Privacy & Security, Accessibility; the entry is "Nubrix", the helper does not appear separately). If access is missing at launch, Nubrix turns the option off. Settings, Permissions shows the current state.
+"Replace system HUDs" needs Accessibility access for Nubrix (System Settings, Privacy & Security, Accessibility; the entry is "Nubrix", the helper does not appear separately). If access is missing at launch, Nubrix turns the option off. Settings, HUDs shows "Needs Accessibility" with a "Grant…" button, and Settings, Permissions shows the current state.

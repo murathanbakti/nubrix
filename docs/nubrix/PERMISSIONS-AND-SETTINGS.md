@@ -10,14 +10,14 @@ Version 0.1.1 and earlier asked for camera, calendar, Accessibility and Full Dis
 
 | Permission | Why | When | Turn off in Settings |
 |---|---|---|---|
-| Calendars (full access) | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | When you click "Allow calendar access" in the calendar panel (click the date in the notch), Settings, Calendar or Settings, Meetings. If access is off, these show a button to System Settings, Privacy & Security, Calendars. The meeting countdown never asks on its own | Calendar, "Calendar" (also stops the meeting countdown) |
+| Calendars (full access) | Show upcoming events, meeting countdown, add events from the calendar sheet. Nubrix does not ask for Reminders access | When you click "Allow calendar access" in the calendar panel (click the date in the notch), Settings, Calendar. If access is off, it shows a button to System Settings, Privacy & Security, Calendars. The meeting countdown never asks on its own | Calendar, "Enable calendar" (also stops the meeting countdown) |
 | Camera | Mirror preview. Nubrix only shows the live picture in the panel; it records, saves and sends nothing | The first time you open Mirror (the notch button or Control-Option-M), the panel explains why and asks when you click "Turn On Camera". If access is off, the panel has a button to System Settings, Privacy & Security, Camera. Nothing is asked while "Enable mirror" is off | Appearance, "Enable mirror" |
-| Accessibility | Intercept volume and brightness keys to replace the system HUDs. macOS records the grant under "Nubrix", because the app is the responsible process. The helper `NubrixHelper` does the work (it is not sandboxed) but does not appear as its own entry | Settings, HUDs explains why and asks when you click "Allow Accessibility…" (or opens the pane with "Open Accessibility Settings"). "Replace system HUD" turns on by itself once access is granted | HUDs, "Replace system HUD" |
-| Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal, iTerm or Ghostty. These five are the only apps Nubrix is allowed to script | The Apple Music source is never chosen automatically. If Now Playing is unavailable on your macOS, Nubrix asks once which music source to use (Settings, Media can change it later). "Nubrix wants to control Music" or "Spotify" is asked only after you pick that source. Terminal, iTerm or Ghostty is asked the first time you jump to a session tab | Media, "Media control"; Notifications, "Open the session when you click it" |
+| Accessibility | Intercept volume and brightness keys to replace the system HUDs. macOS records the grant under "Nubrix", because the app is the responsible process. The helper `NubrixHelper` does the work (it is not sandboxed) but does not appear as its own entry | Settings, HUDs shows "Needs Accessibility" with a "Grant…" button (Settings, Permissions has the same button). "Replace system HUDs" turns on by itself once access is granted | HUDs, "Replace system HUDs" |
+| Automation (Apple Events) | Control Spotify and Apple Music, and find the tab of a Claude session in Terminal, iTerm or Ghostty. These five are the only apps Nubrix is allowed to script | The Apple Music source is never chosen automatically. If Now Playing is unavailable on your macOS, Nubrix asks once which music source to use (Settings, Media can change it later). "Nubrix wants to control Music" or "Spotify" is asked only after you pick that source. Terminal, iTerm or Ghostty is asked the first time you jump to a session tab | Media, "Enable media control"; Claude Code, "Open the session when you click it" |
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin | Vitrin, "Capture screenshots" or "Enable Vitrin" |
 | Paste from Other Apps (macOS 15.4 and later) | Lets Vitrin read what other apps copy. With the default or "Allow", Vitrin works as before. With "Ask", Vitrin does not read copied items in the background; it shows a pill with "Save Copied Item" (one read, macOS may show its alert) and "Allow in Settings…". With "Deny", it saves nothing | When Vitrin captures a copy and macOS is set to "Ask" | Vitrin, "Enable Vitrin" |
-| Keychain | Stores the optional GitHub token | When you save a token | GitHub, "GitHub integration" (the token stays in the Keychain but is not read) |
-| Full Disk Access | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only. Nubrix shows a guide for granting it (see below) | Only if you turn on Settings, Notifications, Other apps, or click "Grant Access…" | Notifications, "Show notifications from other apps" |
+| Keychain | Stores the optional GitHub token | When you save a token | GitHub, "Enable GitHub integration" (the token stays in the Keychain but is not read) |
+| Full Disk Access | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only. Nubrix shows a guide for granting it (see below) | Only if you turn on Settings, Notifications, Other apps, or click "Grant access…" | Notifications, "Show notifications from other apps" |
 
 Turning a switch off stops the feature; it does not revoke a permission you already granted. To take a permission back, use System Settings, Privacy & Security.
 
@@ -25,27 +25,52 @@ Nubrix's own banners are drawn in the notch; it does not post to the macOS notif
 
 ### Full Disk Access flow
 
-"Grant Access…" opens System Settings and a guide panel. After you turn Nubrix on, macOS offers "Quit & Reopen". Nubrix remembers where you started (the notch Notifications tab, Settings, Notifications or Settings, Permissions) for 30 minutes. After the restart it reopens that place with a short "Access granted" panel. If access is still off, it shows the guide again and does not reopen System Settings. Onboarding is marked as seen as soon as it appears, so quitting during onboarding never restarts it.
+"Grant access…" opens System Settings and a guide panel. After you turn Nubrix on, macOS offers "Quit & Reopen". Nubrix remembers where you started (the notch Notifications tab, Settings, Notifications or Settings, Permissions) for 30 minutes. After the restart it reopens that place with a short "Access granted" panel. If access is still off, it shows the guide again and does not reopen System Settings. Onboarding is marked as seen as soon as it appears, so quitting during onboarding never restarts it.
 
 ## Settings
 
-Open Settings from the menu bar icon or, if enabled, the settings icon in the open notch.
+Open Settings from the menu bar icon or, if enabled, the settings icon in the open notch. The sidebar groups the tabs; a tab for a feature starts with its "Enable …" switch, and that switch turns off the rest of the tab.
 
 | Tab | What it controls |
 |---|---|
-| General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, gestures, haptics |
-| Permissions | Live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm) and Paste from Other Apps. Each row has a Grant or Open System Settings button. Status is read without asking. Automation status is only known while that app is running |
-| Appearance | Accent colour, settings icon in the notch, spectrogram and album-art options, custom Lottie visualizers, mirror switch and options |
-| Tabs | Order of the notch tabs (drag and drop), which tabs are shown, Restore Defaults |
-| Media | Media control switch, music source (Now Playing, Apple Music, Spotify, YouTube Music), lyrics, full screen behavior |
-| Calendar | Calendar switch, calendar access, calendars shown in the notch, on the Home tab and in the calendar sheet |
-| HUDs | Replace the system volume, display and keyboard-brightness HUDs (needs Accessibility for Nubrix) |
-| Battery | Power and charging notifications in the notch |
-| Shelf | File shelf behaviour |
-| Vitrin | Capture toggles, screenshot folder and preview, retention, excluded apps, hide from screen sharing, clear history |
-| Dev | Dev tab switch (also notchctl), which localhost ports are watched |
+| General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, haptics, gestures, battery indicator and power status notifications |
+| Appearance | Accent color, settings icon in the notch, window shadow and corner radius, spectrogram and album-art options, mirror switch and options |
+| Permissions | Live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm, Ghostty) and Paste from Other Apps. Each row has a Grant or Open System Settings button. Status is read without asking. Automation status is only known while that app is running |
+
+**Developer**
+
+| Tab | What it controls |
+|---|---|
+| Claude Code | Claude Code integration switch, approving permissions from the notch, opening sessions, Home usage card, plan usage, and the hook installer command with a Copy button |
 | GitHub | GitHub integration switch, token, watched repositories, notification toggles |
-| Notifications | Inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, unread counts from Dock badges, Claude Code integration switch, opening sessions, notch approvals, plan usage, Home usage card, meeting countdown |
+| Dev | Dev tab switch (also notchctl), which localhost ports are watched, the notchctl install command |
+
+**Notch**
+
+| Tab | What it controls |
+|---|---|
+| Tabs | Order of the notch tabs (drag and drop), which tabs are shown, always show tabs, remember last tab, Restore defaults |
+| Notifications | Notification icon in the closed notch, inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, unread counts from Dock badges, Mark all as read |
+| Vitrin | Capture toggles, screenshot folder and preview, retention, excluded apps, hide from screen sharing, clear history |
+| Media | Media control switch, music source (Now Playing, Apple Music, Spotify, YouTube Music), live activity, lyrics, full screen behavior |
+| Calendar | Calendar switch, calendar access, calendars shown in the notch, on the Home tab and in the calendar sheet, meeting countdown |
+| Shelf | Shelf switch, drag behavior, quick share service |
+| HUDs | Replace the system volume, display and keyboard-brightness HUDs (needs Accessibility for Nubrix) |
+
+**Other**
+
+| Tab | What it controls |
+|---|---|
 | Shortcuts | Global keyboard shortcuts (defaults: Control-Option-V Vitrin, Control-Option-K calendar, Control-Option-M mirror) |
-| Advanced | Additional options |
-| About | Version, credits and licenses |
+| Advanced | Window behavior (title bar, lock screen, screen recording) and custom Lottie visualizers |
+| About | Version, updates, credits and licenses |
+
+### Notifications
+
+The Notifications tab keeps these details out of the window:
+
+- **Closed notch icon.** While something is unread, the closed notch keeps a small icon and count. When "Keep notification icon in the notch" is off, or when music is playing, the closed notch shows nothing; unread items are marked with a dot on their tab once you open the notch.
+- **Sources.** Done, failed and needs-you events from Claude Code sessions, notifications sent with notchctl, and GitHub. Turning a source off also clears its unread items. A source is greyed out while its feature (Claude Code integration, Dev tab, GitHub integration) is off.
+- **Other apps.** Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.
+- **Unread counts.** "Show unread counts" reads the number on each ticked app's Dock icon instead: no permission needed, and it only works while that app is open.
+- **Read state.** Items are marked read when you open the Claude, Dev or Notifications tab, or click the notification. They are not kept after a restart.

@@ -100,7 +100,7 @@ Releases from 0.1.1 on are signed with a Developer ID and notarized by Apple, so
 
 Nubrix learns about your sessions through Claude Code hooks. The quick start above is the short version. Here is what each step does.
 
-**1. Install the hook scripts** with the command from step 3 of the quick start. From a source checkout, run `scripts/install-hooks.sh` (`scripts/install-local.sh` already does). The installer verifies the app's signature and copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` as read-only files, outside any repository, so neither Claude nor a `git pull` can change what your hooks run ([why](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies)). Run it again after every Nubrix update.
+**1. Install the hook scripts** with the command from step 3 of the quick start. From a source checkout, run `scripts/install-hooks.sh` (`scripts/install-local.sh` already does). The installer verifies the app's signature and copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` as read-only files, outside any repository, so neither Claude nor a `git pull` can change what your hooks run ([why](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies)). Run it again after every Nubrix update. Settings, Claude Code shows the same command with a Copy button.
 
 **2. Merge the printed snippet into `~/.claude/settings.json`.** It has the exact paths for your machine. It adds the same hook block for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, PermissionDenied, Notification, Stop, StopFailure and SessionEnd, a `statusLine` and some `permissions.deny` rules.
 

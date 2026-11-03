@@ -143,7 +143,7 @@ struct SystemNotificationsTabView: View {
                 Text("Needs Full Disk Access")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
-                Button("Grant Access…") { FullDiskAccessGuide.begin(origin: .notch) }
+                Button("Grant access…") { FullDiskAccessGuide.begin(origin: .notch) }
                     .buttonStyle(.plain)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white)

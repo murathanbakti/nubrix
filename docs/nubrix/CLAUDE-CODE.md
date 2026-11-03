@@ -45,7 +45,7 @@ Clicking a session row, a Claude banner on the closed notch or "Open" on a permi
 
 Sessions started before you re-ran the hook installer have no session id or terminal device yet; they get one with the next prompt. Hooks installed before Warp support existed must be reinstalled with `scripts/install-hooks.sh` to send the Warp link; until then Warp is only brought to the front.
 
-Settings, Notifications, Claude Code, "Open the session when you click it" turns this off. Then clicking a row does nothing, a closed-notch banner opens the Claude tab instead, the "Open" button on permission cards is hidden, and Nubrix never sends Apple Events to Terminal, iTerm or Ghostty or opens a `claude://` or `warp://` link. "Claude Code integration" in the same section turns off the whole integration: the event server stops answering the Claude routes (`/v1/claude/hook`, `/status`, `/permission` return 404, so the hooks do nothing and the permission hook falls back to Claude's own dialog at once), sessions, banners, unread items and the Claude tab disappear, and plan usage is not fetched.
+Settings, Claude Code, "Open the session when you click it" turns this off. Then clicking a row does nothing, a closed-notch banner opens the Claude tab instead, the "Open" button on permission cards is hidden, and Nubrix never sends Apple Events to Terminal, iTerm or Ghostty or opens a `claude://` or `warp://` link. "Enable Claude Code integration" at the top of the same tab turns off the whole integration: the event server stops answering the Claude routes (`/v1/claude/hook`, `/status`, `/permission` return 404, so the hooks do nothing and the permission hook falls back to Claude's own dialog at once), sessions, banners, unread items and the Claude tab disappear, and plan usage is not fetched.
 
 ## Usage, context and cost
 
@@ -96,7 +96,7 @@ The primary source for the session (5-hour) and weekly meters is the number Clau
 - **What leaves the helper.** Only a small list of `{kind, group, percent, resetsAt, isActive, severity, scopeModel}` plus the fetch time, or one of `notInstalled`, `notSubscriber` (API-key login or no limits reported), `signedOut`, `unsupported`, `timeout`, `failed`. Raw output is never returned or logged. The app keeps the last good result (numbers and times only) in its preferences so the card shows something after a relaunch; it is marked as stale in the tooltip after 30 minutes.
 - **When it runs.** About every 5 minutes while a Claude Code session was active in the last hour, otherwise every 30 minutes. The interval doubles on battery and is multiplied by 4 in Low Power Mode. After 6 hours without Claude activity (the time of the last activity is kept across restarts) no timer runs at all. The numbers also refresh when the notch opens on Home or the Claude tab (if the data is older than 2 minutes), once after a `Stop` hook event (at most every 2 minutes), and when a session or prompt starts after a quiet period, which also restarts the timer. Paused while the Mac sleeps or is locked. Errors back off exponentially (5, 10, 20, then 30 minutes). Failures that retrying will not fix, such as being signed out or Claude not being found, are retried every 6 hours. Views are only updated when the numbers change.
 - **Alerts.** When the session or weekly value first crosses 80% and again 95% in a window, Nubrix shows a closed-notch banner and an inbox entry ("Claude Code" source), once per window (keyed by its reset time).
-- **Setting.** Settings, Notifications, Claude Code: "Show official plan usage (runs `claude /usage` in the background)" (on by default). Off means nothing is run and the card uses the status line limits or the transcript estimate.
+- **Setting.** Settings, Claude Code, "Show official plan usage" (on by default; it runs `claude /usage` in the background). Off means nothing is run and the card uses the status line limits or the transcript estimate.
 
 ### Home tab card
 
@@ -106,7 +106,7 @@ Next to the music player the Home tab shows a Claude card with your 5-hour and w
 - When the status line also reports the limits (the 5-hour value within the last 6 hours, the 7-day value within the last 7 days, and its reset time still in the future), whichever source is fresher is used per row. A window whose reset time has passed is dropped.
 - When neither official source is available it shows an estimate from the ledger over rolling windows of the last 5 hours and last 7 days: tokens and `~$` cost. Estimates are never shown as a percentage because the plan limit is unknown.
 - Hover the card for the source and turn counts; click it to open the Claude tab.
-- The card appears when there was any Claude activity in the last 7 days, is replaced by the meeting card while a meeting countdown is showing, refreshes once a minute only while the notch is open, and can be turned off in Settings, Notifications, "Show 5-hour and weekly usage on the Home tab". The labels are shown in Turkish when the system language is Turkish.
+- The card appears when there was any Claude activity in the last 7 days, is replaced by the meeting card while a meeting countdown is showing, refreshes once a minute only while the notch is open, and can be turned off in Settings, Claude Code, "Show 5-hour and weekly usage on the Home tab". The labels are shown in Turkish when the system language is Turkish.
 
 ## Approving permissions from the notch
 
@@ -135,4 +135,4 @@ Rules:
 - "Open in <app>" brings the source app forward and withdraws the notch prompt so you answer natively. Answering in Claude Code first also withdraws the prompt.
 - Up to 5 requests queue ("1 of 3"); requests over 64 KB or beyond the queue are left to Claude Code.
 - Wait time: 110 s in the desktop app and VS Code (Claude Code shows its own dialog at the same time and whichever answers first wins), 12 s in a terminal (the hook may hold the terminal dialog back while it waits). A 1 s liveness probe runs first, so a hung Nubrix costs about one second. `NUBRIX_PERMISSION_WAIT` (seconds) only applies with `NUBRIX_DEV=1`.
-- Turn it off in Settings, Notifications, "Approve Claude Code permissions from the notch".
+- Turn it off in Settings, Claude Code, "Approve permissions from the notch".
