@@ -7,23 +7,23 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
 	<key>SUFeedURL</key>
 	<string>https://github.com/murathanbakti/nubrix/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string></string>
-	<key>SUEnableAutomaticChecks</key>
-	<false/>
-	<key>SUAutomaticallyUpdate</key>
-	<false/>
-	<key>SUEnableSystemProfiling</key>
-	<false/>
+	<string>v1eNk50AjlwYtNo1azrflcXSnN9p6xdfGF6QcVbreEY=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
 	<key>SUShowReleaseNotes</key>
 	<false/>
 	<key>SUVerifyUpdateBeforeExtraction</key>
-	<true/>
-	<key>SURequireSignedFeed</key>
-	<true/>
-	<key>SUEnableInstallerLauncherService</key>
 	<true/>
 </dict>
 </plist>
