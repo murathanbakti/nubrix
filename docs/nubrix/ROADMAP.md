@@ -19,8 +19,10 @@ files are kept small so upstream fixes can be merged.
 - Endpoint, token and pid in `~/.config/nubrix-run/agent-endpoint` (0600, directory 0700).
 - `claude-plugin/`: async command hooks that forward hook JSON to Nubrix.
 - Verified: hooks fire from Claude Code desktop sessions and the CLI.
-- Source label (entrypoint, app bundle id, terminal) and git branch per session; click a
-  row to activate the source app.
+- Source label (entrypoint, app bundle id, terminal) and git branch per session; a click
+  on a row focuses the exact tab in Terminal, iTerm, Ghostty (1.3 or newer) and Warp (builds that
+  set `WARP_FOCUS_URL`) and activates other apps. Ghostty and Warp tab jump not yet tried on
+  device.
 - Status line script forwards context %, cost, model and the 5-hour limit to
   `POST /v1/claude/status`; context bar per row, 5h meter in the tab header, banner and
   inbox entry above 85% context.

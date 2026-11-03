@@ -222,7 +222,7 @@ struct AgentSessionRow: View {
             onRemove: { withAnimation(.smooth) { agents.remove(session.id) } }
         )
         .onHover { hovering = $0 }
-        .onTapGesture { AgentSessionOpener.open(session.source) }
+        .onTapGesture { AgentSessionOpener.open(session.source, cwd: session.cwd) }
         .help(session.cwd)
     }
 }

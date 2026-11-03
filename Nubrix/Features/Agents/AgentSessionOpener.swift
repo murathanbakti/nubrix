@@ -2,97 +2,44 @@ import AppKit
 import Defaults
 
 enum AgentSessionOpener {
-    private static let terminalBundleID = "com.apple.Terminal"
-    private static let iTermBundleID = "com.googlecode.iterm2"
-
-    private static let termBundles: [String: String] = [
-        "Apple_Terminal": terminalBundleID,
-        "iTerm.app": iTermBundleID,
-    ]
-
     static var isAllowed: Bool {
         Defaults[.claudeEnabled] && Defaults[.claudeOpenSession]
     }
 
     static func canOpen(_ source: AgentSourceInfo) -> Bool {
-        isAllowed && (source.activationBundleID != nil || termBundles[source.terminal] != nil)
+        isAllowed && AgentTerminalFocus.bundleID(for: source) != nil
     }
 
     @MainActor
-    static func open(_ source: AgentSourceInfo) {
+    static func open(_ source: AgentSourceInfo, cwd: String? = nil) {
         guard isAllowed else { return }
-        let bundleID = source.activationBundleID ?? termBundles[source.terminal]
+        let bundleID = AgentTerminalFocus.bundleID(for: source)
 
-        if !source.hostSessionID.isEmpty,
-           source.entrypoint == "claude-desktop" || bundleID == AgentSourceInfo.desktopBundleID,
-           let url = desktopURL(sessionID: source.hostSessionID),
-           NSWorkspace.shared.open(url) {
-            return
+        var ghosttyVersion: String?
+        if bundleID == AgentTerminalFocus.ghostty {
+            ghosttyVersion = NSRunningApplication.runningApplications(withBundleIdentifier: AgentTerminalFocus.ghostty)
+                .first?.bundleURL
+                .flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
         }
 
-        if !source.tty.isEmpty, let bundleID, let script = tabScript(bundleID: bundleID, tty: source.tty),
-           !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty {
-            Task {
-                let found = (try? await AppleScriptHelper.execute(script))?.booleanValue ?? false
-                if !found { AgentAppActivator.activate(bundleID: bundleID) }
+        switch AgentTerminalFocus.strategy(source: source, cwd: cwd, ghosttyVersion: ghosttyVersion) {
+        case .desktop(let url):
+            if !NSWorkspace.shared.open(url) { AgentAppActivator.activate(bundleID: bundleID) }
+        case .warp(let url):
+            let handler = NSWorkspace.shared.urlForApplication(toOpen: url).flatMap { Bundle(url: $0)?.bundleIdentifier }
+            if AgentTerminalFocus.isWarpHandler(bundleID: handler), NSWorkspace.shared.open(url) { return }
+            AgentAppActivator.activate(bundleID: bundleID)
+        case .script(let script):
+            guard !NSRunningApplication.runningApplications(withBundleIdentifier: script.bundleID).isEmpty else {
+                AgentAppActivator.activate(bundleID: bundleID)
+                return
             }
-            return
-        }
-
-        AgentAppActivator.activate(bundleID: bundleID)
-    }
-
-    private static func desktopURL(sessionID: String) -> URL? {
-        guard sessionID.wholeMatch(of: /local_[A-Za-z0-9-]{1,64}/) != nil else { return nil }
-        var components = URLComponents()
-        components.scheme = "claude"
-        components.host = "code"
-        components.path = "/continue"
-        components.queryItems = [URLQueryItem(name: "session", value: sessionID)]
-        return components.url
-    }
-
-    private static func tabScript(bundleID: String, tty: String) -> String? {
-        guard tty.wholeMatch(of: /ttys[0-9]{1,4}/) != nil else { return nil }
-        let device = "/dev/\(tty)"
-        switch bundleID {
-        case terminalBundleID:
-            return """
-            tell application id "com.apple.Terminal"
-                repeat with w in windows
-                    repeat with t in tabs of w
-                        if tty of t is "\(device)" then
-                            set selected of t to true
-                            set index of w to 1
-                            activate
-                            return true
-                        end if
-                    end repeat
-                end repeat
-            end tell
-            return false
-            """
-        case iTermBundleID:
-            return """
-            tell application id "com.googlecode.iterm2"
-                repeat with w in windows
-                    repeat with t in tabs of w
-                        repeat with s in sessions of t
-                            if tty of s is "\(device)" then
-                                select w
-                                select t
-                                select s
-                                activate
-                                return true
-                            end if
-                        end repeat
-                    end repeat
-                end repeat
-            end tell
-            return false
-            """
-        default:
-            return nil
+            Task {
+                let found = (try? await AgentTerminalFocus.run(script)) ?? false
+                if !found { AgentAppActivator.activate(bundleID: script.bundleID) }
+            }
+        case .activate:
+            AgentAppActivator.activate(bundleID: bundleID)
         }
     }
 }

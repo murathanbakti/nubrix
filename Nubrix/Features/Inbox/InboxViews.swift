@@ -122,7 +122,7 @@ struct InboxSettings: View {
                         Text("Approve Claude Code permissions from the notch")
                     }
                     Defaults.Toggle(key: .claudeOpenSession) {
-                        Text("Open the session when you click it (Terminal and iTerm need Automation)")
+                        Text("Open the session when you click it (Terminal, iTerm and Ghostty need Automation)")
                     }
                     Defaults.Toggle(key: .homeShowClaudeUsage) {
                         Text("Show 5-hour and weekly usage on the Home tab")

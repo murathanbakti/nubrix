@@ -84,17 +84,24 @@ struct AgentSourceInfo: Equatable {
     var terminal: String = ""
     var hostSessionID: String = ""
     var tty: String = ""
+    var focusURL: String = ""
 
     private static let hostSessionPattern = /^local_[A-Za-z0-9-]{1,64}$/
     private static let ttyPattern = /^ttys[0-9]{1,4}$/
+    private static let focusURLPattern = /^warp[a-z]{0,12}:\/\/session\/[0-9a-f]{32}$/
+
+    static func isValidFocusURL(_ value: String) -> Bool {
+        value.count <= 64 && value.wholeMatch(of: focusURLPattern) != nil
+    }
 
     init(entrypoint: String? = nil, appBundleID: String? = nil, terminal: String? = nil,
-         hostSessionID: String? = nil, tty: String? = nil) {
+         hostSessionID: String? = nil, tty: String? = nil, focusURL: String? = nil) {
         self.entrypoint = AgentText.sanitized(entrypoint, limit: 48)
         self.appBundleID = AgentText.sanitized(appBundleID, limit: 128)
         self.terminal = AgentText.sanitized(terminal, limit: 48)
         if let hostSessionID, hostSessionID.wholeMatch(of: Self.hostSessionPattern) != nil { self.hostSessionID = hostSessionID }
         if let tty, tty.wholeMatch(of: Self.ttyPattern) != nil { self.tty = tty }
+        if let focusURL, Self.isValidFocusURL(focusURL) { self.focusURL = focusURL }
     }
 
     init(headers: [String: String]) {
@@ -103,11 +110,12 @@ struct AgentSourceInfo: Equatable {
             appBundleID: headers["x-nubrix-app"],
             terminal: headers["x-nubrix-term"],
             hostSessionID: headers["x-nubrix-host-session"],
-            tty: headers["x-nubrix-tty"]
+            tty: headers["x-nubrix-tty"],
+            focusURL: headers["x-nubrix-focus-url"]
         )
     }
 
-    var isEmpty: Bool { entrypoint.isEmpty && appBundleID.isEmpty && terminal.isEmpty && hostSessionID.isEmpty && tty.isEmpty }
+    var isEmpty: Bool { entrypoint.isEmpty && appBundleID.isEmpty && terminal.isEmpty && hostSessionID.isEmpty && tty.isEmpty && focusURL.isEmpty }
 
     var activationBundleID: String? {
         if !appBundleID.isEmpty { return appBundleID }
@@ -174,6 +182,7 @@ struct AgentSourceInfo: Equatable {
         if !other.terminal.isEmpty { terminal = other.terminal }
         if !other.hostSessionID.isEmpty { hostSessionID = other.hostSessionID }
         if !other.tty.isEmpty { tty = other.tty }
+        if !other.focusURL.isEmpty { focusURL = other.focusURL }
     }
 }
 

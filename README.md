@@ -137,7 +137,8 @@ Rules, risk flags and wait times: [docs/nubrix/CLAUDE-CODE.md](docs/nubrix/CLAUD
 Click a session row, or a Claude banner on the closed notch, and Nubrix opens that exact session.
 
 - A Claude desktop app session opens in Claude.
-- In Terminal or iTerm, the session's own tab comes to the front. macOS asks once whether Nubrix may control the app.
+- In Terminal, iTerm or Ghostty, the session's own tab comes to the front. macOS asks once whether Nubrix may control the app.
+- In Warp (recent builds), the session's own tab comes to the front. No permission is needed.
 - Other terminals and editors are brought to the front.
 
 [How it works](docs/nubrix/CLAUDE-CODE.md#opening-a-session).
@@ -282,7 +283,7 @@ Nubrix asks for a permission only the first time you use a feature that needs it
 - Calendars for the calendar and meetings
 - Camera for Mirror
 - Accessibility for the custom HUDs
-- Automation for Spotify, Apple Music, and opening Terminal or iTerm sessions
+- Automation for Spotify, Apple Music, and opening Terminal, iTerm or Ghostty sessions
 - Your screenshot folder (read-only) for Vitrin
 - Full Disk Access for notifications from other apps
 

@@ -189,7 +189,7 @@ struct ContentView: View {
                             return
                         } else if vm.notchState == .closed, let banner = agentActivity.banner, let session = agents.session(banner.sessionID),
                                   AgentSessionOpener.canOpen(session.source) {
-                            AgentSessionOpener.open(session.source)
+                            AgentSessionOpener.open(session.source, cwd: session.cwd)
                             agents.dismissBanner()
                             inbox.markRead(.claude)
                             return
