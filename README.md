@@ -20,10 +20,12 @@
   <a href="#claude-code-setup">Claude Code setup</a> ·
   <a href="#features">Features</a> ·
   <a href="#privacy-and-security">Privacy</a> ·
-  <a href="#documentation">Docs</a>
+  <a href="#documentation">Docs</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/murathanbakti/nubrix/actions/workflows/build.yml"><img src="https://github.com/murathanbakti/nubrix/actions/workflows/build.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
   <a href="#requirements"><img src="https://img.shields.io/badge/macOS-14%2B-lightgrey.svg" alt="macOS 14+"></a>
   <a href="https://github.com/murathanbakti/nubrix/releases/latest"><img src="https://img.shields.io/github/v/release/murathanbakti/nubrix" alt="Latest release"></a>
@@ -35,24 +37,56 @@
   <sub>Images are rendered mockups with sample data. See <a href="docs/images/README.md">docs/images</a>.</sub>
 </p>
 
+## What's new in 0.1.2
+
+- **Exact tab in Ghostty and Warp.** Click a Claude session and its own tab comes to the front, as in Terminal and iTerm.
+- **Update check, opt-in.** Nubrix tells you when a newer release exists and shows the command for your install type. It downloads nothing.
+- **Vitrin is encrypted on disk.** Clipboard and screenshot history is stored with AES-GCM, and the key stays in your login keychain.
+- **Unread counts without Full Disk Access.** Dock badge numbers of the apps you pick show in the notch.
+- **Permissions on first use.** Nothing is asked at launch, and Settings has a new Permissions tab with live status and Grant buttons.
+- **Unit tests and a CI test job.**
+
+Full list: [CHANGELOG.md](CHANGELOG.md).
+
 ## Install
+
+Quick start with Homebrew:
+
+**1. Install.**
 
 ```sh
 brew tap murathanbakti/tap
 brew trust --tap murathanbakti/tap
 brew install --cask nubrix
+```
+
+**2. Open Nubrix.**
+
+```sh
 open -a Nubrix
 ```
 
 The first launch asks for no permissions. It shows which features will ask later and lets you pick a music source. Each permission is asked the first time you use the feature that needs it.
 
-Without Homebrew, use the install script, which verifies the checksum and code signature before it installs:
+**3. Connect Claude Code.** Run the hook installer, then merge the snippet it prints into `~/.claude/settings.json`. Nubrix never edits your Claude settings.
+
+```sh
+bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
+```
+
+**4. Start a new Claude Code session.** It appears in the notch's Claude tab.
+
+More on steps 3 and 4: [Claude Code setup](#claude-code-setup).
+
+### Other ways to install
+
+Install script. It verifies the checksum and code signature before it installs:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/murathanbakti/nubrix/main/scripts/install.sh | bash
 ```
 
-Or build from source (Xcode 26 or later):
+From source (Xcode 26 or later):
 
 ```sh
 git clone https://github.com/murathanbakti/nubrix.git
@@ -64,17 +98,14 @@ Releases from 0.1.1 on are signed with a Developer ID and notarized by Apple, so
 
 ## Claude Code setup
 
-Nubrix learns about your sessions through Claude Code hooks. Setup is three steps. The installer never edits your Claude settings: you merge its snippet yourself.
+Nubrix learns about your sessions through Claude Code hooks. The quick start above is the short version. Here is what each step does.
 
-**1. Install the hook scripts.**
+**1. Install the hook scripts** with the command from step 3 of the quick start. From a source checkout, run `scripts/install-hooks.sh` (`scripts/install-local.sh` already does). The installer verifies the app's signature and copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` as read-only files, outside any repository, so neither Claude nor a `git pull` can change what your hooks run ([why](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies)). Run it again after every Nubrix update.
 
-```sh
-bash /Applications/Nubrix.app/Contents/Resources/nubrix-hooks/scripts/install-hooks.sh
-```
+**2. Merge the printed snippet into `~/.claude/settings.json`.** It has the exact paths for your machine. It adds the same hook block for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, PermissionDenied, Notification, Stop, StopFailure and SessionEnd, a `statusLine` and some `permissions.deny` rules.
 
-From a source checkout, run `scripts/install-hooks.sh` (`scripts/install-local.sh` already does). The installer verifies the app's signature and copies `nubrix-hook`, `nubrix-permission`, `nubrix-statusline` and `notchctl` to `~/.config/nubrix/bin/` as read-only files, outside any repository, so neither Claude nor a `git pull` can change what your hooks run ([why](docs/nubrix/CLAUDE-CODE.md#why-sealed-copies)). Run it again after every Nubrix update.
-
-**2. Merge the printed snippet into `~/.claude/settings.json`.** The snippet has the exact paths for your machine. Shortened, it looks like this, with the same hook block for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, PermissionDenied, Notification, Stop, StopFailure and SessionEnd:
+<details>
+<summary>What the snippet looks like (shortened)</summary>
 
 ```json
 {
@@ -96,6 +127,8 @@ From a source checkout, run `scripts/install-hooks.sh` (`scripts/install-local.s
   }
 }
 ```
+
+</details>
 
 - The `permissions.deny` rules keep Claude from editing the scripts or reading Nubrix's local token. They are added to your existing list.
 - If you already use a status line, call `nubrix-statusline` from it, or pipe its input to both.
@@ -137,7 +170,8 @@ Rules, risk flags and wait times: [docs/nubrix/CLAUDE-CODE.md](docs/nubrix/CLAUD
 Click a session row, or a Claude banner on the closed notch, and Nubrix opens that exact session.
 
 - A Claude desktop app session opens in Claude.
-- In Terminal, iTerm or Ghostty, the session's own tab comes to the front. macOS asks once whether Nubrix may control the app.
+- In Terminal, iTerm or Ghostty 1.4 or later, the session's own tab comes to the front. macOS asks once whether Nubrix may control the app.
+- In Ghostty 1.3, Nubrix picks the tab by its working directory, and only if exactly one tab has it. Older Ghostty is brought to the front.
 - In Warp (recent builds), the session's own tab comes to the front. No permission is needed.
 - Other terminals and editors are brought to the front.
 
@@ -173,6 +207,7 @@ What you copy, and every new screenshot, stays within reach. Open it from its ta
 - Text that looks like a credential is never stored: private keys, `sk-` keys, GitHub, AWS and Slack tokens, JWTs, `Bearer` tokens and long random strings.
 - Nothing is stored while a password manager or another app you exclude is in front.
 - History expires after 30 days by default, and pinned items stay. The panel is hidden from screen sharing by default.
+- History is encrypted on disk with AES-GCM. The key is in your login keychain, and search runs on an index that lives in memory only. [What is and is not covered](docs/nubrix/PRIVACY-AND-SECURITY.md#encryption).
 
 <p align="center">
   <img src="docs/images/vitrin.png" alt="The Vitrin tab with filter chips and cards for a screenshot, pinned JSON with its actions menu, a link, a Swift snippet and a color" width="100%">
@@ -216,12 +251,19 @@ Requests, polling and why this kind of token: [docs/nubrix/GITHUB.md](docs/nubri
 
 ### Notifications from other apps
 
-Optional and off by default. New notifications from the apps you pick, such as WhatsApp, Slack or Mail, appear as a banner on the closed notch. The Notifications tab keeps the last 50.
+Optional and off by default. Pick the apps, such as WhatsApp, Slack or Mail. Nubrix can show their notifications, their unread counts, or both, each with its own switch.
 
+**Notifications** need Full Disk Access, because macOS has no public way to read other apps' notifications. A short guide walks you through granting it, and "Quit & Reopen" brings you back to where you started.
+
+- New notifications appear as a banner on the closed notch and in the Notifications tab, which keeps the last 50.
 - Banners show the app icon, the chat or sender and the message, disappear after 6 seconds, and open the app when clicked. New messages from the same chat update the banner and its counter instead of opening a new one.
 - The tab stacks notifications from the same chat into one card with the newest message and "+N more". Click "+N more" to see them all. A group or channel name, or a mail subject, gets its own small line and is never mixed into the message.
 - Only the apps you tick are read, and the list lives in memory only. You can hide message text, and notifications from the app in front are skipped.
-- It needs Full Disk Access, because macOS has no public way to read other apps' notifications. A short guide walks you through granting it.
+
+**Unread counts** need no permission. "Show unread counts" shows the number on the Dock icon of each ticked app that is running.
+
+- Counts are kept in memory and never added to the inbox.
+- How they are read, including the private macOS interface they use: [Privacy and security](docs/nubrix/PRIVACY-AND-SECURITY.md#unread-counts-dock-badges).
 
 <p align="center">
   <img src="docs/images/notifications.png" alt="The Notifications tab listing a WhatsApp, a Slack and a Mail notification with app filters, two closed-notch banners, and the Other apps settings next to the Full Disk Access guide" width="100%">
@@ -260,6 +302,7 @@ The everyday notch features are here too:
 
 - Every feature that needs a permission or controls another app has its own switch in Settings. When a switch is off, Nubrix asks for nothing and runs nothing for that feature. Turning it back on takes effect at once, with no restart.
 - In Settings, Tabs, drag the notch tabs into any order and hide the ones you don't use.
+- Settings, Permissions shows the live status of every permission with a Grant or Open System Settings button. It reads the status without asking, so opening it never shows a system dialog.
 
 <p align="center">
   <img src="docs/images/tabs.png" alt="Settings, Tabs: tabs reordered by drag, Shelf hidden and Notifications greyed out because its feature is off, next to the notch tab bar showing only the visible tabs" width="100%">
@@ -270,6 +313,7 @@ Every switch and where it lives: [docs/nubrix/PERMISSIONS-AND-SETTINGS.md](docs/
 ## Privacy and security
 
 - **Local only.** No account, no analytics, no Nubrix server and no auto-updater (an optional daily check only asks GitHub for the latest version number; it is off until you turn it on). The network is used only for GitHub (with your token), the release check above, lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
+- **Encrypted history.** Vitrin encrypts what it stores with AES-GCM. The key is a keychain item that does not sync through iCloud.
 - **Sandboxed.** The app runs in the macOS sandbox. The only unsandboxed part is the small helper `NubrixHelper`, which handles keys and brightness, reads plan usage and, when you turn it on, opens the notification database read-only.
 - **Sealed hooks.** The scripts Claude Code runs are read-only copies the app itself cannot change. They talk to Nubrix over loopback only, with a random port and token, and they verify Nubrix with an HMAC challenge before trusting an answer.
 - **Signed releases.** Releases are built by GitHub Actions and, from 0.1.1 on, signed with a Developer ID and notarized by Apple. The signing key is kept away from the build.
@@ -278,7 +322,7 @@ Details: [docs/nubrix/PRIVACY-AND-SECURITY.md](docs/nubrix/PRIVACY-AND-SECURITY.
 
 ## Permissions
 
-Nubrix asks for a permission only the first time you use a feature that needs it, with a short explanation first. The first launch asks for none:
+The first launch asks for none. Nubrix asks for a permission the first time you use a feature that needs it, with a short explanation first:
 
 - Calendars for the calendar and meetings
 - Camera for Mirror
@@ -287,40 +331,38 @@ Nubrix asks for a permission only the first time you use a feature that needs it
 - Your screenshot folder (read-only) for Vitrin
 - Full Disk Access for notifications from other apps
 
-There is no Screen Recording permission. Turning a switch off stops the feature. To take back a permission, use System Settings, Privacy & Security. [Full table](docs/nubrix/PERMISSIONS-AND-SETTINGS.md#permissions).
+Warp tab jump and Dock badge counts need no permission, and there is no Screen Recording permission. Nubrix never picks Apple Music for you: Automation for Music or Spotify is asked only after you choose that source.
+
+Settings, Permissions shows the live state of each one. Turning a switch off stops the feature. To take back a permission, use System Settings, Privacy & Security. [Full table](docs/nubrix/PERMISSIONS-AND-SETTINGS.md#permissions).
 
 ## Requirements
 
-- macOS 14 Sonoma or later, Apple silicon or Intel
+- macOS 14 Sonoma or later
+- Apple silicon or Intel (releases are universal builds)
 - Xcode 26 or later to build from source
 
-On a Mac without a notch, Nubrix draws the bar at the top of the display. Set its height in Settings, General.
+Intel Macs and Macs without a notch are supported but less tested. [Feedback is welcome](https://github.com/murathanbakti/nubrix/issues). On a Mac without a notch, Nubrix draws the bar at the top of the display. Set its height in Settings, General.
 
 ## First launch and Gatekeeper
 
-Releases from 0.1.1 on are notarized and open normally. This section is only for a zip of 0.1.0, or another release that is not notarized, downloaded with a browser:
+Releases from 0.1.1 on are notarized and open normally. This section is only for a zip of 0.1.0, or another release that is not notarized, downloaded with a browser.
 
-1. Open Nubrix (Spotlight or `/Applications`). macOS says "Nubrix" was blocked or cannot be verified. Click **Done** (**Cancel** on macOS 14 Sonoma). Do **not** click **Move to Trash**: that deletes the app.
-2. Open Privacy & Security:
-   ```sh
-   open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
-   ```
-   or go to System Settings, Privacy & Security, and scroll down to "Nubrix was blocked to protect your Mac".
-3. Click "Open Anyway" and confirm with your admin password or Touch ID. Open Nubrix again and confirm.
+1. Open Nubrix. macOS says "Nubrix" was blocked or cannot be verified. Click **Done** (**Cancel** on macOS 14 Sonoma). Do **not** click **Move to Trash**: that deletes the app.
+2. Open System Settings, Privacy & Security, scroll down to "Nubrix was blocked to protect your Mac" and click **Open Anyway**. Confirm with your admin password or Touch ID, then open Nubrix again and confirm.
 
-You do this once per download. On macOS 14 Sonoma you can instead right-click Nubrix in Finder, choose Open and confirm; on macOS 15 Sequoia and later only Privacy & Security works. Do not turn Gatekeeper off (`spctl --master-disable`): it protects every other app on your Mac.
-
-If you verified the download's origin and checksum yourself, `xattr -d com.apple.quarantine /Applications/Nubrix.app` removes the quarantine flag for that one app.
+You do this once per download. On macOS 14 Sonoma you can instead right-click Nubrix in Finder, choose Open and confirm. Do not turn Gatekeeper off (`spctl --master-disable`): it protects every other app on your Mac. If you verified the download's origin and checksum yourself, `xattr -d com.apple.quarantine /Applications/Nubrix.app` removes the quarantine flag for that one app.
 
 ## Updating
 
-Nubrix never downloads or installs updates itself. In Settings, About, Updates you can turn on a daily check (or press Check now): it asks GitHub for the latest release number, and if a newer one exists it shows the command for your install type. Update with the method you installed with:
+Nubrix never downloads or installs updates itself. In Settings, About, Updates you can turn on a daily check, or press **Check now**. It asks GitHub for the latest release number, without your GitHub token. If a newer release exists, Nubrix shows the command for your install type, in Settings and in the menu bar. **Skip this version** hides that release until a newer one comes out.
+
+Update with the method you installed with:
 
 ```sh
 brew upgrade --cask nubrix
 ```
 
-or run the install script again, or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again. Only a release that is not notarized (0.1.0), downloaded with a browser, needs the [First launch](#first-launch-and-gatekeeper) step.
+Or run the install script again, or `git pull && scripts/install-local.sh` for a source install. Then re-run `install-hooks.sh` so the sealed copies match the new version, and open Nubrix again. Only a release that is not notarized (0.1.0), downloaded with a browser, needs the [First launch](#first-launch-and-gatekeeper) step.
 
 ## Uninstall
 
@@ -356,6 +398,7 @@ Everything else, including Vitrin, music, HUDs and notifications from other apps
 | [Privacy and security](docs/nubrix/PRIVACY-AND-SECURITY.md) | Network use, sandbox, local endpoint, storage, signing |
 | [Troubleshooting](docs/nubrix/TROUBLESHOOTING.md) | Common problems and fixes |
 | [Roadmap](docs/nubrix/ROADMAP.md) | What is planned |
+| [Changelog](CHANGELOG.md) | What changed in each release |
 
 ## Building and contributing
 
@@ -364,6 +407,14 @@ xcodebuild -project Nubrix.xcodeproj -scheme Nubrix -configuration Debug \
   -derivedDataPath build -destination 'platform=macOS' build
 open build/Build/Products/Debug/Nubrix.app
 ```
+
+Run the unit tests (`NubrixTests`) with:
+
+```sh
+scripts/run-tests.sh
+```
+
+Tests run inside a Debug build with its own bundle id, `dev.nubrix.app.debug`, so they never touch an installed Nubrix or ask for permissions. CI runs them on every push.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, security-sensitive areas and how releases are cut.
 
