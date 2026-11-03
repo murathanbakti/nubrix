@@ -70,6 +70,11 @@ jobs:
             echo "::error::Tag $TAG does not match MARKETING_VERSION $PROJECT_VERSION"
             exit 1
           fi
+          BUILD_NUMBER="$(awk '$1 == "CURRENT_PROJECT_VERSION" { print $3; exit }' <<< "$build_settings")"
+          if [[ ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::CURRENT_PROJECT_VERSION '$BUILD_NUMBER' must be a positive integer (Sparkle compares it between releases)"
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -101,6 +106,10 @@ jobs:
       contents: write
     env:
       VERSION: ${{ needs.build.outputs.version }}
+    outputs:
+      version: ${{ needs.build.outputs.version }}
+      signing_mode: ${{ steps.mode.outputs.signing_mode }}
+      zip_sha256: ${{ steps.draft.outputs.zip_sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -138,6 +147,7 @@ jobs:
           echo "BUILT_APP=$app_dir/Nubrix.app" >> "$GITHUB_ENV"
 
       - name: Choose signing mode
+        id: mode
         env:
           DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
           DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
@@ -163,6 +173,7 @@ jobs:
             fi
             echo "::notice::No Developer ID secrets, building an ad-hoc signed release that is not notarized"
             echo "SIGNING_MODE=adhoc" >> "$GITHUB_ENV"
+            echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           missing=()
@@ -175,7 +186,13 @@ jobs:
             echo "::error::DEVELOPER_ID_P12_BASE64 is set but these are missing: ${missing[*]}"
             exit 1
           fi
+          public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Nubrix/Info.plist 2>/dev/null || true)"
+          if [[ ! "$public_key" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+            echo "::error::Nubrix/Info.plist has no valid SUPublicEDKey. Run scripts/setup-sparkle-key.sh and commit the result before tagging a Developer ID release"
+            exit 1
+          fi
           echo "SIGNING_MODE=developer-id" >> "$GITHUB_ENV"
+          echo "signing_mode=developer-id" >> "$GITHUB_OUTPUT"
 
       - name: Import Developer ID certificate and notary key
         if: env.SIGNING_MODE == 'developer-id'
@@ -249,6 +266,9 @@ jobs:
           mkdir -p "$check"
           ditto -x -k "dist/Nubrix-$VERSION.zip" "$check"
           app="$check/Nubrix.app"
+          if [[ "$SIGNING_MODE" == "developer-id" ]]; then
+            export NUBRIX_REQUIRE_SPARKLE_KEY=1
+          fi
           scripts/verify-bundle.sh "$app"
           details="$(codesign -dvv "$app" 2>&1)"
           grep -E '^(Authority|TeamIdentifier|Timestamp|Signature)=' <<< "$details" || true
@@ -262,6 +282,7 @@ jobs:
           fi
 
       - name: Create draft release
+        id: draft
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -280,6 +301,7 @@ jobs:
             gh release create "$TAG" dist/Nubrix-*.zip dist/Nubrix-*.zip.sha256 \
               --draft --verify-tag --title "Nubrix $VERSION" --notes "$signing_note" --generate-notes
           fi
+          echo "zip_sha256=$(awk '{ print $1 }' "dist/Nubrix-$VERSION.zip.sha256")" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         run: |
@@ -290,6 +312,10 @@ jobs:
             echo
             echo "Signing: \`$SIGNING_MODE\`"
             echo
+            if [[ "$SIGNING_MODE" == "developer-id" ]]; then
+              echo "The \`appcast\` job signs and attaches \`appcast.xml\` next; wait for it before publishing the draft."
+              echo
+            fi
             if [[ "$SIGNING_MODE" == "adhoc" ]]; then
               echo "> **Warning:** this build is not notarized and the cask keeps the quarantine flag, so do not publish it to the tap."
               echo
@@ -310,3 +336,109 @@ jobs:
           name: nubrix-cask
           path: dist/nubrix.rb
           if-no-files-found: error
+
+  appcast:
+    name: Sign and attach the appcast
+    needs: release
+    if: needs.release.outputs.signing_mode == 'developer-id'
+    runs-on: macos-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      EXPECTED_SHA256: ${{ needs.release.outputs.zip_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require the public key
+        run: |
+          public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Nubrix/Info.plist 2>/dev/null || true)"
+          if [[ ! "$public_key" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+            echo "::error::Nubrix/Info.plist has no valid SUPublicEDKey for tag $TAG. Run scripts/setup-sparkle-key.sh, commit the result and tag again"
+            exit 1
+          fi
+
+      - name: Download the signed zip from the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          gh release download "$TAG" --dir "$RUNNER_TEMP/release" \
+            --pattern "Nubrix-$VERSION.zip" --pattern "Nubrix-$VERSION.zip.sha256"
+
+      - name: Verify the zip against its SHA-256
+        run: |
+          cd "$RUNNER_TEMP/release"
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::The release job reported no SHA-256"; exit 1; }
+          asset_sha="$(awk '{ print $1 }' "Nubrix-$VERSION.zip.sha256")"
+          actual_sha="$(shasum -a 256 "Nubrix-$VERSION.zip" | awk '{ print $1 }')"
+          if [[ "$actual_sha" != "$asset_sha" || "$actual_sha" != "$EXPECTED_SHA256" ]]; then
+            echo "::error::SHA-256 mismatch: zip $actual_sha, .sha256 asset $asset_sha, release job $EXPECTED_SHA256"
+            exit 1
+          fi
+          echo "Nubrix-$VERSION.zip $actual_sha"
+
+      - name: Fetch the pinned Sparkle tools
+        run: scripts/sparkle-tools.sh "$RUNNER_TEMP/sparkle-tools"
+
+      - name: Write the Sparkle signing key
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$SPARKLE_ED_PRIVATE_KEY" ]]; then
+            echo "::error::The SPARKLE_ED_PRIVATE_KEY secret is missing in the release environment. Run scripts/setup-sparkle-key.sh"
+            exit 1
+          fi
+          umask 077
+          key_dir="$RUNNER_TEMP/sparkle-key"
+          mkdir -p "$key_dir"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$key_dir/ed-key"
+          echo "SPARKLE_ED_KEY_FILE=$key_dir/ed-key" >> "$GITHUB_ENV"
+
+      - name: Generate the signed appcast
+        run: |
+          mkdir -p "$RUNNER_TEMP/appcast"
+          scripts/make-appcast.sh --tools "$RUNNER_TEMP/sparkle-tools/bin" --tag "$TAG" \
+            --zip "$RUNNER_TEMP/release/Nubrix-$VERSION.zip" --out "$RUNNER_TEMP/appcast/appcast.xml"
+
+      - name: Remove the Sparkle signing key
+        if: always()
+        run: |
+          key_dir="$RUNNER_TEMP/sparkle-key"
+          if [[ -f "$key_dir/ed-key" ]]; then
+            rm -P "$key_dir/ed-key" || true
+          fi
+          rm -rf "$key_dir"
+
+      - name: Check the appcast
+        run: |
+          feed="$RUNNER_TEMP/appcast/appcast.xml"
+          xmllint --noout "$feed"
+          grep -q '<!-- sparkle-signatures:' "$feed"
+          grep -q "releases/download/$TAG/Nubrix-$VERSION.zip" "$feed"
+          echo "SPARKLE_VERSION=$(xmllint --xpath 'string(//*[local-name()="item"]/*[local-name()="version"])' "$feed")" >> "$GITHUB_ENV"
+
+      - name: Attach the appcast to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          state="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+          if [[ "$state" != "true" ]]; then
+            echo "::error::The release for $TAG is already published; refusing to modify it"
+            exit 1
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/appcast/appcast.xml" --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx appcast.xml
+
+      - name: Summary
+        run: |
+          {
+            echo "## Appcast for Nubrix $VERSION"
+            echo
+            echo "\`appcast.xml\` (sparkle:version $SPARKLE_VERSION) is attached to the draft release for \`$TAG\`."
+            echo "Sparkle sees it at \`releases/latest/download/appcast.xml\` once you publish the draft."
+          } >> "$GITHUB_STEP_SUMMARY"
