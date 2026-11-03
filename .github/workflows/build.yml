@@ -57,6 +57,48 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
+  test:
+    name: Unit tests
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      PROJECT_NAME: Nubrix
+      XCODE_VERSION: "26.6"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          XCODE_PATH="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [[ ! -d "$XCODE_PATH" ]]; then
+            XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          fi
+          if [[ -z "$XCODE_PATH" ]]; then
+            echo "::error::No Xcode 26 found on this runner"
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -onlyUsePackageVersionsFromResolvedFile -project "$PROJECT_NAME.xcodeproj"
+
+      - name: Run unit tests
+        run: scripts/run-tests.sh "$RUNNER_TEMP/DerivedData-tests" -resultBundlePath "$RUNNER_TEMP/NubrixTests.xcresult"
+
+      - name: Run hook header tests
+        run: scripts/test-hook-headers.sh
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/NubrixTests.xcresult
+          retention-days: 7
+
   scripts:
     name: Validate scripts and plugin manifests
     runs-on: ubuntu-latest

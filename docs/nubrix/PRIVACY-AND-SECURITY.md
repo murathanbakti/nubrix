@@ -20,7 +20,7 @@ The complete list:
 
 ## Permissions
 
-Nubrix asks for nothing at launch. Each permission is asked the first time you use the feature that needs it, and Settings, Permissions shows the state of all of them. That tab reads the status without asking, so opening it never shows a system dialog. Automation for Music or Spotify is asked only after you choose that source; Nubrix never picks Apple Music by itself. Accessibility and Full Disk Access are recorded by macOS under "Nubrix". Version 0.1.1 still asks for camera, calendar, Accessibility and Full Disk Access up front in onboarding; the change ships in the next release. Details are in [PERMISSIONS-AND-SETTINGS.md](PERMISSIONS-AND-SETTINGS.md).
+Nubrix asks for nothing at launch. Each permission is asked the first time you use the feature that needs it, and Settings, Permissions shows the state of all of them. That tab reads the status without asking, so opening it never shows a system dialog. Automation for Music or Spotify is asked only after you choose that source; Nubrix never picks Apple Music by itself. Accessibility and Full Disk Access are recorded by macOS under "Nubrix". Version 0.1.1 and earlier asked for camera, calendar, Accessibility and Full Disk Access up front in onboarding; 0.1.2 fixed this. Details are in [PERMISSIONS-AND-SETTINGS.md](PERMISSIONS-AND-SETTINGS.md).
 
 ## Sandbox and helper split
 

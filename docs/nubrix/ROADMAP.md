@@ -139,12 +139,12 @@ Done locally:
 Published:
 - GitHub repository, with README screenshots and private vulnerability reporting.
 - Logo and app icon (`docs/branding/`).
-- Releases built by CI as a zip (not a DMG): v0.1.0 ad-hoc signed, v0.1.1 Developer ID signed and notarized.
+- Releases built by CI as a zip (not a DMG): v0.1.0 ad-hoc signed, v0.1.1 and later Developer ID signed and notarized.
 - Update check (notify only): an opt-in daily check of the latest GitHub release shows the update command for your install type in Settings, About, Updates and in the menu bar. Nothing is downloaded or installed. Sparkle stays a possible later step.
 
 Remaining:
 - Testing on Intel and notch-less Macs.
-- Sign releases with the team designated requirement (`anchor apple generic and identifier "dev.nubrix.app" and certificate leaf[subject.OU] = "<team>"`), so a grant made by a release also survives a local build. Decision for v0.1.2.
+- Sign releases with the team designated requirement (`anchor apple generic and identifier "dev.nubrix.app" and certificate leaf[subject.OU] = "<team>"`), so a grant made by a release also survives a local build. Open decision; releases keep the default Developer ID requirement for now.
 - Verify Vitrin's pasteboard behavior ("Paste from Other Apps" set to Ask, Allow, Deny) on macOS 26.
 
 ## Notch extensions
@@ -191,7 +191,7 @@ Remaining:
 - Later: fill in counts for apps that are not running via the Dock's
   `AXStatusLabel`, only for users whose helper already has Accessibility.
 
-## Permission prompts (done, not yet released or tried on device)
+## Permission prompts (done in v0.1.2)
 
 - Nothing is asked at launch. Each permission is asked when its feature is first used, through one `PermissionClient` (`Nubrix/Features/Permissions/`). Status is read without asking.
 - Settings, Permissions: live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm, Ghostty) and Paste from Other Apps, with Grant or Open System Settings buttons.
@@ -200,7 +200,7 @@ Remaining:
 - Vitrin respects "Paste from Other Apps" set to Ask (pill with "Save Copied Item").
 - Accessibility and Full Disk Access are documented under "Nubrix", not `NubrixHelper`.
 - Debug builds and the test host use `dev.nubrix.app.debug` ("Nubrix Debug"); `install-local.sh` signs with a team-based designated requirement so local grants survive a release of the same team.
-- v0.1.1 still has the old onboarding; users get this only with the next release.
+- Shipped in v0.1.2.
 
 ## Feature switches and tab layout (done, not yet tried on device)
 

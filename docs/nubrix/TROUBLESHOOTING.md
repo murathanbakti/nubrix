@@ -46,7 +46,7 @@ log stream --predicate 'subsystem == "com.apple.TCC" AND (eventMessage CONTAINS 
 
 Last resort, if toggling does not help: `tccutil reset All dev.nubrix.app` forgets every grant of the app (for a Debug build, `dev.nubrix.app.debug`). macOS then asks again for each permission.
 
-Version 0.1.1 still has the old onboarding, which asks for camera, calendar, Accessibility and Full Disk Access up front, and restarts when you use "Quit & Reopen" during it. The fix ships in the next release.
+Version 0.1.1 and earlier had an onboarding that asked for camera, calendar, Accessibility and Full Disk Access up front, and restarted when you used "Quit & Reopen" during it. Update to 0.1.2 or later: `brew upgrade --cask nubrix`.
 
 ## Claude sign-in needed
 

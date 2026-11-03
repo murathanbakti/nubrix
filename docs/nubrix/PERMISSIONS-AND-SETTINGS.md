@@ -6,7 +6,7 @@ What Nubrix asks for, why, and where every switch lives. For an overview, see th
 
 Nubrix asks for nothing at launch. Each permission is asked the first time you use the feature that needs it. Onboarding asks for nothing; it only lists which features will ask. Permissions you already granted keep working. Settings, Permissions shows the state of all of them (see below).
 
-Version 0.1.1 still has the old onboarding, which asks for camera, calendar, Accessibility and Full Disk Access up front. The change described here ships in the next release.
+Version 0.1.1 and earlier asked for camera, calendar, Accessibility and Full Disk Access up front in onboarding. From 0.1.2 on, nothing is asked at launch.
 
 | Permission | Why | When | Turn off in Settings |
 |---|---|---|---|

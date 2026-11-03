@@ -33,7 +33,7 @@ body:
       label: Nubrix version
       description: >-
         Settings > About > Version, or the version in the release you downloaded.
-      placeholder: "0.1.1"
+      placeholder: "0.1.2"
     validations:
       required: true
   - type: dropdown
