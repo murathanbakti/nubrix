@@ -238,7 +238,7 @@ Optional and off by default. New notifications from the apps you pick, such as W
 
 ### Music, HUDs and shelf
 
-From [boring.notch](https://github.com/TheBoredTeam/boring.notch), the project Nubrix is built on:
+The everyday notch features are here too:
 
 - Now playing with controls and a visualizer, for system Now Playing, Apple Music, Spotify and YouTube Music. Synced lyrics are optional.
 - Volume, display brightness and keyboard brightness HUDs in the notch (optional).
