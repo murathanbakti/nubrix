@@ -24,7 +24,7 @@ struct MusicSlotConfigurationView: View {
             // Reset button
             HStack {
                 Spacer()
-                Button("Reset to Defaults") {
+                Button("Restore defaults") {
                     withAnimation {
                         musicControlSlots = MusicControlButton.defaultLayout
                     }
@@ -103,7 +103,7 @@ struct MusicSlotConfigurationView: View {
     private var slotConfigurationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Layout Preview")
+                Text("Layout preview")
                     .font(.headline)
                     .foregroundStyle(.secondary)
                 Spacer()

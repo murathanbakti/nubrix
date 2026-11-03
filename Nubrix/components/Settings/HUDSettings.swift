@@ -36,7 +36,7 @@ struct HUDSettings: View {
                 Section {
                     Picker("Option key behavior", selection: $optionKeyAction) {
                         ForEach(OptionKeyAction.allCases) { opt in
-                            Text(opt.rawValue).tag(opt)
+                            Text(opt.title).tag(opt)
                         }
                     }
                     Picker("Progress bar style", selection: $enableGradient) {
@@ -116,5 +116,11 @@ struct HUDSettings: View {
                 }
             }
         }
+    }
+}
+
+extension OptionKeyAction {
+    var title: String {
+        self == .none ? "No action" : rawValue
     }
 }

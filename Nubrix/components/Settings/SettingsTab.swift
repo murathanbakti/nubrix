@@ -102,11 +102,19 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 final class SettingsNavigation: ObservableObject {
     static let shared = SettingsNavigation()
     @Published var requested: SettingsTab?
-    private init() {}
+    private let present: @MainActor () -> Void
+
+    private init() {
+        present = { SettingsWindowController.shared.showWindow() }
+    }
+
+    init(present: @escaping @MainActor () -> Void) {
+        self.present = present
+    }
 
     func open(_ tab: SettingsTab) {
         requested = tab
-        SettingsWindowController.shared.showWindow()
+        present()
     }
 
     func open(_ title: String) {
