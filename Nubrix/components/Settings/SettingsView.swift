@@ -879,6 +879,8 @@ struct About: View {
                     Text("Version info")
                 }
 
+                UpdatesSettingsSection()
+
                 Section {
                     Text("Nubrix is based on boring.notch by TheBoredTeam (GPL-3.0).")
                     Text("License: GNU General Public License v3.0")

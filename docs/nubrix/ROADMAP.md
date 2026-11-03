@@ -126,7 +126,7 @@ Done locally:
   upstream credits/GPL-3.0); full rename of the Xcode project, targets, Swift
   types, preference keys, identifiers and the XPC helper (`NubrixHelper`), with a
   one-time `NubrixMigration` for old preference keys and the shelf folder.
-- Auto-updater removed: Sparkle, its entitlements and the update UI are gone. Nubrix has no updater.
+- Auto-updater removed: Sparkle, its entitlements and the update UI are gone. Nubrix does not update itself.
 - Original placeholder app icon and in-app logo.
 - README, CONTRIBUTING, SECURITY rewritten; upstream workflows, funding and
   Crowdin config removed; `.github/workflows/build.yml` (unsigned Debug build
@@ -137,9 +137,9 @@ Published:
 - GitHub repository, with README screenshots and private vulnerability reporting.
 - Logo and app icon (`docs/branding/`).
 - Releases built by CI as a zip (not a DMG): v0.1.0 ad-hoc signed, v0.1.1 Developer ID signed and notarized.
+- Update check (notify only): an opt-in daily check of the latest GitHub release shows the update command for your install type in Settings, About, Updates and in the menu bar. Nothing is downloaded or installed. Sparkle stays a possible later step.
 
 Remaining:
-- An update mechanism (none exists; Sparkle was removed).
 - Encryption at rest for Vitrin (possible now that releases keep one signing identity).
 
 ## Notch extensions

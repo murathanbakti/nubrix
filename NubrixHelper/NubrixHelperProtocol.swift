@@ -23,6 +23,7 @@ import Foundation
     func fetchClaudePlanUsage(with reply: @escaping (Data) -> Void)
     func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void)
     func fetchSystemNotificationApps(with reply: @escaping (Data) -> Void)
+    func isHomebrewInstall(with reply: @escaping (Bool) -> Void)
 }
 
 /*

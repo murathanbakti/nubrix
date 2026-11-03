@@ -27,6 +27,7 @@ struct NubrixApp: App {
 
     var body: some Scene {
         MenuBarExtra("Nubrix", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
+            UpdateMenuItems()
             Button("Settings") {
                 DispatchQueue.main.async {
                     SettingsWindowController.shared.showWindow()
@@ -76,6 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         VitrinService.stop()
         MirrorService.stop()
         NubrixCalendarService.stop()
+        UpdateStore.shared.stop()
         NotificationCenter.default.removeObserver(self)
         if let observer = screenLockedObserver {
             DistributedNotificationCenter.default().removeObserver(observer)
@@ -312,6 +314,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         MirrorService.start()
         NubrixCalendarService.start()
         MusicManager.shared.start()
+        UpdateStore.shared.start()
 
         NotificationCenter.default.addObserver(
             self,

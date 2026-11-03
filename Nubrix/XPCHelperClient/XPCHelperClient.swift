@@ -291,6 +291,21 @@ final class XPCHelperClient: NSObject {
             return .failed
         }
     }
+
+    nonisolated func isHomebrewInstall() async -> Bool {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            return try await service.withContinuation { service, continuation in
+                service.isHomebrewInstall { installed in
+                    continuation.resume(returning: installed)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
 }
 
 extension Notification.Name {

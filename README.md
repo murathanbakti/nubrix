@@ -269,7 +269,7 @@ Every switch and where it lives: [docs/nubrix/PERMISSIONS-AND-SETTINGS.md](docs/
 
 ## Privacy and security
 
-- **Local only.** No account, no analytics, no Nubrix server and no auto-updater. The network is used only for GitHub (with your token), lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
+- **Local only.** No account, no analytics, no Nubrix server and no auto-updater (an optional daily check only asks GitHub for the latest version number; it is off until you turn it on). The network is used only for GitHub (with your token), the release check above, lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
 - **Sandboxed.** The app runs in the macOS sandbox. The only unsandboxed part is the small helper `NubrixHelper`, which handles keys and brightness, reads plan usage and, when you turn it on, opens the notification database read-only.
 - **Sealed hooks.** The scripts Claude Code runs are read-only copies the app itself cannot change. They talk to Nubrix over loopback only, with a random port and token, and they verify Nubrix with an HMAC challenge before trusting an answer.
 - **Signed releases.** Releases are built by GitHub Actions and, from 0.1.1 on, signed with a Developer ID and notarized by Apple. The signing key is kept away from the build.
@@ -314,7 +314,7 @@ If you verified the download's origin and checksum yourself, `xattr -d com.apple
 
 ## Updating
 
-Nubrix has no auto-updater. Update with the method you installed with:
+Nubrix never downloads or installs updates itself. In Settings, About, Updates you can turn on a daily check (or press Check now): it asks GitHub for the latest release number, and if a newer one exists it shows the command for your install type. Update with the method you installed with:
 
 ```sh
 brew upgrade --cask nubrix
