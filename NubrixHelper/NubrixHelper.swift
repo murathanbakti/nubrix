@@ -162,6 +162,10 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         }
     }
 
+    @objc func isHomebrewInstall(with reply: @escaping (Bool) -> Void) {
+        reply(["/opt/homebrew/Caskroom/nubrix", "/usr/local/Caskroom/nubrix"].contains { FileManager.default.fileExists(atPath: $0) })
+    }
+
     // MARK: - Private helpers for DisplayServices / IOKit access
     private func displayServicesGetBrightness(displayID: CGDirectDisplayID, out: inout Float) -> Bool {
         guard let sym = dlsym(DisplayServicesHandle.handle, "DisplayServicesGetBrightness") else { return false }
