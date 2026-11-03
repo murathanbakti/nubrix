@@ -24,6 +24,7 @@ struct ContentView: View {
     @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
     @ObservedObject var systemNotifications = SystemNotificationStore.shared
+    @ObservedObject var dockBadges = DockBadgeStore.shared
     @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
     @ObservedObject var inbox = NubrixInbox.shared
     @ObservedObject var meetings = MeetingWatcher.shared
@@ -111,6 +112,12 @@ struct ContentView: View {
     private var inboxWingShowing: Bool {
         vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
             && inboxKeepIcon && inbox.unreadCount > 0 && !bannerShowing && !agentActivity.needsAttention
+            && !musicActivityShowing && !meetingCountdownShowing
+    }
+
+    private var dockBadgeWingShowing: Bool {
+        vm.notchState == .closed && !vm.hideOnClosed && !coordinator.expandingView.show
+            && inboxKeepIcon && dockBadges.total > 0 && !inboxWingShowing && !bannerShowing && !agentActivity.needsAttention
             && !musicActivityShowing && !meetingCountdownShowing
     }
 
@@ -202,6 +209,8 @@ struct ContentView: View {
                             meetings.dismissBanner()
                         } else if inboxWingShowing, let target = inbox.newest?.source.targetTab {
                             coordinator.currentView = target
+                        } else if dockBadgeWingShowing {
+                            coordinator.currentView = .notifications
                         }
                         doOpen()
                     }
@@ -380,6 +389,8 @@ struct ContentView: View {
                           .frame(alignment: .center)
                   } else if inboxWingShowing {
                       InboxLiveActivity()
+                  } else if dockBadgeWingShowing {
+                      DockBadgeLiveActivity()
                   } else if !coordinator.expandingView.show && vm.notchState == .closed && agentActivity.isWorking && !vm.hideOnClosed {
                       AgentLiveActivity()
                   } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {

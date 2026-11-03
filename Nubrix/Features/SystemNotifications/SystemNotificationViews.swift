@@ -69,9 +69,19 @@ struct SystemNotificationSettingsSection: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @Default(.systemNotificationsEnabled) var enabled
     @Default(.systemNotificationApps) var allowedApps
+    @ObservedObject var badges = DockBadgeStore.shared
+    @Default(.dockBadgesEnabled) var badgesEnabled
+    @State private var suggested: [String] = []
 
     private var rows: [String] {
-        Array(Set(store.knownApps).union(allowedApps))
+        DockBadgeAppList.rows(
+            known: store.knownApps,
+            allowed: allowedApps,
+            running: badgesEnabled ? suggested : [],
+            defaults: badgesEnabled || store.knownApps.isEmpty ? DockBadgeAppList.defaults : [],
+            ownBundleID: Bundle.main.bundleIdentifier,
+            isInstalled: { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil }
+        )
             .sorted { store.appName(for: $0).localizedCaseInsensitiveCompare(store.appName(for: $1)) == .orderedAscending }
     }
 
@@ -79,6 +89,13 @@ struct SystemNotificationSettingsSection: View {
         Section {
             Defaults.Toggle(key: .systemNotificationsEnabled) {
                 Text("Show notifications from other apps")
+            }
+            Defaults.Toggle(key: .dockBadgesEnabled) {
+                Text("Show unread counts")
+            }
+            if badgesEnabled && badges.status == .unavailable {
+                Label("Unread counts are not available on this macOS version", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.secondary)
             }
             if enabled {
                 statusRow
@@ -88,18 +105,24 @@ struct SystemNotificationSettingsSection: View {
                 Defaults.Toggle(key: .systemNotificationsSkipFrontmost) {
                     Text("Skip notifications from the app in front")
                 }
+            }
+            if enabled || badgesEnabled {
                 ForEach(rows, id: \.self) { bundleID in
                     appRow(bundleID)
                 }
                 HStack {
                     Spacer()
-                    Button("Refresh") { store.refreshApps() }
+                    Button("Refresh") {
+                        if enabled { store.refreshApps() }
+                        if badgesEnabled { suggested = badges.suggestedApps() }
+                        badges.refresh()
+                    }
                 }
             }
         } header: {
             Text("Other apps")
         } footer: {
-            Text("Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.")
+            Text("Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch. Show unread counts reads the number on each ticked app's Dock icon instead: no permission needed, and it only works while that app is open.")
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }
@@ -116,6 +139,11 @@ struct SystemNotificationSettingsSection: View {
         }
         .onAppear {
             if enabled { store.refreshApps() }
+            if badgesEnabled { suggested = badges.suggestedApps() }
+        }
+        .onChange(of: badgesEnabled) { _, on in
+            if on { suggested = badges.suggestedApps() }
+            badges.refresh()
         }
     }
 
@@ -139,6 +167,9 @@ struct SystemNotificationSettingsSection: View {
                     .foregroundStyle(.orange)
                 Text("Nubrix needs Full Disk Access to read notifications.")
                 Spacer()
+                if !badgesEnabled {
+                    Button("Use unread counts instead") { Defaults[.dockBadgesEnabled] = true }
+                }
                 Button("Grant Access…") { FullDiskAccessGuide.begin() }
                     .buttonStyle(.borderedProminent)
             }
@@ -180,6 +211,9 @@ struct SystemNotificationSettingsSection: View {
                     }
                 }
             ))
+            if badgesEnabled, let badge = badges.badge(for: bundleID) {
+                DockBadgeCountCapsule(text: badge.label, foreground: .primary, fill: Color.secondary.opacity(0.2))
+            }
         }
     }
 }

@@ -61,7 +61,7 @@ final class SystemNotificationStore: ObservableObject {
             setStatus(.off)
             dismissBanner()
             history = []
-            if NubrixCoordinator.shared.currentView == .notifications {
+            if NubrixCoordinator.shared.currentView == .notifications, !Defaults[.dockBadgesEnabled] {
                 NubrixCoordinator.shared.currentView = .home
             }
         }
