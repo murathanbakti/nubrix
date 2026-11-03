@@ -5,6 +5,7 @@ enum InboxSource: String, CaseIterable {
     case notchctl
     case github
     case system
+    case nubrix
 }
 
 enum InboxSeverity: Int, Comparable {
@@ -100,6 +101,18 @@ struct InboxLedger {
     mutating func clearGitHub(keys: [String]) -> Bool {
         let set = Set(keys)
         return remove { $0.source == .github && $0.key.map(set.contains) == true }
+    }
+
+    @discardableResult
+    mutating func recordApp(key: String, title: String, message: String, date: Date = Date()) -> Bool {
+        entries.removeAll { $0.source == .nubrix && $0.key == key }
+        insert(InboxEntry(source: .nubrix, severity: .notice, title: title, message: message, date: date, sessionID: nil, key: key))
+        return true
+    }
+
+    @discardableResult
+    mutating func clearApp(key: String) -> Bool {
+        remove { $0.source == .nubrix && $0.key == key }
     }
 
     @discardableResult

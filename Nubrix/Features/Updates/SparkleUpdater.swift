@@ -79,4 +79,27 @@ final class SparkleBridge: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDe
     func updater(_ updater: SPUUpdater, didAbortWithError error: any Error) {
         store?.cycleFinished(error: Self.failureText(error))
     }
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool {
+        false
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        store?.reminderEvent(.willShow(
+            handledBySparkle: handleShowingUpdate,
+            userInitiated: state.userInitiated,
+            version: update.displayVersionString,
+            readyToInstall: state.stage != .notDownloaded
+        ))
+    }
+
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        store?.reminderEvent(.attention)
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        store?.reminderEvent(.sessionFinished)
+    }
 }

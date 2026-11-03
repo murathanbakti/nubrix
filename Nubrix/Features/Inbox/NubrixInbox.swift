@@ -8,6 +8,7 @@ extension InboxSource {
         case .claude: return .agents
         case .notchctl, .github: return .dev
         case .system: return .notifications
+        case .nubrix: return .home
         }
     }
 
@@ -17,6 +18,7 @@ extension InboxSource {
         case .notchctl: return "notchctl"
         case .github: return "GitHub"
         case .system: return "Notifications"
+        case .nubrix: return "Nubrix"
         }
     }
 
@@ -26,6 +28,7 @@ extension InboxSource {
         case .notchctl: return Defaults[.devEnabled] && Defaults[.inboxNotchctlEnabled]
         case .github: return Defaults[.githubEnabled] && Defaults[.inboxGithubEnabled]
         case .system: return Defaults[.systemNotificationsEnabled]
+        case .nubrix: return true
         }
     }
 
@@ -34,7 +37,7 @@ extension InboxSource {
         case .agents: return [.claude]
         case .dev: return [.notchctl, .github]
         case .notifications: return [.system]
-        case .home: return []
+        case .home: return [.nubrix]
         default: return []
         }
     }
@@ -126,6 +129,14 @@ final class NubrixInbox: ObservableObject {
     func system(title: String, message: String) {
         guard InboxSource.system.isEnabled else { return }
         update { $0.recordSystem(title: title, message: message) }
+    }
+
+    func appNotice(key: String, title: String, message: String) {
+        update { $0.recordApp(key: key, title: title, message: message) }
+    }
+
+    func clearAppNotice(key: String) {
+        update { $0.clearApp(key: key) }
     }
 
     func github(_ event: GitHubEvent) {

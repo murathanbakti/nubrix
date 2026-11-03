@@ -39,6 +39,8 @@ final class UpdateStoreTests: XCTestCase {
     private var fake: FakeUpdater!
     private var factoryCalls = 0
     private var activations = 0
+    private var posted: [String] = []
+    private var cleared: [String] = []
 
     override func setUp() {
         super.setUp()
@@ -47,6 +49,8 @@ final class UpdateStoreTests: XCTestCase {
         fake = FakeUpdater()
         factoryCalls = 0
         activations = 0
+        posted = []
+        cleared = []
     }
 
     override func tearDown() {
@@ -66,7 +70,9 @@ final class UpdateStoreTests: XCTestCase {
             activate: { [unowned self] in
                 activations += 1
                 fake.log.append("activate")
-            }
+            },
+            postNotice: { [unowned self] key, title, _ in posted.append("\(key): \(title)") },
+            clearNotice: { [unowned self] key in cleared.append(key) }
         )
     }
 
@@ -224,5 +230,51 @@ final class UpdateStoreTests: XCTestCase {
         store.start()
         XCTAssertTrue(fake.log.isEmpty)
         XCTAssertEqual(defaults.object(forKey: "SUEnableAutomaticChecks") as? Bool, false)
+    }
+
+    func testScheduledUpdateCreatesAReminderAndAnInboxNotice() {
+        let store = makeStore()
+        store.start()
+        store.reminderEvent(.willShow(handledBySparkle: false, userInitiated: false, version: "0.2.1", readyToInstall: false))
+        XCTAssertEqual(store.reminder, UpdateReminder(version: "0.2.1", readyToInstall: false))
+        XCTAssertEqual(posted, ["update: Nubrix 0.2.1 is available"])
+        XCTAssertTrue(cleared.isEmpty)
+    }
+
+    func testRepeatedEventsForTheSameVersionPostOnce() {
+        let store = makeStore()
+        store.start()
+        let event = UpdateReminderEvent.willShow(handledBySparkle: false, userInitiated: false, version: "0.2.1", readyToInstall: false)
+        store.reminderEvent(event)
+        store.reminderEvent(.willShow(handledBySparkle: false, userInitiated: false, version: "0.2.1", readyToInstall: true))
+        XCTAssertEqual(posted.count, 1)
+        XCTAssertEqual(store.reminder?.readyToInstall, true)
+    }
+
+    func testUserAttentionClearsTheReminderAndTheNotice() {
+        let store = makeStore()
+        store.start()
+        store.reminderEvent(.willShow(handledBySparkle: false, userInitiated: false, version: "0.2.1", readyToInstall: false))
+        store.reminderEvent(.attention)
+        XCTAssertNil(store.reminder)
+        XCTAssertEqual(cleared, ["update"])
+        store.reminderEvent(.sessionFinished)
+        XCTAssertEqual(cleared, ["update"])
+    }
+
+    func testUserInitiatedChecksPostNothing() {
+        let store = makeStore()
+        store.start()
+        store.reminderEvent(.willShow(handledBySparkle: false, userInitiated: true, version: "0.2.1", readyToInstall: false))
+        XCTAssertNil(store.reminder)
+        XCTAssertTrue(posted.isEmpty)
+    }
+
+    func testStopDropsTheReminder() {
+        let store = makeStore()
+        store.start()
+        store.reminderEvent(.willShow(handledBySparkle: false, userInitiated: false, version: "0.2.1", readyToInstall: false))
+        store.stop()
+        XCTAssertNil(store.reminder)
     }
 }

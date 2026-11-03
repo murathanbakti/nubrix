@@ -24,20 +24,31 @@ final class UpdateStore: ObservableObject {
     @Published private(set) var canCheckForUpdates = false
     @Published private(set) var lastCheck: Date?
     @Published private(set) var status: Status = .idle
+    @Published private(set) var reminder: UpdateReminder?
 
     private let defaults: UserDefaults
     private let makeUpdater: (UpdateStore) throws -> UpdaterHandle
     private let activate: () -> Void
+    private let postNotice: @MainActor (_ key: String, _ title: String, _ message: String) -> Void
+    private let clearNotice: @MainActor (_ key: String) -> Void
     private var handle: UpdaterHandle?
 
     init(buildKind: UpdateBuildKind,
          defaults: UserDefaults,
          makeUpdater: @escaping (UpdateStore) throws -> UpdaterHandle,
-         activate: @escaping () -> Void) {
+         activate: @escaping () -> Void,
+         postNotice: @escaping @MainActor (_ key: String, _ title: String, _ message: String) -> Void = {
+             NubrixInbox.shared.appNotice(key: $0, title: $1, message: $2)
+         },
+         clearNotice: @escaping @MainActor (_ key: String) -> Void = {
+             NubrixInbox.shared.clearAppNotice(key: $0)
+         }) {
         self.buildKind = buildKind
         self.defaults = defaults
         self.makeUpdater = makeUpdater
         self.activate = activate
+        self.postNotice = postNotice
+        self.clearNotice = clearNotice
     }
 
     var hasUpdater: Bool { handle != nil }
@@ -60,6 +71,7 @@ final class UpdateStore: ObservableObject {
 
     func stop() {
         handle = nil
+        reminder = nil
     }
 
     func refresh() {
@@ -108,6 +120,19 @@ final class UpdateStore: ObservableObject {
     func noUpdateFound() {
         status = .upToDate
         refresh()
+    }
+
+    func reminderEvent(_ event: UpdateReminderEvent) {
+        let previous = reminder
+        reminder = UpdateReminderLogic.reduce(previous, event)
+        guard reminder != previous else { return }
+        if let reminder {
+            if previous?.version != reminder.version {
+                postNotice("update", "Nubrix \(reminder.version) is available", "Open Check for Updates in the menu bar, or Settings, About.")
+            }
+        } else {
+            clearNotice("update")
+        }
     }
 
     private func migrateLegacyDefaults(updater: UpdaterControlling?) {

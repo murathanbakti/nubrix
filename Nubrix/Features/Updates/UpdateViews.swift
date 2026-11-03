@@ -36,6 +36,14 @@ struct UpdatesSettingsSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        if let reminder = store.reminder {
+            HStack {
+                Text(reminder.readyToInstall ? "Nubrix \(reminder.version) is ready to install" : "Nubrix \(reminder.version) is available")
+                Spacer()
+                Button("Show Update…") { store.checkNow() }
+                    .disabled(!store.canCheckForUpdates)
+            }
+        }
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(statusText)
@@ -88,6 +96,11 @@ struct UpdateMenuItems: View {
 
     var body: some View {
         if store.buildKind.updatesEnabled {
+            if let reminder = store.reminder {
+                Button(reminder.readyToInstall ? "Restart to Update Nubrix \(reminder.version)…" : "Update to Nubrix \(reminder.version)…") {
+                    store.checkNow()
+                }
+            }
             Button("Check for Updates…") { store.checkNow() }
                 .disabled(!store.canCheckForUpdates)
             Divider()
