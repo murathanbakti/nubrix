@@ -12,9 +12,22 @@ private struct ClipCaptureRequest: Sendable {
     let fileURLs: [URL]
 }
 
+enum ClipboardReadPolicy {
+    @available(macOS 15.4, *)
+    static func automaticRead(_ behavior: NSPasteboard.AccessBehavior) -> Bool {
+        switch behavior {
+        case .default, .alwaysAllow: return true
+        case .ask, .alwaysDeny: return false
+        @unknown default: return false
+        }
+    }
+}
+
 @MainActor
-final class ClipboardMonitor {
+final class ClipboardMonitor: ObservableObject {
     static let shared = ClipboardMonitor()
+
+    @Published private(set) var needsPasteConsent = false
 
     static let pollInterval: TimeInterval = 0.5
     static let pollTolerance: TimeInterval = 0.25
@@ -135,8 +148,26 @@ final class ClipboardMonitor {
         lastChangeCount = count
         guard Defaults[.vitrinEnabled], ClipStore.shared.isReady else { return }
         if #available(macOS 15.4, *) {
-            if pb.accessBehavior == .alwaysDeny { return }
+            let behavior = pb.accessBehavior
+            guard ClipboardReadPolicy.automaticRead(behavior) else {
+                if behavior == .ask { needsPasteConsent = true }
+                return
+            }
         }
+        if needsPasteConsent { needsPasteConsent = false }
+        readPasteboard(pb, count: count)
+    }
+
+    func captureNowByUser() {
+        let pb = NSPasteboard.general
+        let count = pb.changeCount
+        lastChangeCount = count
+        needsPasteConsent = false
+        guard Defaults[.vitrinEnabled], ClipStore.shared.isReady else { return }
+        readPasteboard(pb, count: count)
+    }
+
+    private func readPasteboard(_ pb: NSPasteboard, count: Int) {
         let types = Set(pb.types ?? [])
         guard !types.contains(ClipStore.ownPasteboardType),
               types.isDisjoint(with: Self.skippedTypes) else { return }

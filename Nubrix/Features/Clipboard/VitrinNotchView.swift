@@ -28,12 +28,13 @@ struct VitrinTabView: View {
     @ObservedObject var navigation = VitrinNavigation.shared
     @State private var filter: VitrinFilter = .all
     @ObservedObject var access = ScreenshotAccess.shared
+    @ObservedObject var clipboard = ClipboardMonitor.shared
 
     var body: some View {
         let visible = store.items.filter { filter.matches($0) }
         let screenshotsEmpty = filter == .screenshots && !store.items.isEmpty
         GeometryReader { proxy in
-            let chipHeight: CGFloat = 20
+            let chipHeight: CGFloat = clipboard.needsPasteConsent ? 48 : 20
             let gap: CGFloat = 8
             let cardHeight = min(100, max(64, floor(proxy.size.height - chipHeight - gap - 6)))
             let cardSize = CGSize(width: (cardHeight * 1.45).rounded(), height: cardHeight)
@@ -48,6 +49,7 @@ struct VitrinTabView: View {
                             ScreenshotDragHint()
                         }
                     }
+                    VitrinPasteConsentPill()
                     if visible.isEmpty {
                         VitrinEmptyState(
                             message: store.items.isEmpty ? "Nothing copied yet" : screenshotsEmpty ? "No screenshots yet" : "No matches",

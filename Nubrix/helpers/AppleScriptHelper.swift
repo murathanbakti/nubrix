@@ -7,12 +7,15 @@
 
 import Foundation
 
-class AppleScriptHelper {
-    @discardableResult
-    class func execute(_ scriptText: String) async throws -> NSAppleEventDescriptor? {
+protocol AppleScriptRunning: Sendable {
+    func run(_ source: String) async throws -> NSAppleEventDescriptor?
+}
+
+struct NSAppleScriptRunner: AppleScriptRunning {
+    func run(_ source: String) async throws -> NSAppleEventDescriptor? {
         try await withCheckedThrowingContinuation { continuation in
             Task.detached(priority: .userInitiated) {
-                let script = NSAppleScript(source: scriptText)
+                let script = NSAppleScript(source: source)
                 var error: NSDictionary?
                 if let descriptor = script?.executeAndReturnError(&error) {
                     continuation.resume(returning: descriptor)
@@ -23,6 +26,15 @@ class AppleScriptHelper {
                 }
             }
         }
+    }
+}
+
+class AppleScriptHelper {
+    nonisolated(unsafe) static var runner: any AppleScriptRunning = NSAppleScriptRunner()
+
+    @discardableResult
+    class func execute(_ scriptText: String) async throws -> NSAppleEventDescriptor? {
+        try await runner.run(scriptText)
     }
     
     class func executeVoid(_ scriptText: String) async throws {

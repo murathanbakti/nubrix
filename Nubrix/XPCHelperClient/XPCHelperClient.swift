@@ -5,7 +5,7 @@ import AsyncXPCConnection
 final class XPCHelperClient: NSObject {
     nonisolated static let shared = XPCHelperClient()
     
-    private let serviceName = "dev.nubrix.app.NubrixHelper"
+    private let serviceName = "\(Bundle.main.bundleIdentifier ?? "dev.nubrix.app").NubrixHelper"
     
     private var remoteService: RemoteXPCService<NubrixHelperProtocol>?
     private var connection: NSXPCConnection?

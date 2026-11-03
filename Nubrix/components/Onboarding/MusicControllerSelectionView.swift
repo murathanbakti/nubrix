@@ -66,6 +66,7 @@ struct MusicControllerSelectionView: View {
                     )
                     onContinue()
                 })
+                    .disabled(!availableMediaControllers.contains(selectedMediaController))
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
 

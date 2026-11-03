@@ -23,9 +23,21 @@ private func ownTeamIdentifier() -> String? {
     return team
 }
 
+private let expectedClientIdentifier: String = {
+    let fallback = "dev.nubrix.app"
+    let suffix = ".NubrixHelper"
+    guard let own = Bundle.main.bundleIdentifier, own.hasSuffix(suffix) else { return fallback }
+    let id = String(own.dropLast(suffix.count))
+    guard !id.isEmpty,
+          id.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "." || $0 == "-") })
+    else { return fallback }
+    return id
+}()
+
 private let clientRequirement: String = {
-    guard let team = ownTeamIdentifier() else { return "identifier \"dev.nubrix.app\"" }
-    return "anchor apple generic and identifier \"dev.nubrix.app\" and certificate leaf[subject.OU] = \"\(team)\""
+    let id = expectedClientIdentifier
+    guard let team = ownTeamIdentifier() else { return "identifier \"\(id)\"" }
+    return "anchor apple generic and identifier \"\(id)\" and certificate leaf[subject.OU] = \"\(team)\""
 }()
 
 class ServiceDelegate: NSObject, NSXPCListenerDelegate {

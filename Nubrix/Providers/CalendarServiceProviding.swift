@@ -29,7 +29,7 @@ final class CalendarService: CalendarServiceProviding, @unchecked Sendable {
     func requestAccess(to type: EKEntityType) async throws -> Bool {
         switch type {
         case .event:
-            return try await eventStore.store.requestFullAccessToEvents()
+            return await Permissions.client.request(.calendar) == .granted
         default:
             return false
         }

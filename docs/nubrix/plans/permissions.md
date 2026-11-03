@@ -113,7 +113,7 @@ Already off: `hudReplacement`, `systemNotificationsEnabled`, `enableLyrics`. Laz
 default, Apple Music fallback removed, music step at most once, pasteboard "ask" respected.
 
 ### (d) Settings → Permissions
-New `components/Settings/PermissionsSettings.swift`: `PermissionsSettingsModel` (`@MainActor ObservableObject`,
+New `Features/Permissions/PermissionsSettings.swift` (synchronized folder, no pbxproj entry): `PermissionsSettingsModel` (`@MainActor ObservableObject`,
 `init(client:)`, `refresh()` reads status only) and the view. Sidebar entry "Permissions" (`lock.shield`)
 after General in `SettingsView.swift`. Rows: Accessibility (HUDs, media keys), Full Disk Access
 (notifications from other apps), Camera (Mirror), Calendar (calendar, meetings), Automation for Music,
