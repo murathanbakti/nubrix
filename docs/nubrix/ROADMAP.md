@@ -53,9 +53,10 @@ Data layer (`Nubrix/Features/Clipboard/`):
   `ghp_`/`github_pat_`, `AKIA`, `xox[bap]-`, JWTs, `Bearer …`, long high-entropy
   tokens) is not stored.
 - `ClipStore`: SQLite (system `sqlite3`, no new dependencies) in the app's
-  Application Support folder, FTS5 search, image files beside the DB, 0600/0700
-  permissions. Pinned items never expire; others expire after a retention
-  period (default 30 days).
+  Application Support folder, image files beside the DB, 0600/0700
+  permissions, encrypted at rest (see Phase 5). Search is an in-memory index
+  (it was FTS5 at first). Pinned items never expire; others expire after a
+  retention period (default 30 days).
 - Ideas and selected code adapted from ClipBoardLine / Tendedero (MIT); the
   MIT notice is kept in `THIRD_PARTY_LICENSES`.
 
@@ -84,9 +85,8 @@ UI:
 - Showcase panel: Space toggles a large preview of the selected item
   (highlighted code, full image, link details) inside the panel.
 - JWT decoding is out of scope: JWTs are blocked by the secret guard.
-- Encryption at rest is deferred: with ad-hoc signing every rebuild changes the
-  code identity, so Keychain access would prompt after each build. Releases now
-  keep one signing identity, so it is possible (see Phase 5).
+- Encryption at rest: done (see Phase 5). Releases keep one signing identity, so
+  Keychain access does not prompt after updates.
 
 ## Phase 4: Extras (done, UI not yet tried on device)
 
@@ -130,6 +130,9 @@ Done locally:
   Crowdin config removed; `.github/workflows/build.yml` (unsigned Debug build
   plus script and manifest checks).
 - Claude Code plugin and manual hooks instructions, notchctl install notes.
+- Encryption at rest for Vitrin: text, previews, source app and images are encrypted
+  (AES-GCM) with a key in the login keychain. FTS5 was removed; search is an
+  in-memory index. See [PRIVACY-AND-SECURITY.md](PRIVACY-AND-SECURITY.md#vitrin).
 
 Published:
 - GitHub repository, with README screenshots and private vulnerability reporting.
@@ -138,7 +141,6 @@ Published:
 
 Remaining:
 - An update mechanism (none exists; Sparkle was removed).
-- Encryption at rest for Vitrin (possible now that releases keep one signing identity).
 
 ## Notch extensions
 
