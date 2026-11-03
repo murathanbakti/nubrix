@@ -1,5 +1,4 @@
 import AppKit
-import CryptoKit
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -8,7 +7,6 @@ struct PreparedClipImage {
     let thumbnail: Data
     let width: Int
     let height: Int
-    let hash: String
 
     var bytes: Int { png.count + thumbnail.count }
 }
@@ -63,8 +61,7 @@ enum ClipImageProcessor {
         ]
         guard let thumbImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary),
               let thumb = encodePNG(thumbImage) else { return nil }
-        let hash = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
-        return PreparedClipImage(png: png, thumbnail: thumb, width: storedWidth, height: storedHeight, hash: hash)
+        return PreparedClipImage(png: png, thumbnail: thumb, width: storedWidth, height: storedHeight)
     }
 
     private static func encodePNG(_ image: CGImage) -> Data? {
@@ -72,9 +69,5 @@ enum ClipImageProcessor {
         guard let dest = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(dest, image, nil)
         return CGImageDestinationFinalize(dest) ? out as Data : nil
-    }
-
-    static func textHash(_ text: String) -> String {
-        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }

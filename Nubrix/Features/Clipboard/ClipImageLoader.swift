@@ -23,8 +23,8 @@ enum ClipImageLoader {
     static let thumbnailQueue = DispatchQueue(label: "dev.nubrix.vitrin.thumbnails", qos: .userInitiated)
     static let previewQueue = DispatchQueue(label: "dev.nubrix.vitrin.preview", qos: .userInitiated)
 
-    static func downsample(url: URL, maxPixel: Int) -> CGImage? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+    static func downsample(data: Data, maxPixel: Int) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -34,15 +34,17 @@ enum ClipImageLoader {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    static func downsample(url: URL, maxPixel: Int, on queue: DispatchQueue) async -> CGImage? {
+    static func downsample(load: @escaping @Sendable () -> Data?, maxPixel: Int, on queue: DispatchQueue) async -> CGImage? {
         let flag = ClipCancelFlag()
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<CGImage?, Never>) in
                 queue.async {
                     if flag.isCancelled {
                         continuation.resume(returning: nil)
+                    } else if let data = load() {
+                        continuation.resume(returning: downsample(data: data, maxPixel: maxPixel))
                     } else {
-                        continuation.resume(returning: downsample(url: url, maxPixel: maxPixel))
+                        continuation.resume(returning: nil)
                     }
                 }
             }

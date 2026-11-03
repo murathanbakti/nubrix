@@ -34,7 +34,45 @@ See [Why sealed copies](CLAUDE-CODE.md#why-sealed-copies). Nothing edits `~/.cla
 
 ## Vitrin
 
-History is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions. It is not encrypted yet. The Vitrin panel is hidden from screen sharing and recording by default (Settings, Vitrin). The secret guard is a heuristic: it reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
+History is a SQLite database with image files beside it, stored in the app container (`~/Library/Containers/dev.nubrix.app/Data/Library/Application Support/Nubrix/Vitrin`) with 0600/0700 permissions and excluded from backup. Debug builds use a separate `Vitrin-Debug` folder with a key file, so they never read or change the release history or its keychain item. The Vitrin panel is hidden from screen sharing and recording by default (Settings, Vitrin). The secret guard is a heuristic: it reduces the chance of storing a credential but cannot catch everything; use excluded apps and the capture toggles, and clear the history from Settings, Vitrin when needed.
+
+### Encryption
+
+History is encrypted at rest and there is no switch to turn it off.
+
+- Encrypted: the text content, the previews, the source app, and the image files and their thumbnails. The cipher is AES-GCM with a 256-bit key.
+- Duplicate detection uses a keyed HMAC instead of a plain hash, so the database cannot be used to confirm a guess about what you copied.
+- The key is a generic password item named "Nubrix Vitrin history key" in your login keychain. It does not sync through iCloud.
+
+### What is not encrypted
+
+- Item kind, sizes, timestamps, pin state and the number of items.
+- Copies made when you drag an item out: the receiving app needs a readable file, so it is written to a temporary folder and removed after 5 minutes.
+- The system pasteboard itself.
+- Screenshot originals in your own screenshot folder.
+- The running app's memory. Search works on an index that exists only in memory while you search; it is dropped when the panel closes, after a short idle time and when the screen locks.
+
+### What it protects against
+
+- Copies of the Vitrin folder, including backup or sync tools that ignore the backup exclusion.
+- Processes that can read the app container but cannot get the key without a keychain prompt.
+
+It does not protect against someone using your logged-in Mac while it is unlocked, a tool you clicked "Always Allow" for in the keychain prompt, or the running app. FileVault protects the disk while the Mac is off.
+
+### Keychain prompts
+
+- Updating from one Developer ID release to the next never asks.
+- Switching between a build you made yourself (signed with an Apple Development certificate) and a Developer ID release makes macOS ask once per direction. "Always Allow" ends it.
+- If you click Deny, Vitrin stays locked: nothing is captured or shown, but nothing is deleted either. Settings, Vitrin shows Retry. See [Vitrin says it is locked](TROUBLESHOOTING.md#vitrin-says-it-is-locked).
+- If the key is gone from the keychain, the history cannot be read, so it is reset and Vitrin says so once. See [Vitrin history was reset](TROUBLESHOOTING.md#vitrin-history-was-reset).
+
+### Reset
+
+"Reset history and key" in Settings, Vitrin deletes everything, including pinned items, and creates a new key. Remnants of earlier data that may still be on the disk become unreadable without the old key.
+
+### Upgrading from an unencrypted version
+
+On the first start after the upgrade, existing history is encrypted in place and the old unencrypted copies, including the old search index, are deleted. This cannot reach every copy on the storage device: SQLite's write-ahead log, APFS copy-on-write and SSD wear levelling can leave remnants until the space is overwritten. FileVault protects them while the Mac is off. "Reset history and key" makes them unreadable.
 
 ## GitHub token
 

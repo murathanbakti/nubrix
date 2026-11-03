@@ -8,10 +8,12 @@ struct VitrinSettings: View {
     @Default(.vitrinExcludedApps) var excludedApps
     @Default(.vitrinCaptureImages) var captureImages
     @Default(.vitrinCaptureScreenshots) var captureScreenshots
+    @Default(.vitrinKeyResetNotice) var keyResetNotice
     @ObservedObject var store = ClipStore.shared
     @ObservedObject var access = ScreenshotAccess.shared
     @State private var newBundleID = ""
     @State private var confirmClear = false
+    @State private var confirmReset = false
 
     private static let retentionOptions: [(label: String, days: Int)] = [
         ("1 day", 1), ("7 days", 7), ("30 days", 30), ("90 days", 90), ("Forever", 0)
@@ -28,6 +30,34 @@ struct VitrinSettings: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+
+            Section {
+                storageStatusRow
+                if keyResetNotice {
+                    HStack {
+                        Text("Vitrin history was reset because its encryption key is no longer in your keychain.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Button("OK") { keyResetNotice = false }
+                    }
+                }
+                Button("Reset history and key\u{2026}", role: .destructive) {
+                    confirmReset = true
+                }
+                .confirmationDialog("Reset Vitrin history and key?", isPresented: $confirmReset) {
+                    Button("Reset history and key", role: .destructive) { store.resetHistoryAndKey() }
+                } message: {
+                    Text("Deletes all Vitrin items, including pinned ones, and creates a new encryption key.")
+                }
+            } header: {
+                Text("Storage")
+            } footer: {
+                Text("Text, images and source apps are encrypted on this Mac. Clear history keeps pinned items; reset removes everything.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            .disabled(!enabled)
 
             Section {
                 Defaults.Toggle(key: .vitrinHideFromCapture) {
@@ -138,6 +168,70 @@ struct VitrinSettings: View {
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Vitrin")
+    }
+
+    @ViewBuilder
+    private var storageStatusRow: some View {
+        switch store.vaultState {
+        case .ready:
+            statusRow(
+                icon: "lock.fill",
+                tint: .green,
+                title: "Encrypted",
+                caption: "Key in your \(store.keyStoreLabel ?? "login keychain")"
+            )
+        case .opening:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Opening\u{2026}")
+            }
+        case .locked(let status):
+            statusRow(
+                icon: "lock.trianglebadge.exclamationmark",
+                tint: .orange,
+                title: "Locked",
+                caption: status == errSecInteractionNotAllowed ? "Keychain is locked" : "Keychain access was denied"
+            ) {
+                Button("Retry") { store.retryUnlock() }
+            }
+        case .failed:
+            statusRow(
+                icon: "lock.trianglebadge.exclamationmark",
+                tint: .orange,
+                title: "Could not open history",
+                caption: "Try again, or reset the history."
+            ) {
+                Button("Retry") { store.retryUnlock() }
+            }
+        case .off:
+            Text("Off")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func statusRow(icon: String, tint: Color, title: String, caption: String) -> some View {
+        statusRow(icon: icon, tint: tint, title: title, caption: caption) { EmptyView() }
+    }
+
+    private func statusRow<Trailing: View>(
+        icon: String,
+        tint: Color,
+        title: String,
+        caption: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            trailing()
+        }
     }
 
     private func addBundleID() {

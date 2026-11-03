@@ -28,6 +28,7 @@ struct VitrinTabView: View {
     @ObservedObject var navigation = VitrinNavigation.shared
     @State private var filter: VitrinFilter = .all
     @ObservedObject var access = ScreenshotAccess.shared
+    @Default(.vitrinKeyResetNotice) var keyResetNotice
 
     var body: some View {
         let visible = store.items.filter { filter.matches($0) }
@@ -41,6 +42,8 @@ struct VitrinTabView: View {
             VStack(alignment: .leading, spacing: gap) {
                 if !enabled {
                     VitrinEmptyState(message: "Vitrin is off", detail: "Turn it on in Settings.")
+                } else if let lockedDetail {
+                    VitrinEmptyState(message: "Vitrin is locked", detail: lockedDetail)
                 } else {
                     VitrinChipBar(selection: $filter, counts: counts) {
                         ScreenshotAccessPrompt()
@@ -49,10 +52,17 @@ struct VitrinTabView: View {
                         }
                     }
                     if visible.isEmpty {
-                        VitrinEmptyState(
-                            message: store.items.isEmpty ? "Nothing copied yet" : screenshotsEmpty ? "No screenshots yet" : "No matches",
-                            detail: store.items.isEmpty ? "Things you copy show up here." : screenshotsEmpty ? "Saved screenshots show up here. Dragged previews aren't saved." : "Try another filter."
-                        )
+                        if store.items.isEmpty && keyResetNotice {
+                            VitrinEmptyState(
+                                message: "History was reset",
+                                detail: "Its encryption key was no longer in your keychain."
+                            )
+                        } else {
+                            VitrinEmptyState(
+                                message: store.items.isEmpty ? "Nothing copied yet" : screenshotsEmpty ? "No screenshots yet" : "No matches",
+                                detail: store.items.isEmpty ? "Things you copy show up here." : screenshotsEmpty ? "Saved screenshots show up here. Dragged previews aren't saved." : "Try another filter."
+                            )
+                        }
                     } else {
                         VitrinCardRow(
                             items: visible,
@@ -77,6 +87,14 @@ struct VitrinTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear(perform: applyRequestedFilter)
         .onChange(of: navigation.requestedFilter) { _, _ in applyRequestedFilter() }
+    }
+
+    private var lockedDetail: String? {
+        switch store.vaultState {
+        case .locked: return "Allow keychain access in Settings, Vitrin."
+        case .failed: return "Open Settings, Vitrin to retry."
+        case .off, .opening, .ready: return nil
+        }
     }
 
     private var counts: [VitrinFilter: Int] {

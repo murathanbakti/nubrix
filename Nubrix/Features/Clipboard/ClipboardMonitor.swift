@@ -198,9 +198,8 @@ final class ClipboardMonitor {
                 case .link where !request.captureLinks: return
                 default: break
                 }
-                let hash = ClipImageProcessor.textHash(classified.content)
                 let source = request.source
-                Task { @MainActor in ClipStore.shared.addText(classified, hash: hash, source: source) }
+                Task { @MainActor in ClipStore.shared.addText(classified, source: source) }
                 return
             }
         }

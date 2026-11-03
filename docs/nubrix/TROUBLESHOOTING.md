@@ -40,6 +40,18 @@ You dragged it out of the macOS floating preview.
 
 macOS writes a screenshot file only after the floating preview closes on its own. If you drag the preview somewhere or swipe it away, no file is written, so Vitrin has nothing to read (it says so on the Screenshots filter). Let the preview finish, or turn off "Show Floating Thumbnail" in the Screenshot app's Options (Shift-Command-5). Also check that Settings, Vitrin has the screenshot folder allowed.
 
+## Vitrin says it is locked
+
+The keychain prompt for the Vitrin key was denied, or the keychain is locked.
+
+Nothing is lost and nothing was deleted. In Settings, Vitrin, click Retry and choose Allow or Always Allow in the keychain prompt. If the keychain is locked, unlock it (it normally unlocks when you log in) and click Retry. After you switch between a build you made yourself and a release, macOS asks once; "Always Allow" ends it. See [Privacy and security](PRIVACY-AND-SECURITY.md#vitrin).
+
+## Vitrin history was reset
+
+Vitrin says its history was reset because the encryption key is no longer in your keychain.
+
+The key "Nubrix Vitrin history key" was missing from the login keychain, for example because it was deleted in Keychain Access, or because you are using a new user account or a new keychain. Without the key the old history cannot be decrypted, so it was removed and a new key was made. New copies are saved as usual. The message appears once.
+
 ## Nothing new appears in Vitrin
 
 Check that Vitrin and the capture type are on, the frontmost app is not in the excluded list, and, on macOS versions that ask, that pasteboard access for Nubrix is allowed. Text that looks like a credential is never stored.
