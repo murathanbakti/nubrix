@@ -29,15 +29,19 @@ enum NotchTabCatalog {
         all.first { $0.view == view } ?? TabModel(label: view.rawValue.capitalized, icon: "square", view: view)
     }
 
-    static func featureOffHint(for view: NotchViews) -> String? {
+    static func settingsTab(for view: NotchViews) -> SettingsTab? {
         switch view {
         case .home: return nil
-        case .shelf: return "Turned off in Settings → Shelf."
-        case .vitrin: return "Turned off in Settings → Vitrin."
-        case .agents: return "Turned off in Settings → Notifications → Claude Code."
-        case .dev: return "Turned off in Settings → Dev."
-        case .notifications: return "Turned off in Settings → Notifications."
+        case .shelf: return .shelf
+        case .vitrin: return .vitrin
+        case .agents: return .claudeCode
+        case .dev: return .dev
+        case .notifications: return .notifications
         }
+    }
+
+    static func featureOffHint(for view: NotchViews) -> String? {
+        settingsTab(for: view).map { "Turned off in Settings → \($0.title)." }
     }
 }
 

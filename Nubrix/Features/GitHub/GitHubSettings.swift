@@ -28,12 +28,10 @@ struct GitHubSettings: View {
         Form {
             Section {
                 Defaults.Toggle(key: .githubEnabled) {
-                    Text("GitHub integration")
+                    Text("Enable GitHub integration")
                 }
             } footer: {
-                Text("When off, Nubrix does not read the token or contact api.github.com. The token stays in the Keychain.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("When off, Nubrix does not read the token or contact api.github.com. The token stays in the Keychain.")
             }
             Group {
                 connectionSection
@@ -46,8 +44,7 @@ struct GitHubSettings: View {
             }
             .disabled(!enabled)
         }
-        .formStyle(.grouped)
-        .navigationTitle("GitHub")
+        .settingsPage(.github)
         .task(id: store.lastRefresh) { rateLimit = await store.rateLimit() }
     }
 
@@ -84,9 +81,7 @@ struct GitHubSettings: View {
         } header: {
             Text("Connection")
         } footer: {
-            Text("The token is stored in the macOS Keychain (item dev.nubrix.github) and is never written to preferences, logs or files. Updating from 0.1.0 (ad-hoc signed) may make the Keychain ask once; releases from 0.1.1 on keep the same identity.")
-                .foregroundStyle(.secondary)
-                .font(.caption)
+            SettingsFooter("The token is stored in the macOS Keychain (item dev.nubrix.github) and is never written to preferences, logs or files.")
         }
     }
 
@@ -105,24 +100,25 @@ struct GitHubSettings: View {
     private var tokenHelpSection: some View {
         Section {
             Button("Create token on GitHub") { NSWorkspace.shared.open(Self.tokenURL) }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("1. Resource owner: your account (or the organization that owns the repositories).")
-                Text("2. Repository access: Only select repositories, then pick the ones you want here.")
-                Text("3. Repository permissions, all read-only:")
-                ForEach(Self.permissions, id: \.0) { item in
-                    Text("\u{2022} \(item.0): \(item.1)")
-                        .padding(.leading, 14)
+            DisclosureGroup("How to create a read-only token") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("1. Resource owner: your account (or the organization that owns the repositories).")
+                    Text("2. Repository access: Only select repositories, then pick the ones you want here.")
+                    Text("3. Repository permissions, all read-only:")
+                    ForEach(Self.permissions, id: \.0) { item in
+                        Text("\u{2022} \(item.0): \(item.1)")
+                            .padding(.leading, 14)
+                    }
+                    Text("4. Leave everything else at No access, and choose a short expiry.")
                 }
-                Text("4. Leave everything else at No access, and choose a short expiry.")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        } header: {
-            Text("Create a read-only token")
-        } footer: {
-            Text("Nubrix never needs write access. A token cannot be limited to \"my PRs\" only; it can read whatever repositories you select, so select only those you use.")
-                .foregroundStyle(.secondary)
                 .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            }
+        } header: {
+            Text("Token")
+        } footer: {
+            SettingsFooter("Nubrix never needs write access. A token can read every repository you select, so select only those you use.")
         }
     }
 
@@ -165,9 +161,7 @@ struct GitHubSettings: View {
         } header: {
             Text("Watched repositories")
         } footer: {
-            Text("Pull requests come from every repository the token can read. Actions runs are fetched for the repositories switched on here, the repositories of your Claude sessions and your open PRs, at most \(GitHubStore.maxWatchedRepos) at a time.")
-                .foregroundStyle(.secondary)
-                .font(.caption)
+            SettingsFooter("Pull requests come from every repository the token can read. Actions runs are fetched for the repositories switched on here, your Claude sessions and your open PRs, at most \(GitHubStore.maxWatchedRepos) at a time.")
         }
     }
 
@@ -179,24 +173,25 @@ struct GitHubSettings: View {
         } header: {
             Text("Notifications")
         } footer: {
-            Text("Banners appear in the closed notch and entries in the notification count. Failed runs are reported for default branches, branches of your open PRs, your Claude sessions and runs you started.")
-                .foregroundStyle(.secondary)
-                .font(.caption)
+            SettingsFooter("Banners appear in the closed notch and count as unread. Failed runs are reported for default branches, your open PRs, your Claude sessions and runs you started.")
         }
         .disabled(!store.hasToken)
     }
 
     private var pollingSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Every \(Int(GitHubStore.idleInterval)) s in the background, every \(Int(GitHubStore.activeInterval)) s while the GitHub section is open or a run is in progress.")
-                Text("Paused while the Mac sleeps or is locked, and when no token is saved. Actions requests use ETags, so unchanged answers (304) do not use rate limit.")
-                if let rateLimit {
-                    Text("Rate limit left: \(rateLimit.remaining), resets at \(GitHubFormat.time(rateLimit.resetAt)).")
-                }
+            Text("Every \(Int(GitHubStore.idleInterval)) s in the background, every \(Int(GitHubStore.activeInterval)) s while the GitHub list in the notch is open or a run is in progress.")
+                .foregroundStyle(.secondary)
+            if let rateLimit {
+                Text("Rate limit left: \(rateLimit.remaining), resets at \(GitHubFormat.time(rateLimit.resetAt)).")
+                    .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            DisclosureGroup("More about polling") {
+                Text("Paused while the Mac sleeps or is locked, and when no token is saved. Actions requests use ETags, so unchanged answers (304) do not use rate limit.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            }
         } header: {
             Text("Polling")
         }

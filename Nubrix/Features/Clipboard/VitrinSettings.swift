@@ -26,9 +26,7 @@ struct VitrinSettings: View {
                     Text("Enable Vitrin")
                 }
             } footer: {
-                Text("Keeps what you copy on this Mac and shows it in the notch and in the showcase panel.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Keeps what you copy on this Mac and shows it in the notch and in the showcase panel.")
             }
 
             Section {
@@ -53,9 +51,7 @@ struct VitrinSettings: View {
             } header: {
                 Text("Storage")
             } footer: {
-                Text("Text, images and source apps are encrypted on this Mac. Clear history keeps pinned items; reset removes everything.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Text, images and source apps are encrypted on this Mac. Clear history keeps pinned items; reset removes everything.")
             }
             .disabled(!enabled)
 
@@ -63,13 +59,17 @@ struct VitrinSettings: View {
                 Defaults.Toggle(key: .vitrinHideFromCapture) {
                     Text("Hide Vitrin from screen sharing")
                 }
+            } header: {
+                Text("Privacy")
             }
             .disabled(!enabled)
 
-            Section("Capture") {
+            Section {
                 Defaults.Toggle(key: .vitrinCaptureImages) { Text("Images") }
                 Defaults.Toggle(key: .vitrinCaptureText) { Text("Text") }
                 Defaults.Toggle(key: .vitrinCaptureLinks) { Text("Links") }
+            } header: {
+                Text("Capture")
             }
             .disabled(!enabled)
 
@@ -90,7 +90,7 @@ struct VitrinSettings: View {
                         }
                     }
                     Spacer()
-                    Button(access.hasAccess ? "Choose folder\u{2026}" : "Allow access") {
+                    Button(access.hasAccess ? "Choose folder\u{2026}" : "Allow access\u{2026}") {
                         access.requestAccess()
                     }
                 }
@@ -100,9 +100,7 @@ struct VitrinSettings: View {
             } header: {
                 Text("Screenshots")
             } footer: {
-                Text("Screenshots saved as files (\u{2318}\u{21E7}3, \u{2318}\u{21E7}4, \u{2318}\u{21E7}5) appear in Images. Nubrix only reads new screenshots in the folder you allow; the originals are never changed.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Screenshots saved as files (\u{2318}\u{21E7}3, \u{2318}\u{21E7}4, \u{2318}\u{21E7}5) appear in Images. Nubrix only reads new screenshots in the folder you allow; the originals are never changed.")
             }
             .disabled(!enabled)
 
@@ -123,9 +121,7 @@ struct VitrinSettings: View {
             } header: {
                 Text("History")
             } footer: {
-                Text("Pinned items never expire. Text that looks like a password, key or token is skipped when detected.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Pinned items never expire. Text that looks like a password, key or token is skipped when detected.")
             }
             .disabled(!enabled)
 
@@ -160,14 +156,11 @@ struct VitrinSettings: View {
             } header: {
                 Text("Excluded apps")
             } footer: {
-                Text("Nothing copied while one of these apps is frontmost is stored.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Nothing copied while one of these apps is frontmost is stored.")
             }
             .disabled(!enabled)
         }
-        .accentColor(.effectiveAccent)
-        .navigationTitle("Vitrin")
+        .settingsPage(.vitrin)
     }
 
     @ViewBuilder

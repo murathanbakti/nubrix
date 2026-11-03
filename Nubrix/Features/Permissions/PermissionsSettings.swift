@@ -138,13 +138,10 @@ struct PermissionsSettings: View {
                     )
                 }
             } footer: {
-                Text("Nubrix reads these without asking. Each permission is asked only when you use its feature.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Nubrix reads these without asking. Each permission is asked only when you use its feature.")
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle("Permissions")
+        .settingsPage(.permissions)
         .task { await model.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await model.refresh() }

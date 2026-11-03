@@ -122,9 +122,10 @@ struct SystemNotificationSettingsSection: View {
         } header: {
             Text("Other apps")
         } footer: {
-            Text("Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch. Show unread counts reads the number on each ticked app's Dock icon instead: no permission needed, and it only works while that app is open.")
-                .foregroundStyle(.secondary)
-                .font(.caption)
+            SettingsFooter(
+                "Only the apps you tick are read, and nothing is written to disk or sent anywhere. Unread counts show the number on each ticked app's Dock icon.",
+                link: ("Learn more", SettingsLinks.notificationsGuide)
+            )
         }
         .onChange(of: enabled) { _, on in
             if !on {
@@ -170,7 +171,7 @@ struct SystemNotificationSettingsSection: View {
                 if !badgesEnabled {
                     Button("Use unread counts instead") { Defaults[.dockBadgesEnabled] = true }
                 }
-                Button("Grant Access…") { FullDiskAccessGuide.begin() }
+                Button("Grant access…") { FullDiskAccessGuide.begin() }
                     .buttonStyle(.borderedProminent)
             }
             .padding(10)

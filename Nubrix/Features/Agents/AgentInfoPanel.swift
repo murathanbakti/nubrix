@@ -148,7 +148,7 @@ struct AgentInfoPanel: View {
                     .foregroundStyle(Color(white: 0.8))
                 }
                 .buttonStyle(.plain)
-                .help("Open Settings, Notifications")
+                .help("Open Settings, \(SettingsTab.claudeCode.title)")
                 Spacer(minLength: 8)
                 Button {
                     onCopy()

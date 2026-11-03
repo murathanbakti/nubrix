@@ -489,9 +489,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let outcome = await LaunchFlow().resolveFDAReturn(origin: origin, client: Permissions.client)
         switch origin {
         case .settings:
-            SettingsNavigation.shared.open("Notifications")
+            SettingsNavigation.shared.open(.notifications)
         case .permissions:
-            SettingsNavigation.shared.open("Permissions")
+            SettingsNavigation.shared.open(.permissions)
         case .notch:
             coordinator.currentView = .notifications
             if Defaults[.showOnAllDisplays], let uuid = NSScreen.main?.displayUUID, let model = viewModels[uuid] {

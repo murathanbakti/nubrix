@@ -8,7 +8,6 @@ struct DevSettings: View {
     @ObservedObject var monitor = DevPortMonitor.shared
     @State private var portText = ""
     @State private var portError = false
-    @State private var copied = false
 
     private static let installCommand = "mkdir -p ~/.local/bin && ln -sf ~/.config/nubrix/bin/notchctl ~/.local/bin/notchctl"
 
@@ -19,9 +18,7 @@ struct DevSettings: View {
                     Text("Enable Dev tab")
                 }
             } footer: {
-                Text("Shows localhost servers and notifications sent with notchctl.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Shows localhost servers and notifications sent with notchctl.")
             }
 
             Section {
@@ -53,46 +50,26 @@ struct DevSettings: View {
             } header: {
                 Text("Watched ports")
             } footer: {
-                Text("Ports are checked every 15 seconds only while the Dev tab or this page is visible.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Ports are checked every 15 seconds, only while the Dev tab or this page is visible.")
             }
             .disabled(!enabled)
 
             Section {
-                HStack {
-                    Text(Self.installCommand)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .lineLimit(2)
-                    Spacer()
-                    Button(copied ? "Copied" : "Copy") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(Self.installCommand, forType: .string)
-                        copied = true
-                        Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            copied = false
-                        }
-                    }
-                }
+                CopyCommandRow(command: Self.installCommand)
                 Button("Send test notification") {
                     DevNotificationStore.shared.post(
                         DevNotifyRequest(message: "Test notification from Nubrix", title: "notchctl",
                                          style: .success, duration: DevNotifyRequest.defaultDuration)
                     )
                 }
-                .disabled(!enabled)
             } header: {
                 Text("notchctl")
             } footer: {
-                Text("Install the hooks with install-hooks.sh first, then run the install command and use: notchctl notify \"Build done\" --style success")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Install the hooks first (see Claude Code), then run this command and use: notchctl notify \"Build done\" --style success")
             }
+            .disabled(!enabled)
         }
-        .formStyle(.grouped)
-        .navigationTitle("Dev")
+        .settingsPage(.dev)
         .onAppear {
             portText = Self.format(ports)
             DevPortMonitor.shared.setActive("settings", true)

@@ -17,18 +17,6 @@ final class DevTabNavigation: ObservableObject {
     private init() {}
 }
 
-@MainActor
-final class SettingsNavigation: ObservableObject {
-    static let shared = SettingsNavigation()
-    @Published var requested: String?
-    private init() {}
-
-    func open(_ tab: String) {
-        requested = tab
-        SettingsWindowController.shared.showWindow()
-    }
-}
-
 enum GitHubFormat {
     static let blue = Color(red: 0.35, green: 0.65, blue: 1.0)
 
@@ -227,7 +215,7 @@ struct GitHubRunRow: View {
 
 struct GitHubSection: View {
     @ObservedObject var store: GitHubStore
-    var onOpenSettings: () -> Void = { SettingsNavigation.shared.open("GitHub") }
+    var onOpenSettings: () -> Void = { SettingsNavigation.shared.open(.github) }
 
     var body: some View {
         switch store.connection {

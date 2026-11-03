@@ -59,6 +59,17 @@
 		11A45C792E34E63100CEB175 /* MediaChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11A45C782E34E63100CEB175 /* MediaChecker.swift */; };
 		11C5E3132DFE85970065821E /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11C5E3112DFE85970065821E /* SettingsWindowController.swift */; };
 		11C5E3162DFE88510065821E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11C5E3152DFE88510065821E /* SettingsView.swift */; };
+		5E7710000000000000000001 /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000001 /* SettingsTab.swift */; };
+		5E7710000000000000000002 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000002 /* SettingsComponents.swift */; };
+		5E7710000000000000000003 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000003 /* GeneralSettings.swift */; };
+		5E7710000000000000000004 /* AppearanceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000004 /* AppearanceSettings.swift */; };
+		5E7710000000000000000005 /* AdvancedSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000005 /* AdvancedSettings.swift */; };
+		5E7710000000000000000006 /* MediaSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000006 /* MediaSettings.swift */; };
+		5E7710000000000000000007 /* CalendarSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000007 /* CalendarSettings.swift */; };
+		5E7710000000000000000008 /* HUDSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000008 /* HUDSettings.swift */; };
+		5E7710000000000000000009 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000009 /* ShelfSettings.swift */; };
+		5E771000000000000000000A /* ShortcutsSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E770000000000000000000A /* ShortcutsSettings.swift */; };
+		5E771000000000000000000B /* AboutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E770000000000000000000B /* AboutSettings.swift */; };
 		11CC44A22CEE614100C7244B /* NubrixCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11CC44A12CEE614100C7244B /* NubrixCoordinator.swift */; };
 		11CFC65B2E097E9D00748C80 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11CFC65A2E097E9D00748C80 /* WelcomeView.swift */; };
 		11CFC65F2E097F2F00748C80 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11CFC65E2E097F2100748C80 /* OnboardingView.swift */; };
@@ -262,6 +273,17 @@
 		11A45C782E34E63100CEB175 /* MediaChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaChecker.swift; sourceTree = "<group>"; };
 		11C5E3112DFE85970065821E /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		11C5E3152DFE88510065821E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		5E7700000000000000000001 /* SettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
+		5E7700000000000000000002 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
+		5E7700000000000000000003 /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
+		5E7700000000000000000004 /* AppearanceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettings.swift; sourceTree = "<group>"; };
+		5E7700000000000000000005 /* AdvancedSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettings.swift; sourceTree = "<group>"; };
+		5E7700000000000000000006 /* MediaSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSettings.swift; sourceTree = "<group>"; };
+		5E7700000000000000000007 /* CalendarSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSettings.swift; sourceTree = "<group>"; };
+		5E7700000000000000000008 /* HUDSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDSettings.swift; sourceTree = "<group>"; };
+		5E7700000000000000000009 /* ShelfSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfSettings.swift; sourceTree = "<group>"; };
+		5E770000000000000000000A /* ShortcutsSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsSettings.swift; sourceTree = "<group>"; };
+		5E770000000000000000000B /* AboutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettings.swift; sourceTree = "<group>"; };
 		11CC44A12CEE614100C7244B /* NubrixCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NubrixCoordinator.swift; sourceTree = "<group>"; };
 		11CFC65A2E097E9D00748C80 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		11CFC65E2E097F2100748C80 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -741,6 +763,17 @@
 			children = (
 				11F748832ECB27DC00F841DB /* MusicSlotConfigurationView.swift */,
 				11C5E3152DFE88510065821E /* SettingsView.swift */,
+				5E7700000000000000000001 /* SettingsTab.swift */,
+				5E7700000000000000000002 /* SettingsComponents.swift */,
+				5E7700000000000000000003 /* GeneralSettings.swift */,
+				5E7700000000000000000004 /* AppearanceSettings.swift */,
+				5E7700000000000000000005 /* AdvancedSettings.swift */,
+				5E7700000000000000000006 /* MediaSettings.swift */,
+				5E7700000000000000000007 /* CalendarSettings.swift */,
+				5E7700000000000000000008 /* HUDSettings.swift */,
+				5E7700000000000000000009 /* ShelfSettings.swift */,
+				5E770000000000000000000A /* ShortcutsSettings.swift */,
+				5E770000000000000000000B /* AboutSettings.swift */,
 				11C5E3112DFE85970065821E /* SettingsWindowController.swift */,
 				B1B112902C6A572100093D8F /* EditPanelView.swift */,
 				B1C448972C972CC4001F0858 /* ListItemPopover.swift */,
@@ -1030,6 +1063,17 @@
 				14D570CD2C5F4BB70011E668 /* NubrixBattery.swift in Sources */,
 				1443E7F32C609DCE0027C1FC /* matters.swift in Sources */,
 				11C5E3162DFE88510065821E /* SettingsView.swift in Sources */,
+				5E7710000000000000000001 /* SettingsTab.swift in Sources */,
+				5E7710000000000000000002 /* SettingsComponents.swift in Sources */,
+				5E7710000000000000000003 /* GeneralSettings.swift in Sources */,
+				5E7710000000000000000004 /* AppearanceSettings.swift in Sources */,
+				5E7710000000000000000005 /* AdvancedSettings.swift in Sources */,
+				5E7710000000000000000006 /* MediaSettings.swift in Sources */,
+				5E7710000000000000000007 /* CalendarSettings.swift in Sources */,
+				5E7710000000000000000008 /* HUDSettings.swift in Sources */,
+				5E7710000000000000000009 /* ShelfSettings.swift in Sources */,
+				5E771000000000000000000A /* ShortcutsSettings.swift in Sources */,
+				5E771000000000000000000B /* AboutSettings.swift in Sources */,
 				1153BD932D986E4300979FB0 /* AppleMusicController.swift in Sources */,
 				11C5E3132DFE85970065821E /* SettingsWindowController.swift in Sources */,
 				110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */,

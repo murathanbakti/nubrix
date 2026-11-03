@@ -72,7 +72,6 @@ struct InboxSettings: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @Default(.claudeEnabled) var claudeMaster
     @Default(.inboxClaudeEnabled) var claudeEnabled
-    @Default(.claudePlanUsageEnabled) var planUsageEnabled
     @Default(.inboxNotchctlEnabled) var notchctlEnabled
     @Default(.inboxGithubEnabled) var githubEnabled
     @Default(.devEnabled) var devMaster
@@ -85,9 +84,10 @@ struct InboxSettings: View {
                     Text("Keep notification icon in the notch")
                 }
             } footer: {
-                Text("While something is unread, the closed notch keeps a small icon and count. When this is off, or when music is playing, the closed notch shows nothing; unread items are marked with a dot on their tab once you open the notch.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter(
+                    "Shows a small icon and count in the closed notch while something is unread.",
+                    link: ("Learn more", SettingsLinks.notificationsGuide)
+                )
             }
 
             Section {
@@ -106,39 +106,10 @@ struct InboxSettings: View {
             } header: {
                 Text("Sources")
             } footer: {
-                Text("Done, failed and needs-you events from Claude Code sessions, and notifications sent with notchctl. Notifications from other apps are set up under Other apps below. Turning a source off also clears its unread items.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Done, failed and needs-you events from Claude Code, notchctl and GitHub. Turning a source off clears its unread items.")
             }
 
             SystemNotificationSettingsSection()
-
-            Section {
-                Defaults.Toggle(key: .claudeEnabled) {
-                    Text("Claude Code integration")
-                }
-                Group {
-                    Defaults.Toggle(key: .claudeNotchApprovals) {
-                        Text("Approve Claude Code permissions from the notch")
-                    }
-                    Defaults.Toggle(key: .claudeOpenSession) {
-                        Text("Open the session when you click it (Terminal, iTerm and Ghostty need Automation)")
-                    }
-                    Defaults.Toggle(key: .homeShowClaudeUsage) {
-                        Text("Show 5-hour and weekly usage on the Home tab")
-                    }
-                    Defaults.Toggle(key: .claudePlanUsageEnabled) {
-                        Text("Show official plan usage (runs `claude /usage` in the background)")
-                    }
-                }
-                .disabled(!claudeMaster)
-            } header: {
-                Text("Claude Code")
-            } footer: {
-                Text("When Claude Code asks for permission, the notch shows the command with Allow and Deny. Nothing is ever approved automatically; if Nubrix is not running or you do not answer in time, Claude Code asks in its own window as usual. Requires the nubrix-permission hook. The Home tab card shows your official session and weekly usage from Claude. Plan usage is read by running `claude /usage` with the installed Claude Code CLI every 5 to 30 minutes; it costs no tokens, loads no hooks or project settings, and only the percentages and reset times are kept. Without it, the card falls back to the status line limits or an estimate from your Claude Code transcripts. It is hidden while a meeting countdown is showing. When the integration is off, Nubrix stops listening for Claude Code hooks (notchctl keeps working while the Dev tab is on) and the hooks do nothing.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            }
 
             Section {
                 HStack {
@@ -149,16 +120,10 @@ struct InboxSettings: View {
                         .disabled(inbox.unreadCount == 0)
                 }
             } footer: {
-                Text("Items are marked read when you open the Claude, Dev or Notifications tab, or click the notification. They are not kept after a restart.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
+                SettingsFooter("Items are marked read when you open their tab or click the notification. They are not kept after a restart.")
             }
-
-            MeetingSettingsSection()
         }
-        .formStyle(.grouped)
-        .navigationTitle("Notifications")
-        .onChange(of: planUsageEnabled) { _, _ in ClaudePlanUsageStore.shared.settingChanged() }
+        .settingsPage(.notifications)
         .onChange(of: claudeEnabled) { _, on in
             if !on { inbox.markRead(.claude) }
         }

@@ -145,7 +145,7 @@ struct AgentInfoPanelContainer: View {
                     let bin = AgentEventServer.configDirectory.appendingPathComponent("bin", isDirectory: true).path
                     ClipStore.shared.copyTransformed(AgentInfoModel.setupSnippet(binDirectory: bin))
                 },
-                onOpenSettings: { SettingsNavigation.shared.open("Notifications") }
+                onOpenSettings: { SettingsNavigation.shared.open(.claudeCode) }
             )
         }
     }

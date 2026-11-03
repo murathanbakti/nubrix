@@ -3,6 +3,7 @@ import SwiftUI
 
 struct NotchTabSettings: View {
     @ObservedObject private var layout = NotchTabLayout.shared
+    @ObservedObject private var coordinator = NubrixCoordinator.shared
     @Default(.nubrixShelf) private var shelfEnabled
     @Default(.vitrinEnabled) private var vitrinEnabled
     @Default(.devEnabled) private var devEnabled
@@ -12,7 +13,7 @@ struct NotchTabSettings: View {
     @Default(.notchHiddenTabs) private var hiddenTabs
 
     var body: some View {
-        List {
+        Form {
             Section {
                 ForEach(layout.orderedTabs) { tab in
                     row(for: tab)
@@ -21,22 +22,25 @@ struct NotchTabSettings: View {
                     layout.move(from: source, to: destination)
                 }
             } header: {
-                Text("Drag to reorder")
+                Text("Order")
             } footer: {
-                Text("Hiding a tab only removes it from the notch; the feature keeps running. To stop a feature and its permissions, turn it off in its own settings.")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-                    .padding(.top, 6)
+                SettingsFooter("Drag to reorder. Hiding a tab only removes it from the notch; the feature keeps running. To stop a feature, turn it off in its own settings.")
             }
 
             Section {
-                Button("Restore Defaults") {
+                Toggle("Always show tabs", isOn: $coordinator.alwaysShowTabs)
+                Toggle("Remember last tab", isOn: $coordinator.openLastTabByDefault)
+            } header: {
+                Text("Behavior")
+            }
+
+            Section {
+                Button("Restore defaults") {
                     layout.resetToDefault()
                 }
             }
         }
-        .listStyle(.inset)
-        .navigationTitle("Tabs")
+        .settingsPage(.tabs)
     }
 
     private func row(for tab: TabModel) -> some View {
