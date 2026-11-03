@@ -117,7 +117,9 @@ final class ClipDatabase: @unchecked Sendable {
     }
 
     var isExcludedFromBackup: Bool {
-        (try? directory.resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup ?? false
+        var url = directory
+        url.removeAllCachedResourceValues()
+        return (try? url.resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup ?? false
     }
 
     private func migrate() throws {

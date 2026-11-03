@@ -393,6 +393,18 @@ final class ClipDatabaseEncryptionTests: VitrinTestCase {
             let attrs = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent(name).path)
             XCTAssertEqual((attrs[.posixPermissions] as? NSNumber)?.intValue, 0o600, name)
         }
+        if !db.isExcludedFromBackup, !Self.volumeSupportsBackupExclusion(near: directory) {
+            throw XCTSkip("This volume does not keep the backup exclusion flag")
+        }
         XCTAssertTrue(db.isExcludedFromBackup)
+    }
+
+    private static func volumeSupportsBackupExclusion(near directory: URL) -> Bool {
+        var probe = directory.deletingLastPathComponent().appendingPathComponent("backup-probe-\(UUID().uuidString)", isDirectory: true)
+        guard (try? FileManager.default.createDirectory(at: probe, withIntermediateDirectories: true)) != nil else { return false }
+        defer { try? FileManager.default.removeItem(at: probe) }
+        ClipDatabase.excludeFromBackup(probe)
+        probe.removeAllCachedResourceValues()
+        return (try? probe.resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup ?? false
     }
 }
