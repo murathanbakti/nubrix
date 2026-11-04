@@ -16,8 +16,8 @@ struct OnboardingFinishView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            Image(systemName: "sparkles")
-                .font(.system(size: 60))
+            Image(systemName: "cursorarrow.motionlines")
+                .font(.system(size: 54))
                 .foregroundColor(.effectiveAccent)
                 .padding()
 
@@ -25,8 +25,13 @@ struct OnboardingFinishView: View {
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("You can now enjoy the app. If you want to tweak things further, you can always visit the settings.")
+            Text("Move the pointer to the top middle of your screen, onto the notch, to open Nubrix.")
                 .font(.body)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Text("Music, notifications and device batteries show up there on their own.")
+                .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -36,7 +41,7 @@ struct OnboardingFinishView: View {
 
             VStack(spacing: 12) {
                 Button(action: onOpenSettings) {
-                    Label("Customize in Settings", systemImage: "gear")
+                    Label("Open Settings", systemImage: "gear")
                         .controlSize(.large)
                 }
                 .controlSize(.large)

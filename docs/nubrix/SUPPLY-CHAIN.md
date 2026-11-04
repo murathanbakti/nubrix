@@ -43,7 +43,7 @@ The script clones the pinned tag, checks that it resolves to the pinned commit, 
 
 ## Sparkle
 
-Nubrix embeds [Sparkle](https://sparkle-project.org) 2.10.1 for opt-in automatic updates (license in `THIRD_PARTY_LICENSES`).
+Nubrix embeds [Sparkle](https://sparkle-project.org) 2.10.1 for automatic updates (on by default, can be turned off) (license in `THIRD_PARTY_LICENSES`).
 
 - **Package.** Swift Package Manager, `exactVersion` 2.10.1, revision `ab7d71291238df6e0492143b120c9b696a35f603` (`Package.resolved`). The binary framework is a zip whose SHA-256, `4c2e48a3e50ebcc2c88a58a4c7264a1a99c3c31857ce754357afb9cdb323022a`, is enforced by SwiftPM from Sparkle's own `Package.swift`.
 - **Mach-O files in the bundle.** Four: `Sparkle`, `Autoupdate`, `Updater.app/Contents/MacOS/Updater` and `XPCServices/Installer.xpc/Contents/MacOS/Installer`, all inside `Contents/Frameworks/Sparkle.framework/Versions/B`. `scripts/verify-bundle.sh` allows exactly these. Sparkle's `Downloader.xpc` is removed by `scripts/strip-sparkle-downloader.sh` when the release is packaged (and by `install-local.sh`), because Nubrix has the network client entitlement and does its own downloading; Debug builds keep it.

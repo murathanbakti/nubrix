@@ -23,6 +23,7 @@ struct NubrixApp: App {
     init() {
         guard !isRunningUnderXCTest else { return }
         NubrixMigration.run()
+        DefaultsMigration.run()
     }
 
     var body: some Scene {
@@ -316,6 +317,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         MirrorService.start()
         NubrixCalendarService.start()
         MusicManager.shared.start()
+        DeviceBatteryStore.shared.start()
+        EverydayAlertStore.shared.start()
         UpdateStore.shared.start()
         Task { await HookKitStore.shared.launchCheck() }
 
@@ -460,22 +463,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupDragDetectors()
 
-        let launchAction = LaunchFlow().initialAction(
-            musicSourceNeeded: LaunchFlow.musicSourceNeeded(
-                mediaControlEnabled: Defaults[.mediaControlEnabled],
-                nowPlayingDeprecated: MusicManager.shared.isNowPlayingDeprecated,
-                controller: Defaults[.mediaController]
-            )
-        )
+        let launchAction = LaunchFlow().initialAction()
         switch launchAction {
         case .onboarding:
             DispatchQueue.main.async {
                 self.showOnboardingWindow()
-            }
-            playWelcomeSound()
-        case .musicSource:
-            DispatchQueue.main.async {
-                self.showOnboardingWindow(step: .musicPermission)
             }
         case .fdaReturn(let origin):
             Task { @MainActor in await self.handleFDAReturn(origin) }
@@ -503,11 +495,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if case .stillOff = outcome { LaunchFlow().beginFDAGrant(origin: origin) }
         FullDiskAccessGuide.showReturn()
-    }
-
-    func playWelcomeSound() {
-        let audioPlayer = AudioPlayer()
-        audioPlayer.play(fileName: "nubrix-hello", fileExtension: "m4a")
     }
 
     func deviceHasNotch() -> Bool {

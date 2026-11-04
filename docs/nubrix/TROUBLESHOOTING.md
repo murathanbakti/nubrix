@@ -96,7 +96,7 @@ Check that Vitrin and the capture type are on and the frontmost app is not in th
 
 ## Music is not detected
 
-Pick the source in Settings, Media. "Now Playing" uses the bundled MediaRemote adapter (run through `/usr/bin/perl`); on macOS versions where that access was removed, Nubrix does not switch to Apple Music by itself. It asks once which music source to use; you can change it later in Settings, Media. Spotify and Apple Music need the Automation permission (System Settings, Privacy & Security, Automation), which macOS asks for only after you pick that source. Settings, Permissions shows whether it is granted (only while that app is running). YouTube Music needs the desktop app's API server on `localhost:26538`.
+Pick the source in Settings, Media. Music playing in a browser such as Chrome or Safari needs "Any app (Now Playing)"; Apple Music and Spotify only follow their own app. "Any app" uses the bundled MediaRemote adapter (run through `/usr/bin/perl`). Nubrix checks at launch that it works, tries again once if the first check fails, and never remembers a failed check, so a restart re-checks. If it does not work on your macOS, the option is hidden and Nubrix uses Spotify (if installed) or Apple Music instead. Spotify and Apple Music need the Automation permission (System Settings, Privacy & Security, Automation), which macOS asks for when that source is first used. Settings, Permissions shows whether it is granted (only while that app is running). YouTube Music needs the desktop app's API server on `localhost:26538`.
 
 ## The notch is not visible
 

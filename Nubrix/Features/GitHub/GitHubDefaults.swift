@@ -1,7 +1,7 @@
 import Defaults
 
 extension Defaults.Keys {
-    static let githubEnabled = Key<Bool>("githubEnabled", default: true)
+    static let githubEnabled = Key<Bool>("githubEnabled", default: false)
     static let githubTokenSaved = Key<Bool>("githubTokenSaved", default: false)
     static let githubLogin = Key<String>("githubLogin", default: "")
     static let githubExcludedRepos = Key<[String]>("githubExcludedRepos", default: [])

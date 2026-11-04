@@ -6,10 +6,12 @@ final class UpdateInfoPlistTests: XCTestCase {
 
     func testFeedAndSecurityKeysAreExact() {
         XCTAssertEqual(info["SUFeedURL"] as? String, "https://github.com/murathanbakti/nubrix/releases/latest/download/appcast.xml")
-        for key in ["SUEnableInstallerLauncherService", "SUVerifyUpdateBeforeExtraction", "SURequireSignedFeed"] {
+        // Updates are checked and installed automatically by default.
+        for key in ["SUEnableInstallerLauncherService", "SUVerifyUpdateBeforeExtraction", "SURequireSignedFeed",
+                    "SUEnableAutomaticChecks", "SUAutomaticallyUpdate"] {
             XCTAssertEqual(info[key] as? Bool, true, key)
         }
-        for key in ["SUEnableAutomaticChecks", "SUAutomaticallyUpdate", "SUEnableSystemProfiling", "SUShowReleaseNotes"] {
+        for key in ["SUEnableSystemProfiling", "SUShowReleaseNotes"] {
             XCTAssertEqual(info[key] as? Bool, false, key)
         }
     }

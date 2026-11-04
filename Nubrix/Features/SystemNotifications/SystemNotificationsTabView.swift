@@ -8,7 +8,10 @@ struct SystemNotificationsTabView: View {
     @ObservedObject var badges = DockBadgeStore.shared
     @Default(.dockBadgesEnabled) var badgesEnabled
     @State private var filter: String?
-    @State private var expanded: Set<String> = []
+    @Default(.systemNotificationGrouping) var grouping
+    @Default(.systemNotificationsCollapseGroups) var collapseGroups
+    /// Groups the user flipped away from the default (opened when collapsed by default, closed otherwise).
+    @State private var flipped: Set<String> = []
 
     private var apps: [(id: String, name: String)] {
         var seen = Set<String>()
@@ -30,19 +33,16 @@ struct SystemNotificationsTabView: View {
     }
 
     private var stacks: [SystemNotificationStack] {
-        var order: [String] = []
-        var groups: [String: [SystemNotificationRecord]] = [:]
-        for record in records {
-            let key = record.conversationKey
-            if groups[key] == nil { order.append(key) }
-            groups[key, default: []].append(record)
-        }
-        return order.map { SystemNotificationStack(id: $0, records: groups[$0] ?? []) }
+        SystemNotificationStack.stacks(from: records, grouping: grouping)
+    }
+
+    private func isExpanded(_ key: String) -> Bool {
+        flipped.contains(key) == collapseGroups
     }
 
     private func toggle(_ key: String) {
         withAnimation(.smooth) {
-            if !expanded.insert(key).inserted { expanded.remove(key) }
+            if !flipped.insert(key).inserted { flipped.remove(key) }
         }
     }
 
@@ -60,10 +60,12 @@ struct SystemNotificationsTabView: View {
                     LazyVStack(spacing: 4) {
                         ForEach(stacks) { stack in
                             SystemNotificationStackView(stack: stack, store: store, showBody: showBody,
-                                                        isExpanded: expanded.contains(stack.id)) { toggle(stack.id) }
+                                                        isExpanded: isExpanded(stack.id)) { toggle(stack.id) }
                         }
                     }
                 }
+                .onChange(of: grouping) { _, _ in flipped = [] }
+                .onChange(of: collapseGroups) { _, _ in flipped = [] }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -192,38 +194,36 @@ struct SystemNotificationsTabView: View {
     }
 }
 
-struct SystemNotificationStack: Identifiable {
-    let id: String
-    let records: [SystemNotificationRecord]
-}
-
 struct SystemNotificationStackView: View {
     let stack: SystemNotificationStack
     let store: SystemNotificationStore
     let showBody: Bool
     let isExpanded: Bool
     let toggle: () -> Void
+    @State private var hovering = false
+
+    private func removeStack() {
+        withAnimation(.smooth) { store.removeRecords(stack.recordIDs) }
+    }
 
     var body: some View {
         if let newest = stack.records.first {
             if stack.records.count == 1 {
-                SystemNotificationRow(record: newest, store: store, showBody: showBody) {
+                SystemNotificationRow(record: newest, store: store, showBody: showBody, inAppGroup: stack.isAppGroup) {
                     withAnimation(.smooth) { store.removeRecord(newest.id) }
                 }
             } else if isExpanded {
                 VStack(alignment: .leading, spacing: 4) {
                     header(newest)
                     ForEach(stack.records) { record in
-                        SystemNotificationRow(record: record, store: store, showBody: showBody) {
+                        SystemNotificationRow(record: record, store: store, showBody: showBody, inAppGroup: stack.isAppGroup) {
                             withAnimation(.smooth) { store.removeRecord(record.id) }
                         }
                     }
                 }
             } else {
-                SystemNotificationRow(record: newest, store: store, showBody: showBody, hiddenCount: stack.records.count - 1,
-                                      toggle: toggle) {
-                    withAnimation(.smooth) { store.removeConversation(stack.id) }
-                }
+                SystemNotificationRow(record: newest, store: store, showBody: showBody, inAppGroup: stack.isAppGroup, hiddenCount: stack.records.count - 1,
+                                      toggle: toggle, remove: removeStack)
                 .padding(.bottom, stack.records.count > 2 ? 8 : 4)
             }
         }
@@ -231,17 +231,54 @@ struct SystemNotificationStackView: View {
 
     private func header(_ newest: SystemNotificationRecord) -> some View {
         HStack(spacing: 6) {
-            Text(newest.title.isEmpty ? newest.appName : "\(newest.title) · \(newest.appName)")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.gray)
+            SystemNotificationGlowIcon(bundleID: newest.bundleID, size: 20, glow: false)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            Text(stack.isAppGroup || newest.title.isEmpty ? newest.appName : "\(newest.title) · \(newest.appName)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
                 .lineLimit(1)
+            Text("\(stack.records.count)")
+                .font(SystemNotificationType.meta)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.white.opacity(0.2)))
+                .fixedSize()
             Spacer(minLength: 6)
-            Button("Show less", action: toggle)
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(.gray)
+            if hovering {
+                ClearCircleButton(action: removeStack)
+            }
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                Text(systemNotificationAge(from: newest.date, to: context.date))
+                    .font(SystemNotificationType.meta.monospacedDigit())
+                    .foregroundStyle(SystemNotificationType.metaColor)
+            }
+            Button(action: toggle) {
+                Text("Show less")
+                    .font(SystemNotificationType.meta)
+                    .foregroundStyle(SystemNotificationType.metaColor)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+    }
+}
+
+struct ClearCircleButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(width: 16, height: 16)
+                .background(Circle().fill(Color.white.opacity(0.14)))
+        }
+        .buttonStyle(.plain)
+        .help("Clear")
     }
 }
 
@@ -249,6 +286,7 @@ struct SystemNotificationRow: View {
     let record: SystemNotificationRecord
     let store: SystemNotificationStore
     let showBody: Bool
+    var inAppGroup = false
     var hiddenCount = 0
     var toggle: (() -> Void)?
     let remove: () -> Void
@@ -260,15 +298,18 @@ struct SystemNotificationRow: View {
 
     private var messageLine: String? {
         if showBody, !record.body.isEmpty { return record.body }
-        return subtitleLine == nil ? record.appName : nil
+        return subtitleLine == nil && !inAppGroup ? record.appName : nil
     }
 
     private var heading: Text {
         if record.title.isEmpty {
-            return Text(record.appName).font(.system(size: 12, weight: .semibold)).foregroundColor(.white)
+            return Text(record.appName).font(SystemNotificationType.title).foregroundColor(.white)
         }
-        return Text(record.title).font(.system(size: 12, weight: .semibold)).foregroundColor(.white)
-            + Text(" · \(record.appName)").font(.system(size: 12)).foregroundColor(.gray)
+        if inAppGroup {
+            return Text(record.title).font(SystemNotificationType.title).foregroundColor(.white)
+        }
+        return Text(record.title).font(SystemNotificationType.title).foregroundColor(.white)
+            + Text(" · \(record.appName)").font(SystemNotificationType.meta).foregroundColor(SystemNotificationType.metaColor)
     }
 
     var body: some View {
@@ -282,26 +323,26 @@ struct SystemNotificationRow: View {
                         .lineLimit(1)
                     if let subtitleLine {
                         Text(subtitleLine)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.gray.opacity(0.8))
+                            .font(SystemNotificationType.meta)
+                            .foregroundStyle(SystemNotificationType.metaColor)
                             .lineLimit(1)
                     }
                     if let messageLine {
                         Text(messageLine)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.gray)
+                            .font(SystemNotificationType.body)
+                            .foregroundStyle(SystemNotificationType.bodyColor)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                     }
                     if hiddenCount > 0, let toggle {
                         Button(action: toggle) {
                             HStack(spacing: 3) {
-                                Text("+\(hiddenCount) more")
+                                Text("+\(hiddenCount)")
                                 Image(systemName: "chevron.down")
                                     .font(.system(size: 8, weight: .bold))
                             }
-                            .font(.system(size: 11))
-                            .foregroundStyle(.gray)
+                            .font(SystemNotificationType.meta)
+                            .foregroundStyle(SystemNotificationType.metaColor)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -310,26 +351,20 @@ struct SystemNotificationRow: View {
                 }
                 Spacer(minLength: 6)
                 if hovering {
-                    Button(action: remove) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.gray)
-                    }
-                    .buttonStyle(.plain)
+                    ClearCircleButton(action: remove)
                 } else {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
-                        Text(Self.age(from: record.date, to: context.date))
-                            .font(.system(size: 11).monospacedDigit())
-                            .foregroundStyle(.gray)
+                        Text(systemNotificationAge(from: record.date, to: context.date))
+                            .font(SystemNotificationType.meta.monospacedDigit())
+                            .foregroundStyle(SystemNotificationType.metaColor)
                     }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(8)
             .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.white.opacity(hovering ? 0.1 : 0.06))
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.black))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.white.opacity(hovering ? 0.09 : 0.06))
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black))
             )
             .background(alignment: .bottom) {
                 if hiddenCount > 0 {
@@ -346,9 +381,9 @@ struct SystemNotificationRow: View {
     }
 
     private func edge(inset: CGFloat, offset: CGFloat, opacity: Double) -> some View {
-        RoundedRectangle(cornerRadius: 10)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
             .fill(Color.white.opacity(opacity))
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.black))
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black))
             .padding(.horizontal, inset)
             .offset(y: offset)
     }
@@ -358,6 +393,7 @@ struct SystemNotificationRow: View {
         if let image = store.icon(for: record.bundleID) {
             Image(nsImage: image)
                 .resizable()
+                .aspectRatio(contentMode: .fit)
                 .frame(width: 20, height: 20)
         } else {
             Image(systemName: "app.badge")
@@ -365,13 +401,5 @@ struct SystemNotificationRow: View {
                 .foregroundStyle(.gray)
                 .frame(width: 20, height: 20)
         }
-    }
-
-    private static func age(from start: Date, to now: Date) -> String {
-        let seconds = max(0, Int(now.timeIntervalSince(start)))
-        if seconds < 60 { return "now" }
-        if seconds < 3600 { return "\(seconds / 60)m" }
-        if seconds < 86400 { return "\(seconds / 3600)h" }
-        return "\(seconds / 86400)d"
     }
 }

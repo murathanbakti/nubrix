@@ -32,8 +32,11 @@ class MusicManager: ObservableObject {
         "nowPlayingDeprecated.\(ProcessInfo.processInfo.operatingSystemVersionString).\(Bundle.main.buildVersionNumber ?? "0")"
     }
 
+    /// Only a passing check is remembered. A failed check can be a one-off (for
+    /// example a slow first launch after an update), so it is never stored: older
+    /// builds stored it and hid Now Playing for good, so a stored `true` is ignored.
     static func cachedDeprecationStatus() -> Bool? {
-        UserDefaults.standard.object(forKey: deprecationCacheKey) as? Bool
+        (UserDefaults.standard.object(forKey: deprecationCacheKey) as? Bool) == false ? false : nil
     }
 
     private var mediaEnabled: Bool { Defaults[.mediaControlEnabled] }
@@ -122,17 +125,33 @@ class MusicManager: ObservableObject {
             if let cached = Self.cachedDeprecationStatus() {
                 self.isNowPlayingDeprecated = cached
             } else {
-                do {
-                    let deprecated = try await self.mediaChecker.checkDeprecationStatus()
-                    UserDefaults.standard.set(deprecated, forKey: Self.deprecationCacheKey)
-                    self.isNowPlayingDeprecated = deprecated
-                } catch {
-                    self.isNowPlayingDeprecated = false
+                let deprecated = await self.checkNowPlayingDeprecated()
+                guard !Task.isCancelled else { return }
+                if !deprecated {
+                    UserDefaults.standard.set(false, forKey: Self.deprecationCacheKey)
                 }
+                self.isNowPlayingDeprecated = deprecated
             }
             guard self.isRunning, !Task.isCancelled else { return }
             self.setActiveControllerBasedOnPreference()
         }
+    }
+
+    /// Runs the adapter check, trying again once after a short pause before
+    /// calling Now Playing unavailable. An error counts as available.
+    private func checkNowPlayingDeprecated() async -> Bool {
+        for attempt in 0..<2 {
+            if attempt > 0 {
+                try? await Task.sleep(for: .seconds(3))
+                if Task.isCancelled { return false }
+            }
+            do {
+                if try await mediaChecker.checkDeprecationStatus() == false { return false }
+            } catch {
+                return false
+            }
+        }
+        return true
     }
 
     private func deactivate() {
@@ -246,16 +265,29 @@ class MusicManager: ObservableObject {
     }
 
     private func setActiveControllerBasedOnPreference() {
-        guard let controllerType = Self.resolvedControllerType(
+        let controllerType = Self.resolvedControllerType(
             preferred: Defaults[.mediaController],
-            nowPlayingDeprecated: isNowPlayingDeprecated
-        ), let controller = createController(for: controllerType) else { return }
+            nowPlayingDeprecated: isNowPlayingDeprecated,
+            spotifyInstalled: Self.isSpotifyInstalled
+        )
+        guard let controller = createController(for: controllerType) else { return }
         setActiveController(controller)
     }
 
-    static func resolvedControllerType(preferred: MediaControllerType, nowPlayingDeprecated: Bool) -> MediaControllerType? {
-        if preferred == .nowPlaying && nowPlayingDeprecated { return nil }
-        return preferred
+    /// The source to use. When "any app" (Now Playing) does not work on this
+    /// Mac, falls back to Spotify if it is installed, otherwise Apple Music, so
+    /// the person never has to pick a source to get music in the notch.
+    static func resolvedControllerType(
+        preferred: MediaControllerType,
+        nowPlayingDeprecated: Bool,
+        spotifyInstalled: Bool
+    ) -> MediaControllerType {
+        guard preferred == .nowPlaying, nowPlayingDeprecated else { return preferred }
+        return spotifyInstalled ? .spotify : .appleMusic
+    }
+
+    static var isSpotifyInstalled: Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.spotify.client") != nil
     }
 
     private func setActiveController(_ controller: any MediaControllerProtocol) {

@@ -2,8 +2,8 @@ import SwiftUI
 
 enum SettingsTabGroup: CaseIterable, Identifiable {
     case main
-    case developer
     case notch
+    case developer
     case app
 
     var id: Self { self }
@@ -25,16 +25,17 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case appearance
     case permissions
-    case claudeCode
-    case github
-    case dev
     case tabs
     case notifications
+    case everyday
     case vitrin
     case media
     case calendar
     case shelf
     case huds
+    case claudeCode
+    case github
+    case dev
     case shortcuts
     case advanced
     case about
@@ -51,6 +52,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .dev: return "Dev"
         case .tabs: return "Tabs"
         case .notifications: return "Notifications"
+        case .everyday: return "Everyday"
         case .vitrin: return "Vitrin"
         case .media: return "Media"
         case .calendar: return "Calendar"
@@ -72,6 +74,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .dev: return "terminal.fill"
         case .tabs: return "rectangle.split.3x1"
         case .notifications: return "bell.badge.fill"
+        case .everyday: return "sparkles"
         case .vitrin: return "square.stack.3d.up.fill"
         case .media: return "play.laptopcomputer"
         case .calendar: return "calendar"
@@ -87,7 +90,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general, .appearance, .permissions: return .main
         case .claudeCode, .github, .dev: return .developer
-        case .tabs, .notifications, .vitrin, .media, .calendar, .shelf, .huds: return .notch
+        case .tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds: return .notch
         case .shortcuts, .advanced, .about: return .app
         }
     }

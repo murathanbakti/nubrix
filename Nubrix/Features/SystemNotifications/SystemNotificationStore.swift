@@ -23,6 +23,7 @@ final class SystemNotificationStore: ObservableObject {
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var names: [String: String] = [:]
     private var icons: [String: NSImage?] = [:]
+    private var glowColors: [String: NSColor] = [:]
 
     private var applied: Bool?
     private var enabledCancellable: AnyCancellable?
@@ -108,6 +109,25 @@ final class SystemNotificationStore: ObservableObject {
 
     func removeConversation(_ key: String) {
         history.removeAll { $0.conversationKey == key }
+    }
+
+    func removeApp(_ bundleID: String) {
+        history.removeAll { $0.bundleID == bundleID }
+    }
+
+    func removeRecords(_ ids: Set<UUID>) {
+        history.removeAll { ids.contains($0.id) }
+    }
+
+    /// Average color of the app icon, cached per app, for the soft glow behind it.
+    func glowColor(for bundleID: String) async -> NSColor? {
+        if let cached = glowColors[bundleID] { return cached }
+        guard let image = icon(for: bundleID) else { return nil }
+        let color: NSColor? = await withCheckedContinuation { continuation in
+            image.averageColor { continuation.resume(returning: $0) }
+        }
+        glowColors[bundleID] = color
+        return color
     }
 
     func clearHistory() {
@@ -219,6 +239,7 @@ final class SystemNotificationStore: ObservableObject {
     }
 
     private func show(_ record: SystemNotificationRecord, batchCount: Int) {
+        guard Self.cardAllowed(showBanner: Defaults[.systemNotificationsShowBanner]) else { return }
         let key = record.conversationKey
         let current = banner?.conversationKey == key ? banner : nil
         let banner = SystemNotificationBanner(id: current?.id ?? UUID(), bundleID: record.bundleID, appName: record.appName,
@@ -228,8 +249,9 @@ final class SystemNotificationStore: ObservableObject {
         AgentSessionStore.shared.dismissBanner()
         ScreenshotBannerStore.shared.dismissBanner()
         DevNotificationStore.shared.dismissBanner()
+        DeviceBatteryStore.shared.dismissBanner()
         bannerTask?.cancel()
-        withAnimation(.smooth) { self.banner = banner }
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { self.banner = banner }
         bannerTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(6))
             guard !Task.isCancelled else { return }

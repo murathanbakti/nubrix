@@ -9,7 +9,6 @@ enum FDAOrigin: String {
 enum LaunchAction: Equatable {
     case none
     case onboarding
-    case musicSource
     case fdaReturn(FDAOrigin)
 }
 
@@ -23,7 +22,6 @@ struct LaunchFlow {
 
     private enum Key {
         static let firstLaunch = "firstLaunch"
-        static let musicSourcePromptShown = "musicSourcePromptShown"
         static let fdaGrantPendingAt = "fdaGrantPendingAt"
         static let fdaGrantPendingOrigin = "fdaGrantPendingOrigin"
     }
@@ -40,19 +38,14 @@ struct LaunchFlow {
         defaults.object(forKey: Key.firstLaunch) == nil ? true : defaults.bool(forKey: Key.firstLaunch)
     }
 
-    func initialAction(musicSourceNeeded: Bool) -> LaunchAction {
+    func initialAction() -> LaunchAction {
         if let origin = pendingFDAOrigin() { return .fdaReturn(origin) }
         if firstLaunch { return .onboarding }
-        if musicSourceNeeded && !defaults.bool(forKey: Key.musicSourcePromptShown) { return .musicSource }
         return .none
     }
 
     func onboardingDidAppear() {
         defaults.set(false, forKey: Key.firstLaunch)
-    }
-
-    func musicSourceDidAppear() {
-        defaults.set(true, forKey: Key.musicSourcePromptShown)
     }
 
     func beginFDAGrant(origin: FDAOrigin) {
@@ -79,13 +72,5 @@ struct LaunchFlow {
         let status = await client.status(.fullDiskAccess)
         clearFDAPending()
         return status == .granted ? .ready(origin) : .stillOff(origin)
-    }
-
-    static func musicSourceNeeded(
-        mediaControlEnabled: Bool,
-        nowPlayingDeprecated: Bool,
-        controller: MediaControllerType
-    ) -> Bool {
-        mediaControlEnabled && nowPlayingDeprecated && controller == .nowPlaying
     }
 }

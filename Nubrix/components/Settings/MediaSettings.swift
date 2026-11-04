@@ -36,7 +36,7 @@ struct MediaSettings: View {
         Section {
             Picker("Music source", selection: $mediaController) {
                 ForEach(availableMediaControllers) { controller in
-                    Text(controller.rawValue).tag(controller)
+                    Text(Self.pickerTitle(for: controller)).tag(controller)
                 }
             }
             .onChange(of: mediaController) { _, _ in
@@ -48,12 +48,29 @@ struct MediaSettings: View {
         } header: {
             Text("Source")
         } footer: {
-            if MusicManager.shared.isNowPlayingDeprecated {
-                SettingsFooter("YouTube Music needs the Pear Desktop app.", link: ("Get Pear Desktop", Self.pearDesktopURL))
+            sourceFooter
+        }
+    }
+
+    @ViewBuilder
+    private var sourceFooter: some View {
+        let nowPlayingAvailable = !MusicManager.shared.isNowPlayingDeprecated
+        switch mediaController {
+        case .nowPlaying:
+            SettingsFooter("Follows whatever is playing on your Mac, including Chrome, Safari and other browsers.")
+        case .youtubeMusic:
+            SettingsFooter("YouTube Music needs the Pear Desktop app.", link: ("Get Pear Desktop", Self.pearDesktopURL))
+        case .appleMusic, .spotify:
+            if nowPlayingAvailable {
+                SettingsFooter("Only follows \(mediaController.rawValue). To control music playing in a browser or another app, choose Any app.")
             } else {
-                SettingsFooter("Now Playing works with all media apps.")
+                SettingsFooter("Only follows \(mediaController.rawValue). Following any app, including browsers, is not available on this version of macOS.")
             }
         }
+    }
+
+    private static func pickerTitle(for controller: MediaControllerType) -> String {
+        controller == .nowPlaying ? "Any app (Now Playing)" : controller.rawValue
     }
 
     private var playbackSection: some View {

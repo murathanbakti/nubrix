@@ -24,6 +24,8 @@ struct ContentView: View {
     @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var devNotifications = DevNotificationStore.shared
     @ObservedObject var systemNotifications = SystemNotificationStore.shared
+    @ObservedObject var deviceBattery = DeviceBatteryStore.shared
+    @ObservedObject var everyday = EverydayAlertStore.shared
     @ObservedObject var dockBadges = DockBadgeStore.shared
     @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
     @ObservedObject var inbox = NubrixInbox.shared
@@ -87,7 +89,7 @@ struct ContentView: View {
     }
 
     private var bannerShowing: Bool {
-        permissionShowing || screenshotBanner.banner != nil || agentActivity.banner != nil || devNotifications.banner != nil || systemNotifications.banner != nil || meetings.banner != nil
+        permissionShowing || screenshotBanner.banner != nil || agentActivity.banner != nil || devNotifications.banner != nil || systemNotifications.banner != nil || deviceBattery.banner != nil || everyday.banner != nil || meetings.banner != nil
     }
 
     private var meetingCountdownShowing: Bool {
@@ -96,6 +98,35 @@ struct ContentView: View {
 
     private var permissionShowing: Bool {
         permissions.current != nil && !permissions.isSuppressed && vm.notchState == .closed && !vm.hideOnClosed
+    }
+
+    /// True while the system notification header is the one on screen and the
+    /// drop-down style wants its card under it. Same precedence as the header chain.
+    private var systemDropShowing: Bool {
+        guard Defaults[.systemNotificationStyle] == .dropDown else { return false }
+        let batteryHeader = coordinator.expandingView.type == .battery && coordinator.expandingView.show
+            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
+        return vm.notchState == .closed && !vm.hideOnClosed && !permissionShowing && !batteryHeader
+            && screenshotBanner.banner == nil && agentActivity.banner == nil && devNotifications.banner == nil
+            && systemNotifications.banner != nil
+    }
+
+    /// Same as `systemDropShowing`, for a device battery banner. It always uses the card.
+    private var deviceBatteryDropShowing: Bool {
+        let batteryHeader = coordinator.expandingView.type == .battery && coordinator.expandingView.show
+            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
+        return vm.notchState == .closed && !vm.hideOnClosed && !permissionShowing && !batteryHeader
+            && screenshotBanner.banner == nil && agentActivity.banner == nil && devNotifications.banner == nil
+            && systemNotifications.banner == nil && deviceBattery.banner != nil
+    }
+
+    /// Same as `deviceBatteryDropShowing`, for an everyday alert.
+    private var everydayDropShowing: Bool {
+        let batteryHeader = coordinator.expandingView.type == .battery && coordinator.expandingView.show
+            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
+        return vm.notchState == .closed && !vm.hideOnClosed && !permissionShowing && !batteryHeader
+            && screenshotBanner.banner == nil && agentActivity.banner == nil && devNotifications.banner == nil
+            && systemNotifications.banner == nil && deviceBattery.banner == nil && everyday.banner != nil
     }
 
     private var permissionSurfaceID: String { vm.screenUUID ?? "main" }
@@ -194,6 +225,12 @@ struct ContentView: View {
                         } else if vm.notchState == .closed, let banner = systemNotifications.banner {
                             systemNotifications.openSource(banner)
                             return
+                        } else if vm.notchState == .closed && deviceBattery.banner != nil {
+                            coordinator.currentView = .home
+                            deviceBattery.dismissBanner()
+                        } else if vm.notchState == .closed && everyday.banner != nil {
+                            coordinator.currentView = .home
+                            everyday.dismissBanner()
                         } else if vm.notchState == .closed, let banner = agentActivity.banner, let session = agents.session(banner.sessionID),
                                   AgentSessionOpener.canOpen(session.source) {
                             AgentSessionOpener.open(session.source, cwd: session.cwd)
@@ -374,6 +411,12 @@ struct ContentView: View {
                   } else if let banner = systemNotifications.banner, vm.notchState == .closed, !vm.hideOnClosed {
                       SystemNotificationBannerView(banner: banner)
                           .transition(.opacity)
+                  } else if let device = deviceBattery.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                      DeviceBatteryBannerHeader(device: device)
+                          .transition(.opacity)
+                  } else if let alert = everyday.banner, vm.notchState == .closed, !vm.hideOnClosed {
+                      EverydayAlertHeader(alert: alert)
+                          .transition(.opacity)
                   } else if let banner = meetings.banner, vm.notchState == .closed, !vm.hideOnClosed {
                       MeetingBannerView(banner: banner)
                           .transition(.opacity)
@@ -408,6 +451,12 @@ struct ContentView: View {
                           .padding(.horizontal, 12)
                           .padding(.bottom, 12)
                           .transition(.opacity)
+                  } else if systemDropShowing, let banner = systemNotifications.banner {
+                      SystemNotificationDropBody(banner: banner)
+                  } else if deviceBatteryDropShowing, let device = deviceBattery.banner {
+                      DeviceBatteryDropBody(device: device)
+                  } else if everydayDropShowing, let alert = everyday.banner {
+                      EverydayAlertCard(alert: alert)
                   } else if coordinator.sneakPeek.show {
                       if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                           SystemEventIndicatorModifier(

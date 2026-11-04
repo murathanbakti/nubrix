@@ -34,8 +34,8 @@ final class FDAReturnTests: XCTestCase {
 
     func testPendingGrantSurvivesRelaunchAndBeatsFirstLaunch() {
         flow().beginFDAGrant(origin: .notch)
-        XCTAssertEqual(flow().initialAction(musicSourceNeeded: false), .fdaReturn(.notch))
-        XCTAssertEqual(flow().initialAction(musicSourceNeeded: true), .fdaReturn(.notch))
+        XCTAssertEqual(flow().initialAction(), .fdaReturn(.notch))
+        XCTAssertEqual(flow().initialAction(), .fdaReturn(.notch))
     }
 
     func testGrantedReturnsReadyAndClearsPending() async {
@@ -72,7 +72,7 @@ final class FDAReturnTests: XCTestCase {
         clock = clock.addingTimeInterval(LaunchFlow.pendingLifetime + 1)
         let f = flow()
         XCTAssertNil(f.pendingFDAOrigin())
-        XCTAssertNotEqual(f.initialAction(musicSourceNeeded: false), .fdaReturn(.notch))
+        XCTAssertNotEqual(f.initialAction(), .fdaReturn(.notch))
     }
 
     func testPendingJustInsideLifetimeIsHonored() {
@@ -87,6 +87,6 @@ final class FDAReturnTests: XCTestCase {
         XCTAssertEqual(f.pendingFDAOrigin(), .permissions)
         f.clearFDAPending()
         XCTAssertNil(f.pendingFDAOrigin())
-        XCTAssertNotEqual(f.initialAction(musicSourceNeeded: false), .fdaReturn(.permissions))
+        XCTAssertNotEqual(f.initialAction(), .fdaReturn(.permissions))
     }
 }

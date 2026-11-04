@@ -2,6 +2,31 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Everyday alerts, each with its own switch in the new Settings, Everyday tab (all on by default): battery of AirPods, Beats, Magic Mouse, Keyboard and Trackpad when they connect and once at 20% or less; where sound plays when the output changes; drives and memory cards with free space and Eject, and when they can be unplugged; the microphone or a camera turning on, with the app's name on macOS 14.2 and later; losing and getting back internet. The battery menu lists connected devices.
+- Notifications from other apps can drop from the notch as an iPhone-style card ("Style" in Settings, Notifications). The card can be turned off so notifications only collect in the tab.
+- The Notifications tab groups by conversation, by app or not at all, groups can start collapsed, and each group has a clear button.
+- One-screen onboarding, "What do you want in your notch?", with plain switches. It asks only for the permissions of what you switch on, and ends by showing how to open the notch.
+
+### Changed
+
+- New installs start with the developer tabs (Claude Code, Dev, GitHub) off, the song-change preview on and the drop-down notification style. Installs from before keep their settings.
+- Automatic update checks and installs are on by default. They can still be turned off in Settings, About, Updates.
+- The Now Playing check is retried and no longer remembers a failure, so one slow first launch can't hide "Any app (Now Playing)" for good. When Now Playing really doesn't work, Nubrix uses Spotify (if installed) or Apple Music instead of asking.
+- Settings, Media: "Any app (Now Playing)" and a note that explains each music source. The Notch group comes before the Developer group in the Settings sidebar.
+- New card design for notifications, device batteries and alerts. The welcome screen shows the current app icon.
+
+### Removed
+
+- The welcome sound on first launch, and the separate "Choose a Music Source" step.
+
+### Security
+
+- New `com.apple.security.device.bluetooth` entitlement and a Bluetooth usage description, for device batteries.
+
 ## [0.2.0] - 2026-11-03
 
 ### Added

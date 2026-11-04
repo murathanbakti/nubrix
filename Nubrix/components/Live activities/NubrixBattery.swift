@@ -96,6 +96,7 @@ struct BatteryMenuView: View {
     var onDismiss: () -> Void
 
     @Environment(\.openURL) private var openURL
+    @ObservedObject private var deviceStore = DeviceBatteryStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -144,6 +145,16 @@ struct BatteryMenuView: View {
             .padding(.vertical, 8)
 
             Divider().background(Color.white)
+
+            if !deviceStore.devices.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Devices")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    DeviceBatteryList(devices: deviceStore.devices)
+                }
+                Divider().background(Color.white)
+            }
 
             Button(action: openBatteryPreferences) {
                 Label("Battery Settings", systemImage: "gearshape")

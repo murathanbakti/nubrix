@@ -76,6 +76,7 @@ private struct SettingsDetail: View {
         case .dev: DevSettings()
         case .tabs: NotchTabSettings()
         case .notifications: InboxSettings()
+        case .everyday: EverydaySettings()
         case .vitrin: VitrinSettings()
         case .media: MediaSettings()
         case .calendar: CalendarSettings()

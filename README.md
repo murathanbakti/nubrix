@@ -8,7 +8,7 @@
 <h3 align="center">The Mac notch, built for developers.</h3>
 
 <p align="center">
-  Nubrix shows every Claude Code session in the notch, lets you approve permission requests right there, and takes you to the session that needs you. Your PRs, CI runs, dev servers and clipboard history sit next to music and your calendar.
+  Nubrix shows every Claude Code session in the notch, lets you approve permission requests right there, and takes you to the session that needs you. Your PRs, CI runs, dev servers and clipboard history sit next to music, your calendar, AirPods battery and small everyday alerts. Not a developer? Switch the developer parts off during setup and keep the rest.
 </p>
 
 <p align="center">
@@ -37,14 +37,15 @@
   <sub>Images are rendered mockups with sample data. See <a href="docs/images/README.md">docs/images</a>.</sub>
 </p>
 
-## What's new in 0.1.2
+## What's new
 
-- **Exact tab in Ghostty and Warp.** Click a Claude session and its own tab comes to the front, as in Terminal and iTerm.
-- **Update check, opt-in.** Nubrix tells you when a newer release exists and shows the command for your install type. It downloads nothing.
-- **Vitrin is encrypted on disk.** Clipboard and screenshot history is stored with AES-GCM, and the key stays in your login keychain.
-- **Unread counts without Full Disk Access.** Dock badge numbers of the apps you pick show in the notch.
-- **Permissions on first use.** Nothing is asked at launch, and Settings has a new Permissions tab with live status and Grant buttons.
-- **Unit tests and a CI test job.**
+Coming in the next release:
+
+- **Simple setup.** One screen of plain switches: pick what you want in the notch. Developer tabs are off unless you say "I write code".
+- **Everyday alerts.** Small iPhone-style cards for AirPods and other device batteries, where sound plays, drives (with Eject), the microphone or camera turning on, and losing or getting back internet. Each has its own switch in Settings, Everyday.
+- **Notifications that drop down.** Notifications from other apps can drop from the notch as a card, like on iPhone, or stay beside the notch. The Notifications tab groups them by conversation, by app or not at all.
+- **Updates install themselves.** Automatic update checks and installs are on by default.
+- **Music just works.** "Any app (Now Playing)" follows whatever plays, browsers included, and Nubrix falls back to Spotify or Apple Music by itself when Now Playing is not available.
 
 Full list: [CHANGELOG.md](CHANGELOG.md).
 
@@ -255,9 +256,9 @@ Optional and off by default. Pick the apps, such as WhatsApp, Slack or Mail. Nub
 
 **Notifications** need Full Disk Access, because macOS has no public way to read other apps' notifications. A short guide walks you through granting it, and "Quit & Reopen" brings you back to where you started.
 
-- New notifications appear as a banner on the closed notch and in the Notifications tab, which keeps the last 50.
-- Banners show the app icon, the chat or sender and the message, disappear after 6 seconds, and open the app when clicked. New messages from the same chat update the banner and its counter instead of opening a new one.
-- The tab stacks notifications from the same chat into one card with the newest message and "+N more". Click "+N more" to see them all. A group or channel name, or a mail subject, gets its own small line and is never mixed into the message.
+- New notifications appear on the closed notch and in the Notifications tab, which keeps the last 50.
+- Pick how they look in Settings, Notifications, How they look: a card that drops from the notch like on iPhone (app icon, sender, message), or one line beside the notch. Either way it disappears after 6 seconds and opens the app when clicked. New messages from the same chat update the card and its counter instead of opening a new one. Turn cards off to collect notifications in the tab only.
+- The tab groups notifications by conversation (the default), by app, or not at all. A group shows the newest message and "+N"; click it to see them all, or clear the whole group with its x. A group or channel name, or a mail subject, gets its own small line and is never mixed into the message.
 - Only the apps you tick are read, and the list lives in memory only. You can hide message text, and notifications from the app in front are skipped.
 
 **Unread counts** need no permission. "Show unread counts" shows the number on the Dock icon of each ticked app that is running.
@@ -268,6 +269,18 @@ Optional and off by default. Pick the apps, such as WhatsApp, Slack or Mail. Nub
 <p align="center">
   <img src="docs/images/notifications.png" alt="The Notifications tab listing a WhatsApp, a Slack and a Mail notification with app filters, two closed-notch banners, and the Other apps settings next to the Full Disk Access guide" width="100%">
 </p>
+
+### Everyday alerts and device batteries
+
+Small cards that drop from the notch for a few seconds, like on iPhone. Each has its own switch in Settings, Everyday, and all are on by default:
+
+- **AirPods and other devices.** When AirPods, Beats, a Magic Mouse, Keyboard or Trackpad connects, the card shows its battery (left, right and case for AirPods), and again once when it drops to 20% or less. The battery menu in the notch lists every connected device. macOS asks for Bluetooth access the first time.
+- **Where sound plays.** "Sound plays on AirPods Pro" when the output moves to headphones, speakers or a display.
+- **Drives and memory cards.** The name and free space when one is connected, with an Eject button, and a note when it is safe to unplug.
+- **Microphone and camera.** A card when an app starts using the microphone or a camera, with the app's name on macOS 14.2 and later. Nubrix only reads whether they are in use and records nothing.
+- **Internet.** "You're offline" when the connection drops and "Back online" when it returns.
+
+None of this needs an account or leaves your Mac. [How each one is read](docs/nubrix/PRIVACY-AND-SECURITY.md#device-batteries-and-everyday-alerts).
 
 ### Calendar, meetings and mirror
 
@@ -283,7 +296,7 @@ Optional and off by default. Pick the apps, such as WhatsApp, Slack or Mail. Nub
 
 The everyday notch features are here too:
 
-- Now playing with controls and a visualizer, for system Now Playing, Apple Music, Spotify and YouTube Music. Synced lyrics are optional.
+- Now playing with controls and a visualizer. The default source, "Any app (Now Playing)", follows whatever plays, browsers included; Apple Music, Spotify and YouTube Music can be picked instead. If Now Playing does not work on your Mac, Nubrix uses Spotify or Apple Music by itself. Synced lyrics are optional.
 - Volume, display brightness and keyboard brightness HUDs in the notch (optional).
 - A file shelf with drag and drop and AirDrop.
 
@@ -312,7 +325,7 @@ Every switch and where it lives: [docs/nubrix/PERMISSIONS-AND-SETTINGS.md](docs/
 
 ## Privacy and security
 
-- **Local only.** No account, no analytics and no Nubrix server. Automatic updates through Sparkle are optional and off until you turn them on. The network is used only for GitHub (with your token), the signed update feed on github.com when you turn on update checks or press Check Now, lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
+- **Local only.** No account, no analytics and no Nubrix server. Automatic updates through Sparkle are on by default and can be turned off in Settings, About, Updates. The network is used only for GitHub (with your token), the signed update feed on github.com (once a day while automatic checks are on, or when you press Check Now), lyrics (off by default), cover art, and a visualizer animation if you turn off the built-in one. Plan usage is read by running your own `claude` CLI. [Complete list](docs/nubrix/PRIVACY-AND-SECURITY.md#network-use).
 - **Encrypted history.** Vitrin encrypts what it stores with AES-GCM. The key is a keychain item that does not sync through iCloud.
 - **Sandboxed.** The app runs in the macOS sandbox. The only unsandboxed part is the small helper `NubrixHelper`, which handles keys and brightness, reads plan usage and, when you turn it on, opens the notification database read-only.
 - **Sealed hooks.** The scripts Claude Code runs are read-only copies the app itself cannot change. They talk to Nubrix over loopback only, with a random port and token, and they verify Nubrix with an HMAC challenge before trusting an answer.
@@ -322,7 +335,7 @@ Details: [docs/nubrix/PRIVACY-AND-SECURITY.md](docs/nubrix/PRIVACY-AND-SECURITY.
 
 ## Permissions
 
-The first launch asks for none. Nubrix asks for a permission the first time you use a feature that needs it, with a short explanation first:
+The first launch is one screen of switches and asks only for what you switch on there. Otherwise Nubrix asks for a permission the first time you use a feature that needs it, with a short explanation first:
 
 - Calendars for the calendar and meetings
 - Camera for Mirror
@@ -330,8 +343,9 @@ The first launch asks for none. Nubrix asks for a permission the first time you 
 - Automation for Spotify, Apple Music, and opening Terminal, iTerm or Ghostty sessions
 - Your screenshot folder (read-only) for Vitrin
 - Full Disk Access for notifications from other apps
+- Bluetooth for the battery of AirPods and other devices (asked once setup is done)
 
-Warp tab jump and Dock badge counts need no permission, and there is no Screen Recording permission. Nubrix never picks Apple Music for you: Automation for Music or Spotify is asked only after you choose that source.
+Warp tab jump and Dock badge counts need no permission, and there is no Screen Recording permission. Automation for Music or Spotify is asked only when that source is used: after you choose it, or when Now Playing does not work on your Mac and Nubrix falls back to it.
 
 Settings, Permissions shows the live state of each one. Turning a switch off stops the feature. To take back a permission, use System Settings, Privacy & Security. [Full table](docs/nubrix/PERMISSIONS-AND-SETTINGS.md#permissions).
 
@@ -354,11 +368,11 @@ You do this once per download. On macOS 14 Sonoma you can instead right-click Nu
 
 ## Updating
 
-Nubrix can update itself, but only if you ask. Open Settings, About, Updates:
+Nubrix keeps itself up to date. Both switches below are on by default; turn them off in Settings, About, Updates:
 
-- **Check for updates automatically** asks github.com once a day for a signed update feed. It is off until you turn it on.
+- **Check for updates automatically** asks github.com once a day for a signed update feed.
 - **Install updates automatically** (needs the first) downloads in the background and installs when you quit Nubrix.
-- **Check Now**, also in the menu bar, looks right away. An update is installed only after you confirm it, unless you turned on the automatic install, and only if its EdDSA signature and its Apple Developer ID signature check out.
+- **Check Now**, also in the menu bar, looks right away. With the automatic install off, an update is installed only after you confirm it. Either way it is installed only if its EdDSA signature and its Apple Developer ID signature check out.
 
 Only Developer ID releases (Homebrew, the install script, the release zip) update themselves. A source or Debug build shows `git pull && scripts/install-local.sh` instead. Nubrix 0.1.2 and older have no updater, so update those once by hand, with the method you installed with:
 

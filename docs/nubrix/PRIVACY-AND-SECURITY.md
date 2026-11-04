@@ -4,14 +4,14 @@ How Nubrix keeps your data on your Mac and limits what each part can do. For a s
 
 ## Local only
 
-Everything stays on your Mac. Nubrix has no analytics, no account and sends nothing to a Nubrix server. Automatic updates through Sparkle are optional and off until you turn them on in Settings, About, Updates; until then Nubrix makes no update request and installs nothing.
+Everything stays on your Mac. Nubrix has no analytics, no account and sends nothing to a Nubrix server. Automatic updates through Sparkle are on by default; turn them off in Settings, About, Updates, and Nubrix then makes no update request and installs nothing unless you press Check Now.
 
 ## Network use
 
 The complete list:
 
 - `api.github.com`, only if you add a fine-grained read-only token (off until then; see [GitHub integration](../../README.md#github-integration)). The token goes nowhere else.
-- `github.com/murathanbakti/nubrix/releases/latest/download/appcast.xml` (GitHub redirects to `release-assets.githubusercontent.com`), only when automatic checks are on (once a day) or you press Check Now. Off by default. Sparkle sends a plain GET with `User-Agent: Nubrix/<version> Sparkle/<version>`, no GitHub token, no cookies and no system profile (`SUEnableSystemProfiling` is off). The feed must carry a valid EdDSA signature (`SURequireSignedFeed`). When you install an update (or with "Install updates automatically"), Sparkle downloads `Nubrix-X.Y.Z.zip` from the same release, checks its EdDSA signature before unpacking (`SUVerifyUpdateBeforeExtraction`) and checks that the new app is signed with the same Developer ID. Only Developer ID release builds do any of this; source and Debug builds never start the updater. Stored on your Mac (app container defaults): `SUEnableAutomaticChecks`, `SUAutomaticallyUpdate`, `SULastCheckTime` and Sparkle's skipped-version state.
+- `github.com/murathanbakti/nubrix/releases/latest/download/appcast.xml` (GitHub redirects to `release-assets.githubusercontent.com`), once a day while automatic checks are on (the default) or when you press Check Now. Sparkle sends a plain GET with `User-Agent: Nubrix/<version> Sparkle/<version>`, no GitHub token, no cookies and no system profile (`SUEnableSystemProfiling` is off). The feed must carry a valid EdDSA signature (`SURequireSignedFeed`). When an update is installed (automatically by default, or after you confirm it), Sparkle downloads `Nubrix-X.Y.Z.zip` from the same release, checks its EdDSA signature before unpacking (`SUVerifyUpdateBeforeExtraction`) and checks that the new app is signed with the same Developer ID. Only Developer ID release builds do any of this; source and Debug builds never start the updater. Stored on your Mac (app container defaults): `SUEnableAutomaticChecks`, `SUAutomaticallyUpdate`, `SULastCheckTime` and Sparkle's skipped-version state.
 - `lrclib.net` receives the track title and artist when lyrics are turned on (off by default).
 - LottieFiles: a visualizer animation (JSON) is downloaded when the built-in music visualizer is turned off in Settings.
 - Artwork URLs supplied by Spotify or YouTube Music are fetched to show the cover.
@@ -20,7 +20,7 @@ The complete list:
 
 ## Permissions
 
-Nubrix asks for nothing at launch. Each permission is asked the first time you use the feature that needs it, and Settings, Permissions shows the state of all of them. That tab reads the status without asking, so opening it never shows a system dialog. Automation for Music or Spotify is asked only after you choose that source; Nubrix never picks Apple Music by itself. Accessibility and Full Disk Access are recorded by macOS under "Nubrix". Version 0.1.1 and earlier asked for camera, calendar, Accessibility and Full Disk Access up front in onboarding; 0.1.2 fixed this. Details are in [PERMISSIONS-AND-SETTINGS.md](PERMISSIONS-AND-SETTINGS.md).
+Nubrix asks for nothing at launch. Each permission is asked the first time you use the feature that needs it, and Settings, Permissions shows the state of all of them. That tab reads the status without asking, so opening it never shows a system dialog. Automation for Music or Spotify is asked when that source is used: after you choose it, or when Now Playing does not work on your Mac and Nubrix falls back to Spotify (if installed) or Apple Music. Bluetooth is asked once setup is done, when "Device and Mac alerts" is on (the default), to read the battery of AirPods and other Bluetooth devices. Accessibility and Full Disk Access are recorded by macOS under "Nubrix". Version 0.1.1 and earlier asked for camera, calendar, Accessibility and Full Disk Access up front in onboarding; 0.1.2 fixed this. Details are in [PERMISSIONS-AND-SETTINGS.md](PERMISSIONS-AND-SETTINGS.md).
 
 ## Sandbox and helper split
 
@@ -90,9 +90,19 @@ Kept in the macOS Keychain only and sent only to `api.github.com`. Nubrix only s
 
 Mirror uses the camera only for a live preview layer in the notch panel. There is no video or photo output, so no frame is recorded, saved or sent. The camera starts when the panel opens and stops when it closes. Nubrix asks for camera access only when you click "Turn On Camera" in the Mirror panel, never at launch or in onboarding.
 
+## Device batteries and everyday alerts
+
+These run on your Mac only. Nothing is written to disk, logged or sent anywhere, and each one has its own switch in Settings, Everyday. While a switch is off, that part reads nothing.
+
+- **Device batteries.** Nubrix reads the battery level of connected Bluetooth devices: AirPods and Beats through IOBluetooth (the left, right and case levels are private properties, read only after checking they exist), and Magic Mouse, Keyboard and Trackpad from the IOKit registry (`BatteryPercent`). It reads again a few seconds after a device connects and then once a minute while one is connected. Needs the Bluetooth permission and the `com.apple.security.device.bluetooth` entitlement.
+- **Sound output.** Listens for changes of the default output device in Core Audio and reads the new device's name. No permission.
+- **Drives.** Uses the system's mount and unmount notifications and reads the volume name and free space of external drives and memory cards. Eject calls macOS's own eject; if the sandbox does not allow it, Nubrix opens the drive in Finder instead. No permission.
+- **Microphone and camera.** Reads only whether the microphone or a camera is in use (Core Audio and Core Media IO "running somewhere" flags). On macOS 14.2 and later it also reads which app is using the microphone. Nubrix never opens the microphone or camera for this and records nothing. No permission. Nubrix's own Mirror is ignored.
+- **Internet.** `NWPathMonitor` reports whether the Mac has a network path. Nubrix sends no request to check this.
+
 ## Notifications from other apps
 
-Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50 notifications, stacked by chat): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access is granted to Nubrix (the helper does not appear separately) and lets it read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
+Off by default. When on, `NubrixHelper` opens the macOS notification database (`~/Library/Group Containers/group.com.apple.usernoted/db2/db`) read-only every 2 seconds, and only when the file has changed. Notifications of apps you did not tick never leave the helper. The app keeps the rest in memory only (the Notifications tab holds the last 50 notifications, grouped by chat, by app or not at all, as set in Settings): nothing is written to disk or logged, and notifications from before you turned the feature on, or from before a restart, are not shown. Full Disk Access is granted to Nubrix (the helper does not appear separately) and lets it read more than this one file; turn it off in System Settings, Privacy & Security, Full Disk Access when you stop using the feature. The database format is undocumented, so a macOS update can break the feature; Settings then shows "Not supported on this macOS version".
 
 ## Unread counts (Dock badges)
 

@@ -37,7 +37,7 @@ final class LaunchAuditTests: XCTestCase {
     }
 
     func testFreshDefaultsShowOnboarding() {
-        XCTAssertEqual(LaunchFlow(defaults: suite).initialAction(musicSourceNeeded: false), .onboarding)
+        XCTAssertEqual(LaunchFlow(defaults: suite).initialAction(), .onboarding)
         assertSilent()
     }
 
@@ -61,15 +61,22 @@ final class LaunchAuditTests: XCTestCase {
         assertSilent()
     }
 
-    func testDeprecatedNowPlayingResolvesToNothing() {
-        XCTAssertNil(MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: true))
-        XCTAssertNotEqual(
-            MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: false),
+    func testDeprecatedNowPlayingFallsBackToAnInstalledPlayer() {
+        XCTAssertEqual(
+            MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: true, spotifyInstalled: true),
+            .spotify
+        )
+        XCTAssertEqual(
+            MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: true, spotifyInstalled: false),
             .appleMusic
         )
         XCTAssertEqual(
-            MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: false),
+            MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: false, spotifyInstalled: true),
             .nowPlaying
+        )
+        XCTAssertEqual(
+            MusicManager.resolvedControllerType(preferred: .youtubeMusic, nowPlayingDeprecated: true, spotifyInstalled: true),
+            .youtubeMusic
         )
         assertSilent()
     }
@@ -95,16 +102,18 @@ final class LaunchAuditTests: XCTestCase {
         fake.statuses[.accessibility] = .notDetermined
         fake.statuses[.fullDiskAccess] = .notDetermined
 
-        XCTAssertEqual(flow.initialAction(musicSourceNeeded: true), .fdaReturn(.notch))
+        XCTAssertEqual(flow.initialAction(), .fdaReturn(.notch))
         let hudOK = await NubrixCoordinator.verifyHUDAtLaunch(hudEnabled: true, client: Permissions.client)
         XCTAssertFalse(hudOK)
-        XCTAssertNil(MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: true))
-        XCTAssertTrue(LaunchFlow.musicSourceNeeded(mediaControlEnabled: true, nowPlayingDeprecated: true, controller: .nowPlaying))
+        XCTAssertEqual(
+            MusicManager.resolvedControllerType(preferred: .nowPlaying, nowPlayingDeprecated: true, spotifyInstalled: false),
+            .appleMusic
+        )
         let model = PermissionsSettingsModel(client: fake)
         await model.refresh()
         let outcome = await flow.resolveFDAReturn(origin: .notch, client: Permissions.client)
         XCTAssertEqual(outcome, .stillOff(.notch))
-        XCTAssertEqual(flow.initialAction(musicSourceNeeded: true), .musicSource)
+        XCTAssertEqual(flow.initialAction(), .none)
         assertSilent()
     }
 }

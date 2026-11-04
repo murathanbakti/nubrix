@@ -5,8 +5,8 @@ final class SettingsTabTests: XCTestCase {
     func testSidebarOrderFollowsGroups() {
         XCTAssertEqual(SettingsTab.allCases, [
             .general, .appearance, .permissions,
+            .tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds,
             .claudeCode, .github, .dev,
-            .tabs, .notifications, .vitrin, .media, .calendar, .shelf, .huds,
             .shortcuts, .advanced, .about
         ])
     }
@@ -14,7 +14,7 @@ final class SettingsTabTests: XCTestCase {
     func testGroupsHoldTheirTabsInOrder() {
         XCTAssertEqual(SettingsTabGroup.main.tabs, [.general, .appearance, .permissions])
         XCTAssertEqual(SettingsTabGroup.developer.tabs, [.claudeCode, .github, .dev])
-        XCTAssertEqual(SettingsTabGroup.notch.tabs, [.tabs, .notifications, .vitrin, .media, .calendar, .shelf, .huds])
+        XCTAssertEqual(SettingsTabGroup.notch.tabs, [.tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds])
         XCTAssertEqual(SettingsTabGroup.app.tabs, [.shortcuts, .advanced, .about])
     }
 
