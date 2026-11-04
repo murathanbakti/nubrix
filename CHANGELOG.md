@@ -2,7 +2,7 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-11-05
 
 ### Added
 
@@ -140,6 +140,8 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.3.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.3.0
+[0.2.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.2.0
 [0.1.2]: https://github.com/murathanbakti/nubrix/releases/tag/v0.1.2
 [0.1.1]: https://github.com/murathanbakti/nubrix/releases/tag/v0.1.1
 [0.1.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.1.0

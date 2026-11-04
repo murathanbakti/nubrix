@@ -37,9 +37,7 @@
   <sub>Images are rendered mockups with sample data. See <a href="docs/images/README.md">docs/images</a>.</sub>
 </p>
 
-## What's new
-
-Coming in the next release:
+## What's new in 0.3.0
 
 - **Simple setup.** One screen of plain switches: pick what you want in the notch. Developer tabs are off unless you say "I write code".
 - **Everyday alerts.** Small iPhone-style cards for AirPods and other device batteries, where sound plays, drives (with Eject), the microphone or camera turning on, and losing or getting back internet. Each has its own switch in Settings, Everyday.
