@@ -55,10 +55,11 @@ elif [ "${NUBRIX_REQUIRE_SPARKLE_KEY:-0}" = 1 ]; then
 else
   echo "Note: SUPublicEDKey is empty, so this build reports updates as unavailable" >&2
 fi
-for k in SUEnableInstallerLauncherService SUVerifyUpdateBeforeExtraction SURequireSignedFeed; do
+# Updates are checked and installed automatically by default (from 0.3.0).
+for k in SUEnableInstallerLauncherService SUVerifyUpdateBeforeExtraction SURequireSignedFeed SUEnableAutomaticChecks SUAutomaticallyUpdate; do
   [ "$(pl "$k" || true)" = true ] || fail "$k must be true"
 done
-for k in SUEnableAutomaticChecks SUAutomaticallyUpdate SUEnableSystemProfiling SUShowReleaseNotes; do
+for k in SUEnableSystemProfiling SUShowReleaseNotes; do
   [ "$(pl "$k" || true)" = false ] || fail "$k must be false"
 done
 for k in SUEnableDownloaderService SUAllowsAutomaticUpdates SUScheduledCheckInterval SUSignedFeedFailureExpirationInterval; do
