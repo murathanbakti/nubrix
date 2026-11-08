@@ -37,17 +37,13 @@
   <sub>Images are rendered mockups with sample data. See <a href="docs/images/README.md">docs/images</a>.</sub>
 </p>
 
-## Unreleased
+## What's new in 0.4.0
 
-- **Controls tab.** A new tab next to Home, like Control Center on an iPhone: one-click Wi-Fi, Bluetooth, sound and microphone switches, volume, brightness and keyboard light sliders, and lists to join Wi-Fi networks, connect Bluetooth devices (with their batteries), pick where sound plays and records, and eject drives. See [Controls](#controls).
-
-## What's new in 0.3.0
-
-- **Simple setup.** One screen of plain switches: pick what you want in the notch. Developer tabs are off unless you say "I write code".
-- **Everyday alerts.** One-line alerts beside the notch for AirPods and other device batteries, where sound plays, drives (with Eject), the microphone or camera turning on, and losing or getting back internet. Each has its own switch in Settings, Everyday.
-- **Notifications.** Notifications from other apps show beside the notch. The Notifications tab groups them by conversation, by app or not at all.
-- **Updates install themselves.** Automatic update checks and installs are on by default.
-- **Music just works.** "Any app (Now Playing)" follows whatever plays, browsers included, and Nubrix falls back to Spotify or Apple Music by itself when Now Playing is not available.
+- **Controls tab.** A new tab next to Home, like Control Center on an iPhone: one-click Wi-Fi, Bluetooth, sound, microphone and mirroring switches, volume, brightness and keyboard light sliders, and lists to join Wi-Fi networks, connect Bluetooth devices (with each battery: L, R and Case), pick where sound plays and records, and eject drives. See [Controls](#controls).
+- **Screen sharing alert.** A one-line alert beside the notch when another app shares or records your screen or it is mirrored, and a Hide notch button in the Controls tab.
+- **AirPlay mirroring.** Nubrix no longer gets in the way while macOS sets up AirPlay or other display changes.
+- **Smaller alerts.** Notifications, device batteries and everyday alerts show as one line beside the notch; the big drop-down cards are gone.
+- **Brightness fixes.** Brightness works when the main display is an external monitor, and the keyboard light works on more Macs.
 
 Full list: [CHANGELOG.md](CHANGELOG.md).
 

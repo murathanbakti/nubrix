@@ -2,41 +2,40 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-08
 
 ### Added
 
-- Controls tab, next to Home: choose where sound plays and records, set volume (and input volume when the microphone allows it), mute, connect or disconnect paired Bluetooth devices with their battery, eject drives, and set display and keyboard brightness. It can be hidden in Settings, Tabs. Tapping a sound output or drive alert on the closed notch opens it.
-- Wi-Fi in the Controls tab, first in the list: switch Wi-Fi on or off, see the network you are on with its IP address and signal, and join open networks. Secured networks open Wi-Fi settings; Nubrix never asks for a password. Network names need Location access, asked only when you tap "Show network names". Settings, Permissions shows its status.
-
-- Quick toggles at the top of the Controls tab: round Wi-Fi, Bluetooth, Sound (mute) and Mic (mute) switches, iPhone style. Wi-Fi and Bluetooth also open their list. Bluetooth can now be switched on and off from Nubrix (through the helper); if your Mac does not allow it, the switch opens Bluetooth settings. Muting the microphone sets its level to 0 and restores it.
-
-- Screen sharing alert beside the closed notch ("Screen is shared", with "Notch hidden" or "Notch visible") when another app shares or records your screen or it is mirrored to a display or AirPlay TV, with a switch in Settings, Everyday ("When your screen is shared"). The Controls tab shows an orange banner while it lasts, with a Hide notch / Show notch button.
-- Mirroring quick toggle in the Controls tab. It is lit while the screen is mirrored; macOS gives apps no way to start AirPlay, so it opens Displays settings. The quick toggles are slightly smaller (40 points) to fit five.
+- Controls tab, next to Home, like Control Center on an iPhone. The notch opens taller on this tab (270 instead of 190 points); other tabs keep their size. It can be hidden in Settings, Tabs.
+  - Quick toggles: Wi-Fi, Bluetooth, Sound (mute), Mic (mute) and Mirroring. Wi-Fi and Bluetooth also open their list. Muting the microphone sets its level to 0 and restores it.
+  - Capsule sliders for volume, display brightness and keyboard light. Dragging never shows the volume or brightness HUD. A slider that cannot work on your Mac says "Not available".
+  - Lists for Wi-Fi, Bluetooth, Output, Input and Drives (only while a drive is connected). Click a row to pick where sound plays or records, connect or disconnect a Bluetooth device, or join an open Wi-Fi network; secured networks open Wi-Fi settings and Nubrix never asks for a password. Bluetooth devices show each battery (L, R, Case), also on Output and Input. The microphone level is at the top of the Input list.
+  - Tapping a sound output, drive or screen sharing alert on the closed notch opens the tab.
+- Bluetooth can be switched on and off from Nubrix (through the helper). If your Mac does not allow it, the switch opens Bluetooth settings.
+- Wi-Fi network names need Location access, asked only when you tap "Show network names". Settings, Permissions shows its status.
+- Screen sharing alert beside the closed notch ("Screen is shared", with "Notch hidden" or "Notch visible") when another app shares or records your screen or it is mirrored to a display or AirPlay TV. Switch in Settings, Everyday ("When your screen is shared"), on by default. The Controls tab shows an orange banner meanwhile, with Hide notch / Show notch.
+- The Mirroring toggle is lit while the screen is mirrored. macOS gives apps no way to start AirPlay, so it opens Displays settings.
 
 ### Changed
 
-- Easier Controls tab: the three capsule sliders (volume, brightness, keyboard light) sit under the quick toggles, the microphone level moved to the top of the Input list, the Wi-Fi switch row is replaced by the quick toggle, and the Drives tab shows only while a drive is connected. With Bluetooth off, the list offers "Turn On".
-- The notch is taller on the Controls tab (270 instead of 190 points) and the tab is bigger and easier to read: larger sliders, text and buttons, and four list rows fit without scrolling. Other tabs keep their size.
-- Bluetooth batteries in the Controls tab show each part (L, R, Case) in its battery color, also for Bluetooth sound devices on Output and Input.
-- The Controls tab has a new look: no boxes, Control Center style capsule sliders for sound and display, and a quiet device list with a segmented switcher (Output, Input, Bluetooth, Drives). Click a row to select or connect it; the selected device is marked in the accent color.
 - Settings, General: "Show on all displays" is now "Show the notch on every display", with a line saying it also covers HDMI, USB-C and AirPlay displays.
+- After a display is connected or removed, the notch settles about a second later instead of at once.
 
 ### Fixed
 
-- AirPlay screen mirroring should no longer be blocked while Nubrix is running (not yet confirmed on real AirPlay hardware). Nubrix now leaves its windows alone while macOS reconfigures the displays, waits until they have been quiet for a second before adding, moving or closing notch windows, hides its window layer during the change, and never puts a notch window on a display that only mirrors another one. Settings that change the notch while displays are changing are applied afterwards.
-- Brightness now works on Macs whose main display is an external monitor: it controls the built-in screen instead of failing. A slider that cannot work shows "Not available".
-- The keyboard light uses the keyboard's real id and sets the level without auto-adjust undoing it, so the slider and the brightness keys work on more Macs. Dragging a slider no longer sends out-of-order values.
-
-### Security
-
-- Screen sharing detection calls the private SkyLight function `SLSIsScreenWatcherPresent` (found at runtime, falling back to `CGSIsScreenWatcherPresent`) every 2 seconds while Nubrix runs. It returns only yes or no, needs no permission and works inside the sandbox; nothing is captured, stored or sent. Nubrix itself never captures the screen.
-- Bluetooth on/off uses the private IOBluetooth functions `IOBluetoothPreferenceGetControllerPowerState` and `IOBluetoothPreferenceSetControllerPowerState`, looked up at runtime. They run only in the unsandboxed helper (calling them from the sandboxed app hangs), which now has a Bluetooth usage description. Only a tap on the Bluetooth switch changes power; nothing is read or sent anywhere.
-- New entitlement `com.apple.security.personal-information.location` and the Location usage text, so macOS can show Wi-Fi network names. Nothing is asked at launch; the question appears only when you tap "Show network names" in the Controls tab. Location is not read or stored; Nubrix uses it only to be allowed to read network names.
+- AirPlay screen mirroring should no longer be blocked while Nubrix is running (not yet confirmed on real AirPlay hardware). Nubrix leaves its windows alone while macOS reconfigures the displays, waits until they have been quiet for a second, hides its window layer during the change (at most a few seconds) and never puts a notch window on a display that only mirrors another one.
+- Brightness works on Macs whose main display is an external monitor: it controls the built-in screen instead of failing. The brightness keys get the same fix.
+- The keyboard light uses the keyboard's real id and sets the level without auto-adjust undoing it. Dragging a slider no longer sends values out of order.
 
 ### Removed
 
-- The drop-down cards under the notch for notifications, device batteries and everyday alerts. They now show only as one line beside the notch, and the "Style" setting in Settings, Notifications is gone.
+- The drop-down cards under the notch for notifications, device batteries and everyday alerts. They show only as one line beside the notch, and the "Style" setting in Settings, Notifications is gone.
+
+### Security
+
+- New entitlement `com.apple.security.personal-information.location` and the Location usage text, so macOS can show Wi-Fi network names. Nothing is asked at launch. Location is not read or stored; Nubrix uses it only to be allowed to read network names.
+- Screen sharing detection calls the private SkyLight function `SLSIsScreenWatcherPresent` (falling back to `CGSIsScreenWatcherPresent`) every 2 seconds. It returns only yes or no, needs no permission and works inside the sandbox; nothing is captured, stored or sent. Nubrix never captures the screen.
+- Bluetooth on/off uses the private IOBluetooth functions `IOBluetoothPreferenceGetControllerPowerState` and `IOBluetoothPreferenceSetControllerPowerState`, looked up at runtime, only in the unsandboxed helper, which now has a Bluetooth usage description. Only a tap on the Bluetooth switch changes power.
 
 ## [0.3.0] - 2026-11-05
 
@@ -176,6 +175,7 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.4.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.4.0
 [0.3.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.3.0
 [0.2.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.2.0
 [0.1.2]: https://github.com/murathanbakti/nubrix/releases/tag/v0.1.2
