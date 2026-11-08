@@ -29,8 +29,8 @@ final class ControlsBatteryTests: XCTestCase {
     }
 
     func testMatchFallsBackToName() {
-        let list = [ControlsBluetoothDevice(id: "aa-bb-cc-dd-ee-ff", name: "Murathan's AirPods Pro", symbol: "x", connected: true)]
-        XCTAssertEqual(ControlsBattery.match(uid: "BuiltInSpeakerDevice", name: "murathan's airpods pro ", in: list)?.id, "aa-bb-cc-dd-ee-ff")
+        let list = [ControlsBluetoothDevice(id: "aa-bb-cc-dd-ee-ff", name: "Alex's AirPods Pro", symbol: "x", connected: true)]
+        XCTAssertEqual(ControlsBattery.match(uid: "BuiltInSpeakerDevice", name: "alex's airpods pro ", in: list)?.id, "aa-bb-cc-dd-ee-ff")
         XCTAssertNil(ControlsBattery.match(uid: "BuiltInSpeakerDevice", name: "MacBook Speakers", in: list))
     }
 
