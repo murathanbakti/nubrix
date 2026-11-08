@@ -19,7 +19,7 @@ struct NubrixHeader: View {
     private var showsTabBar: Bool {
         let shelf = (!tvm.isEmpty || coordinator.alwaysShowTabs) && layout.isVisible(.shelf)
         let claude = !agents.sessions.isEmpty && layout.isVisible(.agents)
-        return shelf || claude || layout.isVisible(.vitrin) || layout.isVisible(.dev) || layout.isVisible(.notifications)
+        return shelf || claude || layout.isVisible(.controls) || layout.isVisible(.vitrin) || layout.isVisible(.dev) || layout.isVisible(.notifications)
     }
     var body: some View {
         HStack(spacing: 0) {

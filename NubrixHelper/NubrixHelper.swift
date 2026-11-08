@@ -37,10 +37,11 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
     }
     
     private class KeyboardBrightnessClient {
-        private static let keyboardID: UInt64 = 1
         private var clientInstance: NSObject?
         private let getSelector = NSSelectorFromString("brightnessForKeyboard:")
         private let setSelector = NSSelectorFromString("setBrightness:forKeyboard:")
+        private let fadeSetSelector = NSSelectorFromString("setBrightness:fadeSpeed:commit:forKeyboard:")
+        private let idsSelector = NSSelectorFromString("copyKeyboardBacklightIDs")
 
         init() {
             var loaded = false
@@ -58,24 +59,40 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
             }
         }
 
-        var isAvailable: Bool { clientInstance != nil }
+        var isAvailable: Bool { clientInstance != nil && currentBrightness() != nil }
+
+        /// First keyboard backlight id from `copyKeyboardBacklightIDs`, else 1.
+        private var keyboardID: UInt64 {
+            guard let clientInstance, clientInstance.responds(to: idsSelector),
+                  let result = clientInstance.perform(idsSelector)?.takeRetainedValue() as? NSArray,
+                  let first = (result.firstObject as? NSNumber)?.uint64Value
+            else { return 1 }
+            return first
+        }
 
         func currentBrightness() -> Float? {
             guard let clientInstance,
                   let fn: BrightnessGetter = methodIMP(on: clientInstance, selector: getSelector, as: BrightnessGetter.self)
             else { return nil }
-            return fn(clientInstance, getSelector, Self.keyboardID)
+            let value = fn(clientInstance, getSelector, keyboardID)
+            return value.isFinite && value >= 0 && value <= 1 ? value : nil
         }
 
         func setBrightness(_ value: Float) -> Bool {
-            guard let clientInstance,
-                  let fn: BrightnessSetter = methodIMP(on: clientInstance, selector: setSelector, as: BrightnessSetter.self)
+            guard let clientInstance else { return false }
+            let id = keyboardID
+            // Commit with no fade, so auto-adjust does not undo the change.
+            if let fn: FadeBrightnessSetter = methodIMP(on: clientInstance, selector: fadeSetSelector, as: FadeBrightnessSetter.self) {
+                return fn(clientInstance, fadeSetSelector, value, 0, ObjCBool(true), id).boolValue
+            }
+            guard let fn: BrightnessSetter = methodIMP(on: clientInstance, selector: setSelector, as: BrightnessSetter.self)
             else { return false }
-            return fn(clientInstance, setSelector, value, Self.keyboardID).boolValue
+            return fn(clientInstance, setSelector, value, id).boolValue
         }
 
         private typealias BrightnessGetter = @convention(c) (NSObject, Selector, UInt64) -> Float
         private typealias BrightnessSetter = @convention(c) (NSObject, Selector, Float, UInt64) -> ObjCBool
+        private typealias FadeBrightnessSetter = @convention(c) (NSObject, Selector, Float, Int32, ObjCBool, UInt64) -> ObjCBool
 
         private func methodIMP<T>(on object: NSObject, selector: Selector, as type: T.Type) -> T? {
             guard let cls = object_getClass(object),
@@ -97,36 +114,54 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
     }
 
     @objc func setKeyboardBrightness(_ value: Float, with reply: @escaping (Bool) -> Void) {
-        reply(Self.keyboardClient.setBrightness(value))
+        reply(Self.keyboardClient.setBrightness(max(0, min(1, value))))
     }
+
     // MARK: - Screen Brightness (moved from client app into helper)
 
+    /// Display to control: the main display if DisplayServices can read it, else the
+    /// built-in display. `nil` means use the IOKit path on the main display.
+    private func brightnessDisplayID() -> CGDirectDisplayID? {
+        var probe: Float = 0
+        let main = CGMainDisplayID()
+        if displayServicesGetBrightness(displayID: main, out: &probe) { return main }
+
+        var count: UInt32 = 0
+        CGGetOnlineDisplayList(0, nil, &count)
+        guard count > 0 else { return nil }
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        CGGetOnlineDisplayList(count, &ids, &count)
+        for id in ids.prefix(Int(count)) where CGDisplayIsBuiltin(id) != 0 {
+            if displayServicesGetBrightness(displayID: id, out: &probe) { return id }
+        }
+        return nil
+    }
+
     @objc func isScreenBrightnessAvailable(with reply: @escaping (Bool) -> Void) {
-        var b: Float = 0
-        reply(displayServicesGetBrightness(displayID: CGMainDisplayID(), out: &b) || ioServiceFor(displayID: CGMainDisplayID()) != nil)
+        reply(brightnessDisplayID() != nil || ioServiceFor(displayID: CGMainDisplayID()).map { IOObjectRelease($0); return true } ?? false)
     }
 
     @objc func currentScreenBrightness(with reply: @escaping (NSNumber?) -> Void) {
         var b: Float = 0
-        if displayServicesGetBrightness(displayID: CGMainDisplayID(), out: &b) {
+        if let id = brightnessDisplayID(), displayServicesGetBrightness(displayID: id, out: &b) {
             reply(NSNumber(value: b))
             return
         }
         if let io = ioServiceFor(displayID: CGMainDisplayID()) {
             var level: Float = 0
-            if IODisplayGetFloatParameter(io, 0, kIODisplayBrightnessKey as CFString, &level) == kIOReturnSuccess {
-                IOObjectRelease(io)
+            let ok = IODisplayGetFloatParameter(io, 0, kIODisplayBrightnessKey as CFString, &level) == kIOReturnSuccess
+            IOObjectRelease(io)
+            if ok {
                 reply(NSNumber(value: level))
                 return
             }
-            IOObjectRelease(io)
         }
         reply(nil)
     }
 
     @objc func setScreenBrightness(_ value: Float, with reply: @escaping (Bool) -> Void) {
         let clamped = max(0, min(1, value))
-        if displayServicesSetBrightness(displayID: CGMainDisplayID(), value: clamped) {
+        if let id = brightnessDisplayID(), displayServicesSetBrightness(displayID: id, value: clamped) {
             reply(true)
             return
         }
@@ -160,6 +195,16 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
         systemNotificationQueue.async {
             reply(self.systemNotificationReader.apps().encoded())
         }
+    }
+
+    // MARK: - Bluetooth power
+
+    @objc func bluetoothPowerState(with reply: @escaping (NSNumber?) -> Void) {
+        reply(BluetoothPowerBridge.state().map { NSNumber(value: $0) })
+    }
+
+    @objc func setBluetoothPower(_ on: Bool, with reply: @escaping (Bool) -> Void) {
+        reply(BluetoothPowerBridge.set(on))
     }
 
     // MARK: - Private helpers for DisplayServices / IOKit access
@@ -210,5 +255,56 @@ class NubrixHelper: NSObject, NubrixHelperProtocol {
             }
             return nil
         }()
+    }
+}
+
+
+/// Private IOBluetooth power functions. The first call sets up a CoreBluetooth coordinator that can
+/// wait forever when macOS never answers, so every call runs on a worker with a timeout; after a
+/// timeout the bridge stays "unavailable" instead of piling up blocked threads.
+private enum BluetoothPowerBridge {
+    private typealias GetFn = @convention(c) () -> Int32
+    private typealias SetFn = @convention(c) (Int32) -> Int32
+
+    private static let queue = DispatchQueue(label: "dev.nubrix.helper.bluetooth-power")
+    private static let lock = NSLock()
+    private static var stuck = false
+
+    private static let handle = dlopen("/System/Library/Frameworks/IOBluetooth.framework/IOBluetooth", RTLD_LAZY)
+
+    private static func run<T>(_ work: @escaping () -> T?) -> T? {
+        lock.lock()
+        let blocked = stuck
+        lock.unlock()
+        guard !blocked else { return nil }
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: T?
+        queue.async {
+            result = work()
+            semaphore.signal()
+        }
+        if semaphore.wait(timeout: .now() + 3) == .timedOut {
+            lock.lock()
+            stuck = true
+            lock.unlock()
+            return nil
+        }
+        return result
+    }
+
+    /// 1 on, 0 off, `nil` when unavailable.
+    static func state() -> Int32? {
+        run {
+            guard let handle, let sym = dlsym(handle, "IOBluetoothPreferenceGetControllerPowerState") else { return nil }
+            return unsafeBitCast(sym, to: GetFn.self)()
+        }
+    }
+
+    static func set(_ on: Bool) -> Bool {
+        run { () -> Bool? in
+            guard let handle, let sym = dlsym(handle, "IOBluetoothPreferenceSetControllerPowerState") else { return nil }
+            _ = unsafeBitCast(sym, to: SetFn.self)(on ? 1 : 0)
+            return true
+        } ?? false
     }
 }

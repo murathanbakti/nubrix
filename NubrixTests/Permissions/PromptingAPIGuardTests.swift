@@ -8,6 +8,7 @@ final class PromptingAPIGuardTests: XCTestCase {
         "NSAppleScript(",
         "CGRequest",
         "requestAuthorization(",
+        "requestWhenInUseAuthorization",
         "promptIfNeeded: true",
         ".requestAccessibilityAuthorization()",
         "AEDeterminePermissionToAutomateTarget"

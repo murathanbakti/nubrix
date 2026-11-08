@@ -50,7 +50,8 @@ struct GeneralSettings: View {
             }
             LaunchAtLogin.Toggle("Launch at login")
             Defaults.Toggle(key: .showOnAllDisplays) {
-                Text("Show on all displays")
+                Text("Show the notch on every display")
+                Text("Also on external displays connected with HDMI, USB-C or AirPlay.")
             }
             .onChange(of: showOnAllDisplays) {
                 NotificationCenter.default.post(

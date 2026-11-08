@@ -14,6 +14,7 @@ final class PermissionsSettingsModel: ObservableObject {
         .fullDiskAccess,
         .camera,
         .calendar,
+        .location,
         .automation(.music),
         .automation(.spotify),
         .automation(.terminal),
@@ -95,6 +96,7 @@ final class PermissionsSettingsModel: ObservableObject {
         case .fullDiskAccess: return "Notifications from other apps"
         case .camera: return "Mirror"
         case .calendar: return "Calendar and meeting countdown"
+        case .location: return "Wi-Fi network names in Controls"
         case .automation(.music): return "Apple Music as music source"
         case .automation(.spotify): return "Spotify as music source"
         case .automation(.terminal), .automation(.iterm), .automation(.ghostty): return "Jump to a Claude Code session tab"
@@ -116,6 +118,7 @@ final class PermissionsSettingsModel: ObservableObject {
         case .fullDiskAccess: return "externaldrive"
         case .camera: return "camera"
         case .calendar: return "calendar"
+        case .location: return "location"
         case .automation(.music): return "music.note"
         case .automation(.spotify): return "waveform"
         case .automation: return "terminal"

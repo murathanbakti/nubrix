@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import AVFoundation
+import CoreLocation
 import EventKit
 import Foundation
 
@@ -27,6 +28,7 @@ enum AppPermission: Hashable {
     case fullDiskAccess
     case camera
     case calendar
+    case location
     case automation(AutomationTarget)
     case pasteboard
 
@@ -36,6 +38,7 @@ enum AppPermission: Hashable {
         case .fullDiskAccess: return "Full Disk Access"
         case .camera: return "Camera"
         case .calendar: return "Calendar"
+        case .location: return "Location"
         case .automation(let target): return "Automation for \(target.displayName)"
         case .pasteboard: return "Paste from Other Apps"
         }
@@ -73,6 +76,8 @@ final class SystemPermissionClient: PermissionClient {
             return Self.map(AVCaptureDevice.authorizationStatus(for: .video))
         case .calendar:
             return Self.map(EKEventStore.authorizationStatus(for: .event))
+        case .location:
+            return Self.map(CLLocationManager().authorizationStatus)
         case .automation(let target):
             return await Self.automationStatus(target, ask: false)
         case .pasteboard:
@@ -93,6 +98,8 @@ final class SystemPermissionClient: PermissionClient {
         case .calendar:
             _ = try? await SharedEventStore.shared.store.requestFullAccessToEvents()
             return Self.map(EKEventStore.authorizationStatus(for: .event))
+        case .location:
+            return Self.map(await LocationAuthorizer.shared.request())
         case .automation(let target):
             guard Self.isRunning(target) else {
                 openSystemSettings(permission)
@@ -112,6 +119,7 @@ final class SystemPermissionClient: PermissionClient {
         case .fullDiskAccess: pane = "Privacy_AllFiles"
         case .camera: pane = "Privacy_Camera"
         case .calendar: pane = "Privacy_Calendars"
+        case .location: pane = "Privacy_LocationServices"
         case .automation: pane = "Privacy_Automation"
         case .pasteboard: pane = "Privacy_Pasteboard"
         }
@@ -143,6 +151,15 @@ final class SystemPermissionClient: PermissionClient {
         case .fullAccess: return .granted
         case .notDetermined: return .notDetermined
         case .denied, .restricted, .writeOnly: return .denied
+        @unknown default: return .denied
+        }
+    }
+
+    private static func map(_ status: CLAuthorizationStatus) -> PermissionStatus {
+        switch status {
+        case .authorizedAlways, .authorizedWhenInUse: return .granted
+        case .notDetermined: return .notDetermined
+        case .denied, .restricted: return .denied
         @unknown default: return .denied
         }
     }
@@ -182,4 +199,30 @@ final class SystemPermissionClient: PermissionClient {
         default: return .unavailable
         }
     }
+}
+
+/// Asks for Location (When In Use). macOS treats Wi-Fi network names as location data, so the
+/// Controls tab needs it for "Show network names". Only called when the user taps that row or Grant.
+@MainActor
+final class LocationAuthorizer: NSObject, CLLocationManagerDelegate {
+    static let shared = LocationAuthorizer()
+    private var manager: CLLocationManager?
+
+    func request() async -> CLAuthorizationStatus {
+        let manager = CLLocationManager()
+        manager.delegate = self
+        self.manager = manager
+        guard manager.authorizationStatus == .notDetermined else { return manager.authorizationStatus }
+        // A menu bar app has no active window; the prompt needs the app in front.
+        NSApp.activate(ignoringOtherApps: true)
+        manager.requestWhenInUseAuthorization()
+        // The answer comes back through the delegate; the status is enough to read here.
+        for _ in 0..<240 {
+            try? await Task.sleep(for: .milliseconds(250))
+            if manager.authorizationStatus != .notDetermined { break }
+        }
+        return manager.authorizationStatus
+    }
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {}
 }

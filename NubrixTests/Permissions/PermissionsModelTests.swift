@@ -6,8 +6,8 @@ final class PermissionsModelTests: XCTestCase {
     private let allStatuses: [PermissionStatus] = [.granted, .denied, .notDetermined, .unavailable]
 
     func testRowsListsEveryPermissionOnce() {
-        XCTAssertEqual(PermissionsSettingsModel.rows.count, 10)
-        XCTAssertEqual(Set(PermissionsSettingsModel.rows).count, 10)
+        XCTAssertEqual(PermissionsSettingsModel.rows.count, 11)
+        XCTAssertEqual(Set(PermissionsSettingsModel.rows).count, 11)
     }
 
     func testMappingForEveryRowAndStatus() {

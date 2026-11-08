@@ -77,7 +77,7 @@ final class SettingsTabTests: XCTestCase {
         for view in NotchViews.allCases {
             let tab = NotchTabCatalog.settingsTab(for: view)
             let hint = NotchTabCatalog.featureOffHint(for: view)
-            if view == .home {
+            if view == .home || view == .controls {
                 XCTAssertNil(tab)
                 XCTAssertNil(hint)
                 continue
@@ -99,7 +99,7 @@ final class SettingsTabTests: XCTestCase {
 
     func testEveryNotchTabHasASettingsTabInTheNotchOrDeveloperGroup() {
         let allowed: Set<SettingsTabGroup> = [.notch, .developer]
-        for view in NotchViews.allCases where view != .home {
+        for view in NotchViews.allCases where view != .home && view != .controls {
             let tab = NotchTabCatalog.settingsTab(for: view)
             XCTAssertTrue(tab.map { allowed.contains($0.group) } ?? false, "\(view)")
         }

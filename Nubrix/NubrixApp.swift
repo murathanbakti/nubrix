@@ -258,6 +258,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
+        followNotchHeight(of: window, viewModel: viewModel)
 
         // Observe when the window's screen changes so we can update drag detectors
         windowScreenDidChangeObserver = NotificationCenter.default.addObserver(
@@ -269,6 +270,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
         }
         return window
+    }
+
+    /// The window is only as tall as the open notch needs: the normal height, and taller while the
+    /// Controls tab is open. When the notch is closed or on another tab the window is exactly the size
+    /// it always was, so the extra transparent area never sits over apps below. Growing happens at
+    /// once (before the notch animates down), shrinking after the close animation has finished.
+    private func followNotchHeight(of window: NSWindow, viewModel: NubrixViewModel) {
+        var shrinkTask: Task<Void, Never>?
+        let apply: @MainActor (CGFloat) -> Void = { [weak window] height in
+            guard let window, abs(window.frame.height - height) > 0.5 else { return }
+            let f = window.frame
+            window.setFrame(NSRect(x: f.minX, y: f.maxY - height, width: f.width, height: height), display: true)
+        }
+        Publishers.CombineLatest(viewModel.$notchState, viewModel.$notchSize)
+            .map { state, size in
+                state == .open ? notchWindowHeight(forOpenNotchHeight: size.height) : windowSize.height
+            }
+            .removeDuplicates()
+            .sink { [weak window] target in
+                shrinkTask?.cancel()
+                guard let window else { return }
+                if target >= window.frame.height {
+                    MainActor.assumeIsolated { apply(target) }
+                } else {
+                    shrinkTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(700))
+                        guard !Task.isCancelled else { return }
+                        apply(target)
+                    }
+                }
+            }
+            .store(in: &viewModel.cancellables)
     }
 
     @MainActor
@@ -556,8 +589,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 if let window = windows[uuid], let viewModel = viewModels[uuid] {
                     positionWindow(window, on: screen, changeAlpha: changeAlpha)
+                    // A screen without a camera housing (HDMI, AirPlay) still gets the notch;
+                    // make sure its window is on screen and sized for that screen.
+                    if !window.isVisible { window.orderFrontRegardless() }
 
                     if viewModel.notchState == .closed {
+                        viewModel.screenUUID = uuid
                         viewModel.close()
                     }
                 }

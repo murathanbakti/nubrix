@@ -55,6 +55,17 @@ class NubrixViewModel: NSObject, ObservableObject {
         notchSize = getClosedNotchSize(screenUUID: screenUUID)
         closedNotchSize = notchSize
 
+        // The Controls tab is taller than the others; follow the tab while the notch is open.
+        NubrixCoordinator.shared.$currentView
+            .removeDuplicates()
+            .sink { [weak self] view in
+                guard let self, self.notchState == .open else { return }
+                let size = openNotchSize(for: view)
+                guard size != self.notchSize else { return }
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { self.notchSize = size }
+            }
+            .store(in: &cancellables)
+
         Publishers.CombineLatest3($dropZoneTargeting, $dragDetectorTargeting, $generalDropTargeting)
             .map { shelf, drag, general in
                 shelf || drag || general
@@ -149,7 +160,7 @@ class NubrixViewModel: NSObject, ObservableObject {
     }
 
     func open() {
-        self.notchSize = openNotchSize
+        self.notchSize = openNotchSize(for: coordinator.currentView)
         self.notchState = .open
         
         // Force music information update when notch is opened

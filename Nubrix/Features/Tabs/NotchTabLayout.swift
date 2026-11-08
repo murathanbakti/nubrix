@@ -18,6 +18,7 @@ struct TabModel: Identifiable, Equatable {
 enum NotchTabCatalog {
     static let all: [TabModel] = [
         TabModel(label: "Home", icon: "house.fill", view: .home),
+        TabModel(label: "Controls", icon: "slider.horizontal.3", view: .controls),
         TabModel(label: "Shelf", icon: "tray.fill", view: .shelf),
         TabModel(label: "Vitrin", icon: "square.stack.3d.up.fill", view: .vitrin),
         TabModel(label: "Claude", icon: "sparkle", view: .agents),
@@ -31,7 +32,7 @@ enum NotchTabCatalog {
 
     static func settingsTab(for view: NotchViews) -> SettingsTab? {
         switch view {
-        case .home: return nil
+        case .home, .controls: return nil
         case .shelf: return .shelf
         case .vitrin: return .vitrin
         case .agents: return .claudeCode
@@ -71,7 +72,7 @@ final class NotchTabLayout: ObservableObject {
 
     nonisolated static func isFeatureEnabled(_ view: NotchViews) -> Bool {
         switch view {
-        case .home: return true
+        case .home, .controls: return true
         case .shelf: return Defaults[.nubrixShelf]
         case .vitrin: return Defaults[.vitrinEnabled]
         case .agents: return Defaults[.claudeEnabled]

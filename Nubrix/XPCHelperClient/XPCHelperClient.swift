@@ -194,6 +194,40 @@ final class XPCHelperClient: NSObject {
         }
     }
     
+    // MARK: - Bluetooth power
+
+    /// `nil` when the helper can't read it.
+    nonisolated func bluetoothPowerState() async -> Bool? {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            let result: NSNumber? = try await service.withContinuation { service, continuation in
+                service.bluetoothPowerState { value in
+                    continuation.resume(returning: value)
+                }
+            }
+            return result.map { $0.int32Value != 0 }
+        } catch {
+            return nil
+        }
+    }
+
+    nonisolated func setBluetoothPower(_ on: Bool) async -> Bool {
+        do {
+            let service = await MainActor.run {
+                ensureRemoteService()
+            }
+            return try await service.withContinuation { service, continuation in
+                service.setBluetoothPower(on) { success in
+                    continuation.resume(returning: success)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Screen Brightness
     
     nonisolated func isScreenBrightnessAvailable() async -> Bool {

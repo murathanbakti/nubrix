@@ -78,7 +78,7 @@ struct NotchTabSettings: View {
 
     private func isFeatureEnabled(_ view: NotchViews) -> Bool {
         switch view {
-        case .home: return true
+        case .home, .controls: return true
         case .shelf: return shelfEnabled
         case .vitrin: return vitrinEnabled
         case .agents: return claudeEnabled

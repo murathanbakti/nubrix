@@ -100,35 +100,6 @@ struct ContentView: View {
         permissions.current != nil && !permissions.isSuppressed && vm.notchState == .closed && !vm.hideOnClosed
     }
 
-    /// True while the system notification header is the one on screen and the
-    /// drop-down style wants its card under it. Same precedence as the header chain.
-    private var systemDropShowing: Bool {
-        guard Defaults[.systemNotificationStyle] == .dropDown else { return false }
-        let batteryHeader = coordinator.expandingView.type == .battery && coordinator.expandingView.show
-            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-        return vm.notchState == .closed && !vm.hideOnClosed && !permissionShowing && !batteryHeader
-            && screenshotBanner.banner == nil && agentActivity.banner == nil && devNotifications.banner == nil
-            && systemNotifications.banner != nil
-    }
-
-    /// Same as `systemDropShowing`, for a device battery banner. It always uses the card.
-    private var deviceBatteryDropShowing: Bool {
-        let batteryHeader = coordinator.expandingView.type == .battery && coordinator.expandingView.show
-            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-        return vm.notchState == .closed && !vm.hideOnClosed && !permissionShowing && !batteryHeader
-            && screenshotBanner.banner == nil && agentActivity.banner == nil && devNotifications.banner == nil
-            && systemNotifications.banner == nil && deviceBattery.banner != nil
-    }
-
-    /// Same as `deviceBatteryDropShowing`, for an everyday alert.
-    private var everydayDropShowing: Bool {
-        let batteryHeader = coordinator.expandingView.type == .battery && coordinator.expandingView.show
-            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-        return vm.notchState == .closed && !vm.hideOnClosed && !permissionShowing && !batteryHeader
-            && screenshotBanner.banner == nil && agentActivity.banner == nil && devNotifications.banner == nil
-            && systemNotifications.banner == nil && deviceBattery.banner == nil && everyday.banner != nil
-    }
-
     private var permissionSurfaceID: String { vm.screenUUID ?? "main" }
 
     private func reportPermissionSurface() {
@@ -228,8 +199,8 @@ struct ContentView: View {
                         } else if vm.notchState == .closed && deviceBattery.banner != nil {
                             coordinator.currentView = .home
                             deviceBattery.dismissBanner()
-                        } else if vm.notchState == .closed && everyday.banner != nil {
-                            coordinator.currentView = .home
+                        } else if vm.notchState == .closed, let alert = everyday.banner {
+                            coordinator.currentView = alert.opensControls && NotchTabLayout.shared.isVisible(.controls) ? .controls : .home
                             everyday.dismissBanner()
                         } else if vm.notchState == .closed, let banner = agentActivity.banner, let session = agents.session(banner.sessionID),
                                   AgentSessionOpener.canOpen(session.source) {
@@ -323,7 +294,7 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
+        .frame(maxWidth: maxWindowSize.width, maxHeight: maxWindowSize.height, alignment: .top)
         .compositingGroup()
         .scaleEffect(
             x: gestureScale,
@@ -451,12 +422,6 @@ struct ContentView: View {
                           .padding(.horizontal, 12)
                           .padding(.bottom, 12)
                           .transition(.opacity)
-                  } else if systemDropShowing, let banner = systemNotifications.banner {
-                      SystemNotificationDropBody(banner: banner)
-                  } else if deviceBatteryDropShowing, let device = deviceBattery.banner {
-                      DeviceBatteryDropBody(device: device)
-                  } else if everydayDropShowing, let alert = everyday.banner {
-                      EverydayAlertCard(alert: alert)
                   } else if coordinator.sneakPeek.show {
                       if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                           SystemEventIndicatorModifier(
@@ -503,6 +468,8 @@ struct ContentView: View {
                     switch coordinator.currentView {
                     case .home:
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
+                    case .controls:
+                        ControlsTabView()
                     case .shelf:
                         ShelfView()
                     case .vitrin:

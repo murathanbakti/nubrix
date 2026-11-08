@@ -26,6 +26,7 @@ public enum NotchState {
 
 public enum NotchViews: String, CaseIterable, Codable, Defaults.Serializable {
     case home
+    case controls
     case shelf
     case vitrin
     case agents

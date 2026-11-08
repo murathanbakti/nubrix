@@ -45,7 +45,7 @@ final class EverydayAlertStore: ObservableObject {
         self.duration = duration
         self.observesOtherBanners = observesOtherBanners
         guard observesOtherBanners else { return }
-        // A system notification or a device battery card takes over the notch.
+        // A system notification or a device battery banner takes over the notch.
         SystemNotificationStore.shared.$banner
             .dropFirst()
             .sink { [weak self] value in
@@ -92,10 +92,8 @@ final class EverydayAlertStore: ObservableObject {
         bannerTask?.cancel()
         withAnimation(Self.animation) { banner = alert }
         let shownID = alert.id
-        // A card with a button (Eject) stays longer, so there is time to click it.
-        let wait = alert.action == nil ? duration : max(duration, 8)
         bannerTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(wait))
+            try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled, self?.banner?.id == shownID else { return }
             self?.dismissBanner()
         }

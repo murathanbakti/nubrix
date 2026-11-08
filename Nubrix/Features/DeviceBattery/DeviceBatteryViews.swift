@@ -46,49 +46,6 @@ struct DeviceBatteryBannerHeader: View {
     }
 }
 
-/// Card under the notch with one ring per part.
-struct DeviceBatteryDropBody: View {
-    @EnvironmentObject var vm: NubrixViewModel
-    let device: DeviceBattery
-
-    var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 24) {
-                ForEach(Array(device.parts.enumerated()), id: \.offset) { _, part in
-                    VStack(spacing: 5) {
-                        ring(part.level)
-                        Text(part.label)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .lineLimit(1)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
-        .padding(.bottom, 12)
-        .frame(width: 300 + vm.closedNotchSize.width + 10)
-        .transition(.asymmetric(insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity), removal: .opacity))
-    }
-
-    private func ring(_ level: Int) -> some View {
-        ZStack {
-            Circle().stroke(Color.white.opacity(0.12), lineWidth: 4)
-            Circle()
-                .trim(from: 0, to: CGFloat(level) / 100)
-                .stroke(batteryRingTint(level), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text("\(level)%")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-        }
-        .frame(width: 36, height: 36)
-    }
-}
-
 /// Compact rows for the battery popover.
 struct DeviceBatteryList: View {
     let devices: [DeviceBattery]

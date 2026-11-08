@@ -17,6 +17,7 @@ Version 0.1.1 and earlier asked for camera, calendar, Accessibility and Full Dis
 | Screenshot folder | A folder picker; Nubrix keeps read-only access to the folder you choose | When you enable screenshots in Vitrin | Vitrin, "Capture screenshots" or "Enable Vitrin" |
 | Paste from Other Apps (macOS 15.4 and later) | Lets Vitrin read what other apps copy. With the default or "Allow", Vitrin works as before. With "Ask", Vitrin does not read copied items in the background; it shows a pill with "Save Copied Item" (one read, macOS may show its alert) and "Allow in Settings…". With "Deny", it saves nothing | When Vitrin captures a copy and macOS is set to "Ask" | Vitrin, "Enable Vitrin" |
 | Keychain | Stores the optional GitHub token | When you save a token | GitHub, "Enable GitHub integration" (the token stays in the Keychain but is not read) |
+| Location (When In Use) | Show the names of Wi-Fi networks in the Controls tab (Wi-Fi). macOS treats network names as location data, so without it the tab still shows that you are connected and your IP address, but no names. Nubrix never reads your position and never asks for or stores Wi-Fi passwords: secured networks open Wi-Fi settings | Only when you tap "Show network names" in the Controls tab, Wi-Fi list, or Grant in Settings, Permissions. If you refused, the row opens System Settings, Privacy & Security, Location Services | Settings, Tabs (hide the Controls tab) |
 | Bluetooth | Read the battery of AirPods, Beats and other Bluetooth devices | Once onboarding is done, when Device and Mac alerts is on (the default), or when you turn on "Battery of AirPods and other devices" | Everyday, "Battery of AirPods and other devices" |
 | Full Disk Access | Read the macOS notification database to show other apps' notifications. Granted to Nubrix; the reading is done by the unsandboxed helper `NubrixHelper`, which only opens that one database, read-only. Nubrix shows a guide for granting it (see below) | Only if you turn on Settings, Notifications, Other apps, or click "Grant access…" | Notifications, "Show notifications from other apps" |
 
@@ -36,14 +37,14 @@ Open Settings from the menu bar icon or, if enabled, the settings icon in the op
 |---|---|
 | General | Menu bar icon, launch at login, displays, notch size and non-notch height, open on hover, haptics, gestures, battery indicator and power status notifications |
 | Appearance | Accent color, settings icon in the notch, window shadow and corner radius, spectrogram and album-art options, idle face animation, mirror switch |
-| Permissions | Live status for Accessibility, Full Disk Access, Camera, Calendar, Automation (Music, Spotify, Terminal, iTerm, Ghostty) and Paste from Other Apps. Each row has a Grant or Open System Settings button. Status is read without asking. Automation status is only known while that app is running |
+| Permissions | Live status for Accessibility, Full Disk Access, Camera, Calendar, Location, Automation (Music, Spotify, Terminal, iTerm, Ghostty) and Paste from Other Apps. Each row has a Grant or Open System Settings button. Status is read without asking. Automation status is only known while that app is running |
 
 **Notch**
 
 | Tab | What it controls |
 |---|---|
 | Tabs | Order of the notch tabs (drag and drop), which tabs are shown, always show tabs, remember last tab, Restore defaults |
-| Notifications | Notification icon in the closed notch, inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, unread counts from Dock badges, how notifications look (style, cards, message text, grouping), Mark all as read |
+| Notifications | Notification icon in the closed notch, inbox sources (Claude Code, notchctl, GitHub), notifications from other apps, unread counts from Dock badges, how notifications look (message text, grouping), Mark all as read |
 | Everyday | Battery of AirPods and other devices, where sound plays, drives and memory cards, microphone and camera in use, internet connection. One switch each, all on by default |
 | Vitrin | Capture toggles, screenshot folder and preview, retention, excluded apps, hide from screen sharing, clear history |
 | Media | Media control switch, music source (Now Playing, Apple Music, Spotify, YouTube Music), live activity, lyrics, full screen behavior |
@@ -76,6 +77,6 @@ The Notifications tab keeps these details out of the window:
 - **Closed notch icon.** While something is unread, the closed notch keeps a small icon and count. When "Keep notification icon in the notch" is off, or when music is playing, the closed notch shows nothing; unread items are marked with a dot on their tab once you open the notch.
 - **Sources.** Done, failed and needs-you events from Claude Code sessions, notifications sent with notchctl, and GitHub. Turning a source off also clears its unread items. A source is greyed out while its feature (Claude Code integration, Dev tab, GitHub integration) is off.
 - **Other apps.** Only the apps you tick are read. The Notifications tab stacks notifications from the same conversation and keeps the last 50 in memory only: nothing is written to disk, logged or sent anywhere, and only notifications that arrive after you turn this on are shown. Tip: set an app's alert style to None in System Settings, Notifications to see its notifications only in the notch.
-- **How they look.** "Style": "Drops down, like iPhone" (a card under the notch with the app icon, sender and message; the default on new installs) or "Beside the notch" (one line on each side of the notch; kept by installs from before 0.3). "Show a card when a notification arrives" can be turned off so notifications only collect in the tab. "Group in the notch": by conversation (default), by app, or off; "Start groups collapsed" shows the newest item of each group with "+N".
+- **How they look.** Banners show as one line beside the notch. "Group in the notch": by conversation (default), by app, or off; "Start groups collapsed" shows the newest item of each group with "+N".
 - **Unread counts.** "Show unread counts" reads the number on each ticked app's Dock icon instead: no permission needed, and it only works while that app is open.
 - **Read state.** Items are marked read when you open the Claude, Dev or Notifications tab, or click the notification. They are not kept after a restart.

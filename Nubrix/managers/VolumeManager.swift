@@ -73,6 +73,9 @@ final class VolumeManager: NSObject, ObservableObject {
     
     func refresh() { fetchCurrentVolume() }
 
+    /// Same as `toggleMuteAction()`, without the volume HUD. For controls inside the notch.
+    @MainActor func toggleMuteQuietly() { toggleMuteInternal() }
+
     func adjustRelative(delta: Float32) {
         if isMutedInternal() { toggleMuteInternal() }
         guard let current = readVolumeInternal() else {

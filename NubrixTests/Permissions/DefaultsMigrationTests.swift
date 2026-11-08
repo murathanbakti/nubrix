@@ -32,7 +32,6 @@ final class DefaultsMigrationTests: XCTestCase {
         DefaultsMigration.run(suite, domain: suiteName)
         XCTAssertEqual(written["claudeEnabled"] as? Bool, true)
         XCTAssertEqual(written["enableSneakPeek"] as? Bool, false)
-        XCTAssertEqual(written["systemNotificationStyle"] as? String, "inline")
         for key in DefaultsMigration.previousDefaults.keys {
             XCTAssertNotNil(written[key], key)
         }
@@ -41,19 +40,19 @@ final class DefaultsMigrationTests: XCTestCase {
     func testValueTheUserSetIsKept() {
         suite.set(false, forKey: "firstLaunch")
         suite.set(false, forKey: "claudeEnabled")
-        suite.set("dropDown", forKey: "systemNotificationStyle")
+        suite.set(true, forKey: "enableSneakPeek")
         DefaultsMigration.run(suite, domain: suiteName)
         XCTAssertEqual(suite.bool(forKey: "claudeEnabled"), false)
-        XCTAssertEqual(suite.string(forKey: "systemNotificationStyle"), "dropDown")
+        XCTAssertEqual(suite.bool(forKey: "enableSneakPeek"), true)
     }
 
     func testRunningTwiceChangesNothing() {
         suite.set(false, forKey: "firstLaunch")
         DefaultsMigration.run(suite, domain: suiteName)
         suite.set(false, forKey: "claudeEnabled")
-        suite.set("dropDown", forKey: "systemNotificationStyle")
+        suite.set(true, forKey: "enableSneakPeek")
         DefaultsMigration.run(suite, domain: suiteName)
         XCTAssertEqual(suite.bool(forKey: "claudeEnabled"), false)
-        XCTAssertEqual(suite.string(forKey: "systemNotificationStyle"), "dropDown")
+        XCTAssertEqual(suite.bool(forKey: "enableSneakPeek"), true)
     }
 }

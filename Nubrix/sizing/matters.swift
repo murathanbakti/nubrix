@@ -15,6 +15,22 @@ let batterySneakSize: CGSize = .init(width: 160, height: 1)
 let shadowPadding: CGFloat = 20
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 let windowSize: CGSize = .init(width: openNotchSize.width, height: openNotchSize.height + shadowPadding)
+/// Open height of the notch on the Controls tab. Every other tab uses `openNotchSize.height`.
+let controlsNotchHeight: CGFloat = 270
+
+/// Open size of the notch for a tab.
+func openNotchSize(for view: NotchViews) -> CGSize {
+    CGSize(width: openNotchSize.width, height: view == .controls ? controlsNotchHeight : openNotchSize.height)
+}
+
+/// Window height that fits an open notch of `notchHeight`, with the shadow padding.
+func notchWindowHeight(forOpenNotchHeight notchHeight: CGFloat) -> CGFloat {
+    max(windowSize.height, notchHeight + shadowPadding)
+}
+
+/// Tallest window any tab needs. The content view is laid out for this; the window itself only grows while it is needed.
+let maxWindowSize: CGSize = .init(width: windowSize.width, height: notchWindowHeight(forOpenNotchHeight: controlsNotchHeight))
+
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
 
 enum MusicPlayerImageSizes {

@@ -13,8 +13,6 @@ enum DefaultsMigration {
         "devEnabled": true,
         "githubEnabled": true,
         "enableSneakPeek": false,
-        // Notifications used to show beside the notch; the drop-down card is new.
-        "systemNotificationStyle": "inline",
     ]
 
     /// `domain` is where the values are stored. Only what was really written

@@ -7,25 +7,6 @@ extension Defaults.Keys {
     static let systemNotificationsSkipFrontmost = Key<Bool>("systemNotificationsSkipFrontmost", default: true)
 }
 
-/// How a notification from another app shows up in the notch.
-enum SystemNotificationStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
-    case dropDown
-    case inline
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .dropDown: return "Drops down, like iPhone"
-        case .inline: return "Beside the notch"
-        }
-    }
-}
-
-extension Defaults.Keys {
-    static let systemNotificationStyle = Key<SystemNotificationStyle>("systemNotificationStyle", default: .dropDown)
-}
-
 /// How the Notifications tab bundles notifications together.
 enum SystemNotificationGrouping: String, CaseIterable, Identifiable, Defaults.Serializable {
     case conversation

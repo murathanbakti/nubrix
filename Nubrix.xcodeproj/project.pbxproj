@@ -1135,6 +1135,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NubrixHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = NubrixHelper;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Nubrix switches Bluetooth on and off when you use the Bluetooth button in the Controls tab. Nothing is sent anywhere.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.3.0;
@@ -1161,6 +1162,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NubrixHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = NubrixHelper;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Nubrix switches Bluetooth on and off when you use the Bluetooth button in the Controls tab. Nothing is sent anywhere.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.3.0;
@@ -1335,6 +1337,8 @@
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Nubrix shows your upcoming events in the notch and lets you add events from its calendar.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Nubrix shows the battery of your AirPods and other Bluetooth devices in the notch. Nothing is sent anywhere.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nubrix uses the camera only to show the Mirror preview in the notch. Nothing is recorded, saved or sent.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Nubrix shows the names of Wi-Fi networks in the Controls tab. macOS treats network names as location data.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nubrix shows the names of Wi-Fi networks in the Controls tab. macOS treats network names as location data.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1390,6 +1394,8 @@
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Nubrix shows your upcoming events in the notch and lets you add events from its calendar.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Nubrix shows the battery of your AirPods and other Bluetooth devices in the notch. Nothing is sent anywhere.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nubrix uses the camera only to show the Mirror preview in the notch. Nothing is recorded, saved or sent.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Nubrix shows the names of Wi-Fi networks in the Controls tab. macOS treats network names as location data.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nubrix shows the names of Wi-Fi networks in the Controls tab. macOS treats network names as location data.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

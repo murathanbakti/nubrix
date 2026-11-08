@@ -2,6 +2,37 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Controls tab, next to Home: choose where sound plays and records, set volume (and input volume when the microphone allows it), mute, connect or disconnect paired Bluetooth devices with their battery, eject drives, and set display and keyboard brightness. It can be hidden in Settings, Tabs. Tapping a sound output or drive alert on the closed notch opens it.
+- Wi-Fi in the Controls tab, first in the list: switch Wi-Fi on or off, see the network you are on with its IP address and signal, and join open networks. Secured networks open Wi-Fi settings; Nubrix never asks for a password. Network names need Location access, asked only when you tap "Show network names". Settings, Permissions shows its status.
+
+- Quick toggles at the top of the Controls tab: round Wi-Fi, Bluetooth, Sound (mute) and Mic (mute) switches, iPhone style. Wi-Fi and Bluetooth also open their list. Bluetooth can now be switched on and off from Nubrix (through the helper); if your Mac does not allow it, the switch opens Bluetooth settings. Muting the microphone sets its level to 0 and restores it.
+
+### Changed
+
+- Easier Controls tab: the three capsule sliders (volume, brightness, keyboard light) sit under the quick toggles, the microphone level moved to the top of the Input list, the Wi-Fi switch row is replaced by the quick toggle, and the Drives tab shows only while a drive is connected. With Bluetooth off, the list offers "Turn On".
+- The notch is taller on the Controls tab (270 instead of 190 points) and the tab is bigger and easier to read: larger sliders, text and buttons, and four list rows fit without scrolling. Other tabs keep their size.
+- Bluetooth batteries in the Controls tab show each part (L, R, Case) in its battery color, also for Bluetooth sound devices on Output and Input.
+- The Controls tab has a new look: no boxes, Control Center style capsule sliders for sound and display, and a quiet device list with a segmented switcher (Output, Input, Bluetooth, Drives). Click a row to select or connect it; the selected device is marked in the accent color.
+- Settings, General: "Show on all displays" is now "Show the notch on every display", with a line saying it also covers HDMI, USB-C and AirPlay displays.
+
+### Fixed
+
+- Brightness now works on Macs whose main display is an external monitor: it controls the built-in screen instead of failing. A slider that cannot work shows "Not available".
+- The keyboard light uses the keyboard's real id and sets the level without auto-adjust undoing it, so the slider and the brightness keys work on more Macs. Dragging a slider no longer sends out-of-order values.
+
+### Security
+
+- Bluetooth on/off uses the private IOBluetooth functions `IOBluetoothPreferenceGetControllerPowerState` and `IOBluetoothPreferenceSetControllerPowerState`, looked up at runtime. They run only in the unsandboxed helper (calling them from the sandboxed app hangs), which now has a Bluetooth usage description. Only a tap on the Bluetooth switch changes power; nothing is read or sent anywhere.
+- New entitlement `com.apple.security.personal-information.location` and the Location usage text, so macOS can show Wi-Fi network names. Nothing is asked at launch; the question appears only when you tap "Show network names" in the Controls tab. Location is not read or stored; Nubrix uses it only to be allowed to read network names.
+
+### Removed
+
+- The drop-down cards under the notch for notifications, device batteries and everyday alerts. They now show only as one line beside the notch, and the "Style" setting in Settings, Notifications is gone.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added

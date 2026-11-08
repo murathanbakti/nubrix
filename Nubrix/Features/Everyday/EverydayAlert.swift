@@ -39,9 +39,11 @@ struct EverydayAlert: Identifiable, Equatable {
     /// Small grey text on the right of the closed notch.
     var meta: String?
     var action: Action?
+    /// Tapping the closed notch opens the Controls tab instead of Home.
+    var opensControls: Bool
 
     init(id: UUID = UUID(), symbol: String, tint: EverydayTint, title: String, detail: String? = nil,
-         headerTitle: String? = nil, meta: String? = nil, action: Action? = nil) {
+         headerTitle: String? = nil, meta: String? = nil, action: Action? = nil, opensControls: Bool = false) {
         self.id = id
         self.symbol = symbol
         self.tint = tint
@@ -50,6 +52,7 @@ struct EverydayAlert: Identifiable, Equatable {
         self.headerTitle = headerTitle
         self.meta = meta
         self.action = action
+        self.opensControls = opensControls
     }
 }
 
@@ -99,7 +102,7 @@ struct SoundDevice: Equatable {
     }
 
     var alert: EverydayAlert {
-        EverydayAlert(symbol: symbol, tint: .blue, title: "Sound plays on \(name)", headerTitle: "Sound output", meta: transportLabel)
+        EverydayAlert(symbol: symbol, tint: .blue, title: "Sound plays on \(name)", headerTitle: "Sound output", meta: transportLabel, opensControls: true)
     }
 }
 
@@ -175,19 +178,19 @@ struct DriveVolume: Equatable {
     var connectedAlert: EverydayAlert {
         EverydayAlert(symbol: "externaldrive.fill", tint: .green, title: "\(name) connected",
                       detail: Self.freeText(free: free, total: total), headerTitle: "Drive", meta: name,
-                      action: .eject(url))
+                      action: .eject(url), opensControls: true)
     }
 }
 
 enum DriveAlerts {
     static func unplug(name: String) -> EverydayAlert {
         EverydayAlert(symbol: "checkmark.circle.fill", tint: .green, title: "\(name) can be unplugged",
-                      headerTitle: "Drive", meta: name)
+                      headerTitle: "Drive", meta: name, opensControls: true)
     }
 
     static func ejectFailed(name: String, url: URL) -> EverydayAlert {
         EverydayAlert(symbol: "exclamationmark.triangle.fill", tint: .orange, title: "Couldn't eject \(name)",
-                      detail: "Eject it in Finder", headerTitle: "Drive", meta: name, action: .showInFinder(url))
+                      detail: "Eject it in Finder", headerTitle: "Drive", meta: name, action: .showInFinder(url), opensControls: true)
     }
 }
 

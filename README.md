@@ -37,11 +37,15 @@
   <sub>Images are rendered mockups with sample data. See <a href="docs/images/README.md">docs/images</a>.</sub>
 </p>
 
+## Unreleased
+
+- **Controls tab.** A new tab next to Home to pick where sound plays and records, set volume, connect or disconnect Bluetooth devices, eject drives, and set display and keyboard brightness. See [Controls](#controls).
+
 ## What's new in 0.3.0
 
 - **Simple setup.** One screen of plain switches: pick what you want in the notch. Developer tabs are off unless you say "I write code".
-- **Everyday alerts.** Small iPhone-style cards for AirPods and other device batteries, where sound plays, drives (with Eject), the microphone or camera turning on, and losing or getting back internet. Each has its own switch in Settings, Everyday.
-- **Notifications that drop down.** Notifications from other apps can drop from the notch as a card, like on iPhone, or stay beside the notch. The Notifications tab groups them by conversation, by app or not at all.
+- **Everyday alerts.** One-line alerts beside the notch for AirPods and other device batteries, where sound plays, drives (with Eject), the microphone or camera turning on, and losing or getting back internet. Each has its own switch in Settings, Everyday.
+- **Notifications.** Notifications from other apps show beside the notch. The Notifications tab groups them by conversation, by app or not at all.
 - **Updates install themselves.** Automatic update checks and installs are on by default.
 - **Music just works.** "Any app (Now Playing)" follows whatever plays, browsers included, and Nubrix falls back to Spotify or Apple Music by itself when Now Playing is not available.
 
@@ -255,7 +259,7 @@ Optional and off by default. Pick the apps, such as WhatsApp, Slack or Mail. Nub
 **Notifications** need Full Disk Access, because macOS has no public way to read other apps' notifications. A short guide walks you through granting it, and "Quit & Reopen" brings you back to where you started.
 
 - New notifications appear on the closed notch and in the Notifications tab, which keeps the last 50.
-- Pick how they look in Settings, Notifications, How they look: a card that drops from the notch like on iPhone (app icon, sender, message), or one line beside the notch. Either way it disappears after 6 seconds and opens the app when clicked. New messages from the same chat update the card and its counter instead of opening a new one. Turn cards off to collect notifications in the tab only.
+- A notification shows as one line beside the notch. It disappears after 6 seconds and opens the app when clicked. New messages from the same chat update the line and its counter instead of opening a new one.
 - The tab groups notifications by conversation (the default), by app, or not at all. A group shows the newest message and "+N"; click it to see them all, or clear the whole group with its x. A group or channel name, or a mail subject, gets its own small line and is never mixed into the message.
 - Only the apps you tick are read, and the list lives in memory only. You can hide message text, and notifications from the app in front are skipped.
 
@@ -270,15 +274,27 @@ Optional and off by default. Pick the apps, such as WhatsApp, Slack or Mail. Nub
 
 ### Everyday alerts and device batteries
 
-Small cards that drop from the notch for a few seconds, like on iPhone. Each has its own switch in Settings, Everyday, and all are on by default:
+Small one-line alerts beside the notch for a few seconds. Each has its own switch in Settings, Everyday, and all are on by default:
 
-- **AirPods and other devices.** When AirPods, Beats, a Magic Mouse, Keyboard or Trackpad connects, the card shows its battery (left, right and case for AirPods), and again once when it drops to 20% or less. The battery menu in the notch lists every connected device. macOS asks for Bluetooth access the first time.
+- **AirPods and other devices.** When AirPods, Beats, a Magic Mouse, Keyboard or Trackpad connects, the alert shows its battery (left, right and case for AirPods), and again once when it drops to 20% or less. The battery menu in the notch lists every connected device. macOS asks for Bluetooth access the first time.
 - **Where sound plays.** "Sound plays on AirPods Pro" when the output moves to headphones, speakers or a display.
 - **Drives and memory cards.** The name and free space when one is connected, with an Eject button, and a note when it is safe to unplug.
-- **Microphone and camera.** A card when an app starts using the microphone or a camera, with the app's name on macOS 14.2 and later. Nubrix only reads whether they are in use and records nothing.
+- **Microphone and camera.** An alert when an app starts using the microphone or a camera, with the app's name on macOS 14.2 and later. Nubrix only reads whether they are in use and records nothing.
 - **Internet.** "You're offline" when the connection drops and "Back online" when it returns.
 
 None of this needs an account or leaves your Mac. [How each one is read](docs/nubrix/PRIVACY-AND-SECURITY.md#device-batteries-and-everyday-alerts).
+
+### Controls
+
+The Controls tab, next to Home, puts the everyday switches in one place. Hide it in Settings, Tabs if you do not want it.
+
+- **Quick toggles and levels.** Four round switches like on an iPhone: Wi-Fi, Bluetooth, Sound (mute) and Mic (mute). Wi-Fi and Bluetooth also open their list on the right. Under them three Control Center style capsule sliders: volume, brightness and keyboard light. Drag anywhere to set a level, click to jump; tap the speaker to mute. A slider that cannot work on your Mac is dimmed and says "Not available". Brightness follows the display macOS can control, so with an external main display it moves the built-in screen. Dragging never shows the volume or brightness HUD. Muting the microphone sets its level to 0 and brings it back when you switch it on again; if the microphone does not allow changing its level, the Mic switch is dimmed.
+- **Devices.** A switcher for Wi-Fi, Bluetooth, Output and Input, and Drives while a drive is connected. Click a row to pick where sound plays or records; the selected device has an accent-colored circle and each row says how it is connected (Built-in, Bluetooth, HDMI, USB...). The microphone level slider sits at the top of the Input list ("Fixed" when the microphone does not allow changing it). Bluetooth shows paired devices with their battery (for AirPods-style devices each part: L, R and Case); click a row to connect or disconnect. The Bluetooth switch turns Bluetooth on or off through Nubrix's helper; if your Mac does not allow that, it opens Bluetooth settings instead. Drives and memory cards show their free space and an eject button. The notch is taller on this tab so four rows fit without scrolling.
+- Tapping a "Sound plays on..." or drive alert on the closed notch opens this tab.
+
+<p align="center">
+  <img src="docs/images/controls.png" alt="The Controls tab with quick toggles (Wi-Fi, Bluetooth, sound, microphone), capsule sliders (volume, brightness, keyboard light) and a switcher for Wi-Fi, Bluetooth, sound outputs, inputs and drives" width="100%">
+</p>
 
 ### Calendar, meetings and mirror
 

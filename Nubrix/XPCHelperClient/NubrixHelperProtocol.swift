@@ -23,5 +23,8 @@ import Foundation
     func fetchClaudePlanUsage(with reply: @escaping (Data) -> Void)
     func fetchSystemNotifications(after cursor: Int64, allowedApps: [String], with reply: @escaping (Data) -> Void)
     func fetchSystemNotificationApps(with reply: @escaping (Data) -> Void)
+    // Bluetooth power (private IOBluetooth functions, performed by the helper)
+    func bluetoothPowerState(with reply: @escaping (NSNumber?) -> Void)
+    func setBluetoothPower(_ on: Bool, with reply: @escaping (Bool) -> Void)
 }
 
