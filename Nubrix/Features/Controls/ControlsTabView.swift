@@ -1,4 +1,5 @@
 import CoreAudio
+import Defaults
 import SwiftUI
 
 // MARK: - Style
@@ -19,6 +20,7 @@ private struct ControlsCapsuleSlider: View {
     let value: Double
     let valueText: String
     var enabled = true
+    var height = ControlsSliderMetrics.height
     var symbolAction: (() -> Void)?
     let onChange: (Double) -> Void
 
@@ -30,9 +32,9 @@ private struct ControlsCapsuleSlider: View {
         GeometryReader { geo in
             let width = geo.size.width
             let shown = max(0, min(1, local ?? value))
-            let fill = ControlsSliderMetrics.fillWidth(value: shown, width: width)
-            let symbolDark = ControlsSliderMetrics.symbolOnFill(value: shown, width: width)
-            let valueDark = ControlsSliderMetrics.valueOnFill(value: shown, width: width)
+            let fill = ControlsSliderMetrics.fillWidth(value: shown, width: width, height: height)
+            let symbolDark = ControlsSliderMetrics.symbolOnFill(value: shown, width: width, height: height)
+            let valueDark = ControlsSliderMetrics.valueOnFill(value: shown, width: width, height: height)
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.10))
                 Capsule()
@@ -54,7 +56,7 @@ private struct ControlsCapsuleSlider: View {
             .contentShape(Capsule())
             .gesture(drag(width: width))
         }
-        .frame(height: ControlsSliderMetrics.height)
+        .frame(height: height)
         .opacity(enabled ? 1 : 0.4)
         .allowsHitTesting(enabled)
     }
@@ -64,7 +66,7 @@ private struct ControlsCapsuleSlider: View {
         let image = Image(systemName: symbol)
             .font(.system(size: 14))
             .foregroundStyle(dark ? ControlsStyle.ink : Color.white.opacity(0.8))
-            .frame(width: 30, height: ControlsSliderMetrics.height)
+            .frame(width: 30, height: height)
             .contentTransition(.symbolEffect(.replace))
             .animation(ControlsStyle.hoverFade, value: dark)
         if let symbolAction {
@@ -135,7 +137,7 @@ private struct ControlsPressStyle: ButtonStyle {
     }
 }
 
-/// One of the four round quick toggles: a 44 pt circle with a label under it.
+/// One of the five round quick toggles: a 40 pt circle with a label under it.
 private struct ControlsQuickToggle: View {
     let state: ControlsToggleState
     var busy = false
@@ -161,19 +163,19 @@ private struct ControlsQuickToggle: View {
                         ControlsBluetoothGlyph()
                     } else {
                         Image(systemName: state.symbol)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.white)
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .animation(ControlsStyle.hoverFade, value: state.fill)
                 Text(state.label)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
-            .frame(maxWidth: .infinity)
+            .frame(width: 48)
             .contentShape(Rectangle())
         }
         .buttonStyle(ControlsPressStyle())
@@ -190,35 +192,86 @@ private struct ControlsLevels: View {
     @ObservedObject private var volume = VolumeManager.shared
     @ObservedObject private var brightness = BrightnessManager.shared
     @ObservedObject private var backlight = KeyboardBacklightManager.shared
+    @ObservedObject private var share = ScreenShareMonitor.shared
+    @Default(.hideFromScreenRecording) private var notchHidden
 
     private func select(_ item: ControlsListTab) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { tab = item }
     }
 
+    private var shared: Bool { share.isShared }
+    private var sliderHeight: CGFloat { shared ? ControlsSliderMetrics.compactHeight : ControlsSliderMetrics.height }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: shared ? 12 : 14) {
             toggles
-            VStack(spacing: 8) {
+            VStack(spacing: shared ? 6 : 8) {
                 ControlsCapsuleSlider(
                     symbol: ControlsSliderMetrics.speakerSymbol(level: Double(volume.rawVolume), muted: volume.isMuted),
                     value: Double(volume.rawVolume),
                     valueText: volume.isMuted ? "Muted" : percentText(Double(volume.rawVolume)),
+                    height: sliderHeight,
                     symbolAction: { volume.toggleMuteQuietly() }
                 ) { volume.setAbsolute(Float($0)) }
                 ControlsCapsuleSlider(
                     symbol: "sun.max.fill",
                     value: Double(brightness.rawBrightness),
                     valueText: brightness.isAvailable ? percentText(Double(brightness.rawBrightness)) : "Not available",
-                    enabled: brightness.isAvailable
+                    enabled: brightness.isAvailable,
+                    height: sliderHeight
                 ) { brightness.setAbsolute(value: Float($0)) }
                 ControlsCapsuleSlider(
                     symbol: "light.max",
                     value: Double(backlight.rawBrightness),
                     valueText: !backlight.isAvailable ? "Not available" : (backlight.rawBrightness <= 0.005 ? "Off" : percentText(Double(backlight.rawBrightness))),
-                    enabled: backlight.isAvailable
+                    enabled: backlight.isAvailable,
+                    height: sliderHeight
                 ) { backlight.setAbsolute(value: Float($0)) }
             }
+            if shared {
+                sharingBanner
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: shared)
+    }
+
+    /// Orange strip under the sliders while someone else can see the screen.
+    private var sharingBanner: some View {
+        HStack(spacing: 8) {
+            Circle().fill(Color.orange).frame(width: 7, height: 7)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Screen is being shared")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(red: 1, green: 0.70, blue: 0.25))
+                    .lineLimit(1)
+                Text(share.state.detail)
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 0)
+            Button { notchHidden.toggle() } label: {
+                Text(notchHidden ? "Show notch" : "Hide notch")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.14)))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(ControlsPressStyle())
+            .help(notchHidden ? "Show the notch to people who see your screen" : "Hide the notch from people who see your screen")
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 8)
+        .frame(height: 32)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.orange.opacity(0.14))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.orange.opacity(0.35), lineWidth: 1))
+        )
     }
 
     private var toggles: some View {
@@ -231,6 +284,7 @@ private struct ControlsLevels: View {
                 if store.wifi.available { store.setWiFiPower(!store.wifi.powered) }
                 select(.wifi)
             }
+            Spacer(minLength: 0)
             ControlsQuickToggle(
                 state: ControlsToggles.bluetooth(on: store.bluetoothOn, switchable: store.bluetoothSwitchable),
                 busy: store.bluetoothPowerBusy
@@ -238,14 +292,21 @@ private struct ControlsLevels: View {
                 store.toggleBluetoothPower()
                 select(.bluetooth)
             }
+            Spacer(minLength: 0)
             ControlsQuickToggle(state: ControlsToggles.sound(muted: volume.isMuted)) {
                 volume.toggleMuteQuietly()
             }
+            Spacer(minLength: 0)
             ControlsQuickToggle(
                 state: ControlsToggles.mic(muted: MicMute.isMuted(store.inputVolume), settable: store.inputVolume != nil),
                 enabled: store.inputVolume != nil
             ) {
                 store.toggleMicMute()
+            }
+            Spacer(minLength: 0)
+            Spacer(minLength: 0)
+            ControlsQuickToggle(state: ControlsMirroring.toggle(mirroringTo: share.mirroringTo)) {
+                ControlsMirroring.openSettings()
             }
         }
     }

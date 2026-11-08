@@ -46,19 +46,22 @@ enum ControlsSliderMetrics {
     static let valueClearance: CGFloat = 44
 
     /// Fill width: nothing at 0, at least the capsule height otherwise so the symbol sits inside.
-    static func fillWidth(value: Double, width: CGFloat) -> CGFloat {
+    static func fillWidth(value: Double, width: CGFloat, height: CGFloat = ControlsSliderMetrics.height) -> CGFloat {
         let v = max(0, min(1, value))
         guard v > 0 else { return 0 }
         return min(width, max(height, width * v))
     }
 
-    static func symbolOnFill(value: Double, width: CGFloat) -> Bool {
-        fillWidth(value: value, width: width) >= 24
+    static func symbolOnFill(value: Double, width: CGFloat, height: CGFloat = ControlsSliderMetrics.height) -> Bool {
+        fillWidth(value: value, width: width, height: height) >= 24
     }
 
-    static func valueOnFill(value: Double, width: CGFloat) -> Bool {
-        fillWidth(value: value, width: width) > width - valueClearance
+    static func valueOnFill(value: Double, width: CGFloat, height: CGFloat = ControlsSliderMetrics.height) -> Bool {
+        fillWidth(value: value, width: width, height: height) > width - valueClearance
     }
+
+    /// While the screen is shared the sliders are a little smaller so the sharing banner fits.
+    static let compactHeight: CGFloat = 28
 
     /// Speaker symbol that follows the level, like macOS.
     static func speakerSymbol(level: Double, muted: Bool) -> String {

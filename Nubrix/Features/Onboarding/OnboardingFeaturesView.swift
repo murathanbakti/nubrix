@@ -10,7 +10,7 @@ struct OnboardingChoices: Equatable {
     var shelf = Defaults[.nubrixShelf]
     var clipboard = Defaults[.vitrinEnabled]
     var deviceBatteries = Defaults[.deviceBatteryEnabled] || Defaults[.everydaySoundOutput] || Defaults[.everydayDrives]
-        || Defaults[.everydayMicCamera] || Defaults[.everydayInternet]
+        || Defaults[.everydayMicCamera] || Defaults[.everydayInternet] || Defaults[.everydayScreenShare]
     var appNotifications = Defaults[.systemNotificationsEnabled]
     var developerTools = Defaults[.claudeEnabled] || Defaults[.devEnabled] || Defaults[.githubEnabled]
 
@@ -26,6 +26,7 @@ struct OnboardingChoices: Equatable {
         Defaults[.everydayDrives] = deviceBatteries
         Defaults[.everydayMicCamera] = deviceBatteries
         Defaults[.everydayInternet] = deviceBatteries
+        Defaults[.everydayScreenShare] = deviceBatteries
         Defaults[.claudeEnabled] = developerTools
         Defaults[.devEnabled] = developerTools
         Defaults[.githubEnabled] = developerTools

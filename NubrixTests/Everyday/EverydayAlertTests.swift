@@ -273,6 +273,6 @@ final class EverydayAlertTests: XCTestCase {
     func testSettingsKeysDefaultOnAndAreNamed() {
         XCTAssertTrue(EverydaySource.allCases.allSatisfy { $0.key.defaultValue })
         XCTAssertEqual(EverydaySource.allCases.map(\.key.name),
-                       ["everydaySoundOutput", "everydayDrives", "everydayMicCamera", "everydayInternet"])
+                       ["everydaySoundOutput", "everydayDrives", "everydayMicCamera", "everydayInternet", "everydayScreenShare"])
     }
 }

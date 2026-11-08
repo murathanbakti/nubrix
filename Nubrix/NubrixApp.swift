@@ -68,6 +68,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
     private var terminationSignalSource: DispatchSourceSignal?
     private var terminationRequested = false
+    private var screenRefreshTask: Task<Void, Never>?
+    private var pendingChangeAlpha = false
+    private var pendingAdjust = false
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
@@ -90,6 +93,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             screenUnlockedObserver = nil
         }
         MusicManager.shared.destroy()
+        DisplayReconfigurationWatcher.shared.stop()
+        screenRefreshTask?.cancel()
+        ScreenShareMonitor.shared.stop()
         cleanupDragDetectors()
         cleanupWindows()
         XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
@@ -353,6 +359,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DeviceBatteryStore.shared.start()
         EverydayAlertStore.shared.start()
         UpdateStore.shared.start()
+        ScreenShareMonitor.shared.start()
+        startDisplayReconfigurationWatcher()
         Task { await HookKitStore.shared.launchCheck() }
 
         NotificationCenter.default.addObserver(
@@ -542,6 +550,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func screenConfigurationDidChange() {
+        scheduleScreenRefresh()
+    }
+
+    /// While the displays are being reconfigured (AirPlay starting, a display added or mirrored) the
+    /// notch space is taken off screen and no window is touched; one refresh runs after things settle.
+    private func startDisplayReconfigurationWatcher() {
+        let watcher = DisplayReconfigurationWatcher.shared
+        watcher.onBegin = {
+            NotchSpaceManager.shared.notchSpace.hide()
+        }
+        watcher.onSettled = { [weak self] in
+            self?.scheduleScreenRefresh()
+        }
+        watcher.start()
+    }
+
+    /// Coalesces screen changes into one refresh that waits for the displays to settle.
+    private func scheduleScreenRefresh(changeAlpha: Bool = false, adjust: Bool = false) {
+        pendingChangeAlpha = pendingChangeAlpha || changeAlpha
+        pendingAdjust = pendingAdjust || adjust
+        screenRefreshTask?.cancel()
+        screenRefreshTask = Task { @MainActor [weak self] in
+            while let self, !Task.isCancelled {
+                let gate = DisplayReconfigurationWatcher.shared.gate
+                try? await Task.sleep(for: .seconds(gate.delayBeforeRefresh(at: Date())))
+                if Task.isCancelled { return }
+                if DisplayReconfigurationWatcher.shared.isQuiet {
+                    self.refreshScreens()
+                    return
+                }
+            }
+        }
+    }
+
+    private func refreshScreens() {
+        NotchSpaceManager.shared.notchSpace.show()
+        let changeAlpha = pendingChangeAlpha
+        let adjust = pendingAdjust
+        pendingChangeAlpha = false
+        pendingAdjust = false
         let currentScreens = NSScreen.screens
 
         let screensChanged =
@@ -549,21 +597,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             || Set(currentScreens.compactMap { $0.displayUUID })
                 != Set(previousScreens?.compactMap { $0.displayUUID } ?? [])
             || Set(currentScreens.map { $0.frame }) != Set(previousScreens?.map { $0.frame } ?? [])
+            || Set(currentScreens.filter(\.hostsNotch).compactMap { $0.displayUUID })
+                != Set(previousScreens?.filter(\.hostsNotch).compactMap { $0.displayUUID } ?? [])
 
         previousScreens = currentScreens
 
         if screensChanged {
-            DispatchQueue.main.async { [weak self] in
-                self?.cleanupWindows()
-                self?.adjustWindowPosition()
-                self?.setupDragDetectors()
-            }
+            cleanupWindows()
+            adjustWindowPosition(changeAlpha: changeAlpha)
+            setupDragDetectors()
+        } else if changeAlpha || adjust {
+            adjustWindowPosition(changeAlpha: changeAlpha)
         }
     }
 
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {
+        // Never create, move or order windows while the displays are being reconfigured.
+        guard DisplayReconfigurationWatcher.shared.isQuiet else {
+            scheduleScreenRefresh(changeAlpha: changeAlpha, adjust: true)
+            return
+        }
+        // A display that only mirrors another one gets no window.
+        let hostScreens = NSScreen.screens.filter(\.hostsNotch)
         if Defaults[.showOnAllDisplays] {
-            let currentScreenUUIDs = Set(NSScreen.screens.compactMap { $0.displayUUID })
+            let currentScreenUUIDs = Set(hostScreens.compactMap { $0.displayUUID })
 
             // Remove windows for screens that no longer exist
             for uuid in windows.keys where !currentScreenUUIDs.contains(uuid) {
@@ -576,7 +633,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             // Create or update windows for all screens
-            for screen in NSScreen.screens {
+            for screen in hostScreens {
                 guard let uuid = screen.displayUUID else { continue }
                 
                 if windows[uuid] == nil {
@@ -602,10 +659,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let selectedScreen: NSScreen
 
-            if let preferredScreen = NSScreen.screen(withUUID: coordinator.preferredScreenUUID ?? "") {
+            if let preferredScreen = NSScreen.screen(withUUID: coordinator.preferredScreenUUID ?? ""), preferredScreen.hostsNotch {
                 coordinator.selectedScreenUUID = coordinator.preferredScreenUUID ?? ""
                 selectedScreen = preferredScreen
-            } else if Defaults[.automaticallySwitchDisplay], let mainScreen = NSScreen.main,
+            } else if Defaults[.automaticallySwitchDisplay], let mainScreen = NSScreen.main, mainScreen.hostsNotch,
                       let mainUUID = mainScreen.displayUUID {
                 coordinator.selectedScreenUUID = mainUUID
                 selectedScreen = mainScreen

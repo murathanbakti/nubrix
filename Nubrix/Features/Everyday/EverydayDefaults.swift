@@ -9,4 +9,6 @@ extension Defaults.Keys {
     static let everydayMicCamera = Key<Bool>("everydayMicCamera", default: true)
     /// Tells you when the internet goes away and when it comes back.
     static let everydayInternet = Key<Bool>("everydayInternet", default: true)
+    /// Tells you when your screen starts being shared, recorded or mirrored.
+    static let everydayScreenShare = Key<Bool>("everydayScreenShare", default: true)
 }

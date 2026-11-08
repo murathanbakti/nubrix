@@ -17,7 +17,7 @@
   .glabel { font-size: 11px; font-weight: 600; color: rgba(255,255,255,.55); letter-spacing: .1px; }
 
   /* Capsule slider, 28 high, icon inside on the left, value on the right. */
-  .cap { position: relative; height: 30px; border-radius: 14px; background: rgba(255,255,255,.10); overflow: hidden; }
+  .cap { position: relative; height: 28px; border-radius: 14px; background: rgba(255,255,255,.10); overflow: hidden; }
   .cap > i { position: absolute; left: 0; top: 0; bottom: 0; min-width: 28px; background: rgba(255,255,255,.92); border-radius: 14px; }
   .cap .ico { position: absolute; left: 9px; top: 0; bottom: 0; display: flex; align-items: center; color: #1c1c1e; }
   .cap .ico.lt { color: rgba(255,255,255,.8); }
@@ -49,11 +49,17 @@
   .bars i.dim { background: rgba(255,255,255,.2); }
   .sub { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.45); padding: 4px 4px 2px; }
   .qrow { display: flex; justify-content: space-between; padding: 0 2px; }
-  .q { width: 54px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .q { width: 48px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
   .q span { font-size: 10px; font-weight: 500; color: rgba(255,255,255,.6); white-space: nowrap; }
-  .qb { width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.12); color: #fff; }
+  .qb { width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.12); color: #fff; }
   .qb.on { background: var(--accent); }
   .q.sel .qb { background: rgba(255,59,48,.9); }
+  .share { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px 0 10px; border-radius: 10px; background: rgba(255,159,10,.14); box-shadow: inset 0 0 0 1px rgba(255,159,10,.35); margin-top: -4px; }
+  .share .dot { width: 7px; height: 7px; border-radius: 4px; background: #ff9f0a; flex: none; }
+  .share .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .share .t1 { font-size: 11px; font-weight: 600; color: #ffb340; line-height: 13px; }
+  .share .t2 { font-size: 9.5px; font-weight: 500; color: rgba(255,255,255,.55); line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .share .sbtn { font-size: 10px; font-weight: 600; color: #fff; padding: 3px 9px; border-radius: 9px; background: rgba(255,255,255,.14); flex: none; }
   .foot { margin-top: auto; padding: 0 4px 2px; font-size: 10.5px; font-weight: 500; color: rgba(255,255,255,.45); display: flex; justify-content: space-between; }
 
   .ref { position: absolute; top: 300px; left: 50%; width: 312px; margin-left: 4px; padding: 10px 14px; border-radius: 18px; background: #000; }
@@ -96,14 +102,15 @@
         <div class="nx-content" style="height:218px">
           <div class="ctl">
             <!-- Left: quick toggles and levels -->
-            <div class="col-l" style="gap:14px">
+            <div class="col-l" style="gap:12px">
               <div class="qrow">
                 <div class="q"><div class="qb on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1.3" fill="currentColor" stroke="none"/></svg></div><span>Wi‑Fi</span></div>
                 <div class="q"><div class="qb on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg></div><span>Bluetooth</span></div>
                 <div class="q"><div class="qb"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><span>Sound</span></div>
                 <div class="q sel"><div class="qb"><svg width="15" height="18" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="6" y="2" width="8" height="13" rx="4" fill="currentColor"/><path d="M2 11a8 8 0 0 0 16 0M10 19v3M1 1l18 22"/></svg></div><span>Mic off</span></div>
+                <div class="q"><div class="qb on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="3" width="15" height="11" rx="2"/><rect x="8" y="9" width="14" height="11" rx="2" fill="currentColor" fill-opacity=".35"/></svg></div><span>Mirroring</span></div>
               </div>
-              <div class="grp" style="gap:8px">
+              <div class="grp" style="gap:6px">
                 <div class="cap"><i style="width:72%"></i>
                   <span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
                   <span class="val">72%</span></div>
@@ -114,6 +121,7 @@
                   <span class="ico"><svg width="16" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="20" height="10" rx="2"/><path d="M6 14h.01M10 14h.01M14 14h.01M18 14h.01M12 3v3M7 5l1.5 2M17 5l-1.5 2" stroke-linecap="round"/></svg></span>
                   <span class="val">30%</span></div>
               </div>
+              <div class="share"><span class="dot"></span><div class="mid"><span class="t1">Screen is being shared</span><span class="t2">Mirroring to Living Room TV</span></div><span class="sbtn">Hide notch</span></div>
             </div>
 
             <div class="vline"></div>

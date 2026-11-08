@@ -53,6 +53,16 @@ struct EverydaySettings: View {
             } footer: {
                 SettingsFooter("Shows when you lose your internet connection and when it comes back.")
             }
+
+            Section {
+                Defaults.Toggle(key: .everydayScreenShare) {
+                    Text("When your screen is shared")
+                }
+            } header: {
+                Text("Screen sharing")
+            } footer: {
+                SettingsFooter("Shows when another app starts sharing or recording your screen, or when it is mirrored to an AirPlay display or TV. Nubrix only asks macOS whether someone is watching; it never captures the screen.")
+            }
         }
         .settingsPage(.everyday)
     }

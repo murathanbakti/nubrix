@@ -4,7 +4,7 @@ import Defaults
 import SwiftUI
 
 enum EverydaySource: CaseIterable {
-    case soundOutput, drives, micCamera, internet
+    case soundOutput, drives, micCamera, internet, screenShare
 
     var key: Defaults.Key<Bool> {
         switch self {
@@ -12,6 +12,7 @@ enum EverydaySource: CaseIterable {
         case .drives: .everydayDrives
         case .micCamera: .everydayMicCamera
         case .internet: .everydayInternet
+        case .screenShare: .everydayScreenShare
         }
     }
 
@@ -22,6 +23,7 @@ enum EverydaySource: CaseIterable {
         case .drives: DriveWatcher()
         case .micCamera: MicCameraWatcher()
         case .internet: InternetWatcher()
+        case .screenShare: ScreenShareWatcher()
         }
     }
 }

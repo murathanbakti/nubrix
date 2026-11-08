@@ -37,6 +37,23 @@ public final class CGSSpace {
         CGSShowSpaces(_CGSDefaultConnection(), [self.identifier])
     }
 
+    private var isShown = true
+
+    /// Takes the space (and the windows in it) off screen without destroying anything. Used while the
+    /// displays are being reconfigured, so nothing at the highest window level is on a display that is
+    /// being added, removed or mirrored.
+    public func hide() {
+        guard isShown else { return }
+        isShown = false
+        CGSHideSpaces(_CGSDefaultConnection(), [self.identifier])
+    }
+
+    public func show() {
+        guard !isShown else { return }
+        isShown = true
+        CGSShowSpaces(_CGSDefaultConnection(), [self.identifier])
+    }
+
     deinit {
         CGSHideSpaces(_CGSDefaultConnection(), [self.identifier])
         CGSSpaceDestroy(_CGSDefaultConnection(), self.identifier)

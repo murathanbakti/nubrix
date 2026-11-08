@@ -197,3 +197,38 @@ No public API. Use the private `IOBluetoothPreferenceGetControllerPowerState() -
 2. If the sandbox blocks it, move both calls into `NubrixHelper` (not sandboxed) behind new XPC methods, and give the helper what TCC needs.
 3. If neither works, the Bluetooth quick toggle opens Bluetooth settings, with the tooltip "Open Bluetooth settings".
 Do not actually turn Bluetooth off while testing (the user's AirPods and keyboard are connected); verifying Get is enough. Document the private API use in `docs/nubrix/PRIVACY-AND-SECURITY.md` next to the existing DisplayServices/CoreBrightness notes, and CHANGELOG.
+
+## Part H: screen sharing and AirPlay mirroring
+
+Report: AirPlay screen mirroring could not start while Nubrix was running; after quitting Nubrix it worked. The user also wants a warning whenever the screen is shared or recorded (any app), and a Screen Mirroring control. Mockup: `docs/images/mockups/controls.html` (v5).
+
+### 1. The AirPlay bug (investigate first, then fix)
+
+Not reproducible here (no AirPlay receiver), so reason from the code and make the risky paths safe. The user's installed app has `showOnAllDisplays` on. Suspects, in order:
+
+1. **Display reconfiguration.** Starting AirPlay mirroring adds a virtual display and reconfigures displays (mirror set). `didChangeScreenParametersNotification` → `adjustWindowPosition` creates a panel per `NSScreen` (including the AirPlay one), adds it to the max-level private CGS space (`NotchSpaceManager`, `CGSSpaceSetAbsoluteLevel(2147483647)`) and calls `orderFrontRegardless` — possibly repeatedly while the configuration is in flux. Fix: register `CGDisplayRegisterReconfigurationCallback`; while a reconfiguration is in progress (begin flag until the matching end, plus a short settle delay ~1 s), do nothing; debounce `adjustWindowPosition` from screen-parameter changes (coalesce to one run after things settle).
+2. **Mirrored / virtual displays.** Never create a notch window on a display that mirrors another (`CGDisplayMirrorsDisplay(id) != kCGNullDirectDisplay`), and skip AirPlay/virtual displays (no `CGDisplayVendorNumber`/`CGDisplayIsBuiltin`, or `NSScreen.localizedName` / IOKit transport says AirPlay; find a reliable test). When a display becomes a mirror, close its window and remove it from the CGS space.
+3. **The private CGS space at max level.** If the above is not enough in theory, temporarily hide the space (`CGSHideSpaces`) during a reconfiguration and show it again after.
+Write down in the plan's notes what you changed and why; keep behavior the same when nothing is being reconfigured. Add unit tests for the pure parts (debounce/settle state machine, which screens get a window).
+
+### 2. Sharing detection
+
+- `ScreenShareMonitor` (new, `Nubrix/Features/Controls/ScreenShare.swift`): polls the private SkyLight `SLSIsScreenWatcherPresent() -> Bool` (dlsym; verified present on this Mac, returns false when nothing captures; no permission needed) every 2 s, only while Nubrix runs; publishes `isShared`. Also publishes `mirroringTo: String?` when a display mirrors the main one and looks like AirPlay (name from `NSScreen.localizedName`).
+- Nubrix's own windows must not count: Nubrix never captures the screen itself (verified: no ScreenCaptureKit / CGWindowList capture calls). Keep it that way.
+- When `isShared` turns true: show a one-line everyday-style alert beside the closed notch: orange `rectangle.on.rectangle` symbol (or `record.circle` for recording), "Screen is shared", meta "Notch hidden" when the notch is hidden from sharing, else "Notch visible". Tapping it opens the Controls tab. Add a switch for this alert in Settings, Everyday ("When your screen is shared"), on by default, like the other everyday alerts.
+
+### 3. Controls tab
+
+- **Fifth quick toggle "Mirroring"** (circles become 40 pt, columns 48 wide, label 10 medium): accent when mirroring to an AirPlay display, else `white.opacity(0.12)`. Click: there is no public API to start AirPlay mirroring, so open the system Screen Mirroring picker if it can be done without new permissions, else open Displays settings (`x-apple.systempreferences:com.apple.Displays-Settings.extension`). When mirroring, the click offers "Stop Mirroring" via the same settings route. Tooltip explains.
+- **Sharing banner** at the bottom of the left column, only while `isShared`: 32 high, radius 10, `orange.opacity(0.14)` fill, `orange.opacity(0.35)` 1 pt border, orange dot, "Screen is being shared" (11 semibold, orange) and a second line ("Mirroring to <name>" or "Another app can see your screen", 9.5 medium `white.opacity(0.55)`), and a button "Hide notch" / "Show notch" that flips `hideFromScreenRecording`. Sliders shrink to 28 high and spacing tightens (see mockup) so everything fits in 218.
+- README Controls section, CHANGELOG (Fixed: AirPlay mirroring with Nubrix running — describe as "should no longer be blocked" since it is not verified on hardware; Added: sharing alert, Mirroring button), PRIVACY-AND-SECURITY.md (SkyLight call, nothing is captured).
+
+### Part H notes: what changed (AirPlay fix)
+
+Code: `Nubrix/Features/Displays/DisplayReconfiguration.swift`, `NubrixApp.swift`, `Nubrix/private/CGSSpace.swift`. Not verified on hardware (no AirPlay receiver).
+
+- Suspect 1 (reconfiguration): `DisplayReconfigurationWatcher` registers `CGDisplayRegisterReconfigurationCallback`. A pure `DisplayReconfigurationGate` says "quiet" only when no reconfiguration is in progress and the last callback was at least 1 s ago. `screenConfigurationDidChange` no longer closes and recreates windows immediately: it schedules one coalesced refresh (0.3 s debounce, or until quiet). `adjustWindowPosition` (also called by notch height, selected screen, unlock, show-on-all-displays changes) defers itself to that refresh while the displays are busy. Nothing changes when displays are quiet except hotplug applying after about a second instead of at once.
+- Suspect 2 (mirrors): screens with `CGDisplayMirrorsDisplay(id) != kCGNullDirectDisplay` get no window (`NSScreen.hostsNotch`, `NotchScreenFilter`); the existing cleanup loop closes the window of a display that becomes a mirror. In single-window mode a mirroring preferred or main screen is skipped. Virtual displays that are not mirrors (Sidecar, BetterDisplay) still get a notch: no reliable AirPlay test exists without hardware, and skipping them would change normal behavior.
+- Suspect 3 (max-level space): `CGSSpace.hide()` / `show()` (idempotent). The notch space is hidden when a reconfiguration begins and shown when it settles (and before the refresh). Windows are not destroyed.
+- Sharing detection: `ScreenShareMonitor` also polls `CGGetOnlineDisplayList` for a display that mirrors another one; it does not claim the display is AirPlay (any mirror counts, named by `NSScreen.localizedName`). `isShared` is the SkyLight answer or a mirror.
+- Verified: `SLSIsScreenWatcherPresent` resolves and returns false inside the sandboxed app (temporary logging in a hosted unit test, removed); no helper call needed.
