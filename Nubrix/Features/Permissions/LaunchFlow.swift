@@ -38,6 +38,9 @@ struct LaunchFlow {
         defaults.object(forKey: Key.firstLaunch) == nil ? true : defaults.bool(forKey: Key.firstLaunch)
     }
 
+    /// True until onboarding has appeared once. Read before `onboardingDidAppear()`.
+    var isFirstLaunch: Bool { firstLaunch }
+
     func initialAction() -> LaunchAction {
         if let origin = pendingFDAOrigin() { return .fdaReturn(origin) }
         if firstLaunch { return .onboarding }

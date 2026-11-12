@@ -504,16 +504,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupDragDetectors()
 
-        let launchAction = LaunchFlow().initialAction()
+        let launchFlow = LaunchFlow()
+        let isFirstLaunch = launchFlow.isFirstLaunch
+        let launchAction = launchFlow.initialAction()
         switch launchAction {
         case .onboarding:
+            // Fresh install: record the version as seen without showing What's New.
+            WhatsNewWindowController.shared.presentIfNeeded(isFirstLaunch: true)
             DispatchQueue.main.async {
                 self.showOnboardingWindow()
             }
         case .fdaReturn(let origin):
             Task { @MainActor in await self.handleFDAReturn(origin) }
         case .none:
-            break
+            // Normal route only; shown a couple of seconds after launch.
+            WhatsNewWindowController.shared.presentIfNeeded(isFirstLaunch: isFirstLaunch)
         }
 
         previousScreens = NSScreen.screens
