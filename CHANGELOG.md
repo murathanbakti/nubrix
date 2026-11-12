@@ -2,6 +2,21 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-11-13
+
+### Added
+
+- Themes, in a new Settings tab, Theme. The notch background can be a solid color, a two-color gradient (with an angle) or a frosted blur (five materials), each with an opacity slider from clear to solid, and an optional thin border. A live preview shows the look over a sample wallpaper.
+  - Text color: Auto, Light or Dark. Icon color: match the text, the accent or any color. Accent: the app accent or one just for the theme.
+  - Eight built-in themes: Classic (the default, the notch as before), Graphite, Midnight, Aurora, Frosted, Glass Light, Clear and Paper. Editing any option makes a Custom theme, built-in themes are never changed. Save a look as your own theme, then rename or delete it from its context menu.
+  - "Apply to side panels" (on by default) themes the side panels and the Vitrin panel. "Apply to closed notch" (off by default) themes the closed notch too. The part under the camera housing always stays black.
+- What's New window, shown once after Nubrix updates to a version with notes (never on a fresh install). Settings, About can open it again.
+
+### Changed
+
+- Text, icons, cards and dividers in the notch tabs (Home, Controls, Notifications, Vitrin, Claude Code, GitHub, Dev, Calendar, Shelf and the HUDs) take their colors from the theme instead of fixed white and black, so light and transparent themes stay readable.
+- The notch drops its shadow while a transparent or blurred theme is active, so the shadow doesn't outline the text.
+
 ## [0.4.0] - 2026-11-08
 
 ### Added
@@ -175,6 +190,7 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.5.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.0
 [0.4.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.4.0
 [0.3.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.3.0
 [0.2.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.2.0
