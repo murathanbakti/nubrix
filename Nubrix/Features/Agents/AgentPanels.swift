@@ -403,7 +403,7 @@ struct AgentPermissionCard: View {
             if total > 1 {
                 Text("\(position) of \(total)")
                     .font(.system(size: 11, weight: .medium).monospacedDigit())
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(palette.warning)
             }
         }
     }
@@ -413,10 +413,10 @@ struct AgentPermissionCard: View {
             HStack(spacing: 6) {
                 Text(payload.toolName)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(palette.warning)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.orange.opacity(0.18)))
+                    .background(Capsule().fill(palette.warning.opacity(0.18)))
                 if payload.summaryLines > 1 || payload.summary.count > 160 {
                     Text(sizeLabel(lines: payload.summaryLines, characters: payload.summary.count))
                         .font(.system(size: 10.5).monospacedDigit())
@@ -438,7 +438,7 @@ struct AgentPermissionCard: View {
     }
 
     private var commandColor: Color {
-        risky ? Color(red: 1, green: 0.62, blue: 0.6) : palette.foreground.opacity(0.92)
+        risky ? palette.dangerText : palette.foreground.opacity(0.92)
     }
 
     private var commandBox: some View {
@@ -499,7 +499,7 @@ struct AgentPermissionCard: View {
                 if preview.truncated {
                     Text("truncated")
                         .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(Color(red: 1, green: 0.42, blue: 0.4))
+                        .foregroundStyle(palette.danger)
                 }
             }
             AgentBoundedScroll(maxHeight: expanded ? 260 : 110) {
@@ -520,7 +520,7 @@ struct AgentPermissionCard: View {
         for (index, line) in lines.enumerated() {
             var piece = AttributedString(index == lines.count - 1 ? String(line) : String(line) + "\n")
             if isDiff, line.hasPrefix("+ ") || line.hasPrefix("- ") {
-                piece.foregroundColor = line.hasPrefix("+") ? Color(red: 0.55, green: 0.85, blue: 0.6) : Color(red: 1, green: 0.58, blue: 0.56)
+                piece.foregroundColor = line.hasPrefix("+") ? palette.diffAdded : palette.diffRemoved
             } else if isDiff, line == "@@" {
                 piece.foregroundColor = palette.foreground.opacity(0.5)
             } else {
@@ -539,7 +539,7 @@ struct AgentPermissionCard: View {
                 .font(.system(size: 11, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .foregroundStyle(Color(red: 1, green: 0.42, blue: 0.4))
+        .foregroundStyle(palette.danger)
     }
 
     private var openLabel: String {
@@ -570,7 +570,7 @@ struct AgentPermissionCard: View {
     @ViewBuilder
     private var allowButton: some View {
         if risky && !confirming {
-            actionButton("Allow", fill: Color.red.opacity(0.28), text: Color(red: 1, green: 0.55, blue: 0.52), enabled: ready) {
+            actionButton("Allow", fill: Color.red.opacity(0.28), text: palette.dangerButtonText, enabled: ready) {
                 guard Self.isHardwareClick() else { return }
                 confirmArmed = false
                 confirming = true
