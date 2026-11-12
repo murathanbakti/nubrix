@@ -1,20 +1,59 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot version updates. Security updates (Dependabot alerts) are enabled
+# in the repository settings and are not delayed by the cooldown below.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Istanbul"
+    # Wait a week before proposing a new release, so a hijacked or broken
+    # version is usually caught and pulled before it reaches the workflows.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github_actions"
+    commit-message:
+      prefix: "CI"
     groups:
       codeql-action:
         patterns:
           - "github/codeql-action*"
+      actions:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "github/codeql-action*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "swift"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Istanbul"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "swift_package_manager"
+    commit-message:
+      prefix: "Deps"
+    # Minor and patch bumps arrive as one PR; major bumps stay separate,
+    # since they can break the build and need their own review.
+    groups:
+      swift-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
