@@ -3,6 +3,7 @@ import Defaults
 import SwiftUI
 
 struct DevBannerView: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     let banner: DevNotification
 
@@ -14,7 +15,7 @@ struct DevBannerView: View {
                     .foregroundStyle(banner.style.tint)
                 Text(banner.title ?? "notchctl")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -36,6 +37,7 @@ struct DevBannerView: View {
 }
 
 struct DevTabView: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var monitor = DevPortMonitor.shared
     @ObservedObject var store = DevNotificationStore.shared
     @ObservedObject var github = GitHubStore.shared
@@ -84,7 +86,7 @@ struct DevTabView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Dev servers")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
                 .padding(.horizontal, 4)
             if monitor.servers.isEmpty {
                 placeholder(icon: "bolt.horizontal", text: "Nothing listening", detail: "Watching localhost ports.")
@@ -108,19 +110,19 @@ struct DevTabView: View {
                 Circle().fill(.green).frame(width: 7, height: 7)
                 Text(server.label)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                 Spacer(minLength: 6)
                 Text(copiedPort == server.port ? "Copied" : ":\(server.port)")
                     .font(.system(size: 11).monospacedDigit())
-                    .foregroundStyle(copiedPort == server.port ? Color.green : Color.gray)
+                    .foregroundStyle(copiedPort == server.port ? Color.green : palette.secondary)
                 Image(systemName: server.isDatabase ? "doc.on.doc" : "arrow.up.right")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.07)))
+            .background(RoundedRectangle(cornerRadius: 9).fill(palette.foreground.opacity(0.07)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -146,13 +148,13 @@ struct DevTabView: View {
             HStack {
                 Text("Notifications")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
                 Spacer()
                 if !store.notifications.isEmpty {
                     Button("Clear") { withAnimation(.smooth) { store.clear() } }
                         .buttonStyle(.plain)
                         .font(.caption)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                 }
             }
             .padding(.horizontal, 4)
@@ -174,19 +176,20 @@ struct DevTabView: View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             Text(text)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 struct DevNotificationRow: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: DevNotification
     @ObservedObject var store = DevNotificationStore.shared
     @State private var hovering = false
@@ -201,12 +204,12 @@ struct DevNotificationRow: View {
                 if let title = item.title {
                     Text(title)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .lineLimit(1)
                 }
                 Text(item.message)
                     .font(.system(size: 11))
-                    .foregroundStyle(item.title == nil ? .white : .gray)
+                    .foregroundStyle(item.title == nil ? palette.foreground : palette.secondary)
                     .lineLimit(2)
             }
             Spacer(minLength: 6)
@@ -216,20 +219,20 @@ struct DevNotificationRow: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                 }
                 .buttonStyle(.plain)
             } else {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     Text(Self.age(from: item.date, to: context.date))
                         .font(.system(size: 11).monospacedDigit())
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                 }
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(hovering ? 0.1 : 0.06)))
+        .background(RoundedRectangle(cornerRadius: 9).fill(palette.foreground.opacity(hovering ? 0.1 : 0.06)))
         .onHover { hovering = $0 }
     }
 

@@ -11,6 +11,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct FileShareView: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject private var vm: NubrixViewModel
     @StateObject private var quickShare = QuickShareService.shared
     @Default(.quickShareProvider) var quickShareProvider: String
@@ -43,14 +44,14 @@ struct FileShareView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
                 .fill(
-                    LinearGradient(colors: [Color.black.opacity(0.35), Color.black.opacity(0.20)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    palette.foreground.opacity(0.02)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(
                             vm.dropZoneTargeting
                                 ? Color.accentColor.opacity(0.9)
-                                : Color.white.opacity(0.1),
+                                : palette.foreground.opacity(0.1),
                             style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
                         )
                 )
@@ -60,8 +61,7 @@ struct FileShareView: View {
             VStack(spacing: 5) {
                 ZStack {
                     Circle()
-                        .fill(Color.white.opacity(
-                            vm.dropZoneTargeting ? 0.11 : 0.09
+                        .fill(palette.foreground.opacity(                            vm.dropZoneTargeting ? 0.11 : 0.09
                         ))
                         .frame(width: 55, height: 55)
                     Image(systemName: "square.and.arrow.up")
@@ -76,7 +76,7 @@ struct FileShareView: View {
                     }
                     .frame(width: 34, height: 34)
                         .foregroundStyle(
-                            vm.dropZoneTargeting ? Color.accentColor : Color.gray
+                            vm.dropZoneTargeting ? Color.accentColor : palette.secondary
                         )
                         .scaleEffect(
                             vm.dropZoneTargeting ? 1.06 : 1.0
@@ -86,7 +86,7 @@ struct FileShareView: View {
 
                 Text(selectedProvider.id)
                     .font(.system(.headline, design: .rounded))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(palette.foreground.opacity(0.8))
 
             }
             .padding(18)

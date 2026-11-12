@@ -2,11 +2,11 @@ import SwiftUI
 
 enum VitrinMetrics {
     static let cornerRadius: CGFloat = 10
-    static let fill = Color.white.opacity(0.06)
-    static let fillHover = Color.white.opacity(0.10)
-    static let stroke = Color.white.opacity(0.08)
-    static let strokeHover = Color.white.opacity(0.18)
-    static let meta = Color.white.opacity(0.5)
+    static func fill(_ p: ThemePalette) -> Color { p.foreground.opacity(0.06) }
+    static func fillHover(_ p: ThemePalette) -> Color { p.foreground.opacity(0.10) }
+    static func stroke(_ p: ThemePalette) -> Color { p.foreground.opacity(0.08) }
+    static func strokeHover(_ p: ThemePalette) -> Color { p.foreground.opacity(0.18) }
+    static func meta(_ p: ThemePalette) -> Color { p.foreground.opacity(0.5) }
 }
 
 enum VitrinAge {
@@ -22,6 +22,7 @@ enum VitrinAge {
 }
 
 struct VitrinCard: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     var size: CGSize
     var scale: CGFloat = 1
@@ -44,9 +45,9 @@ struct VitrinCard: View {
     var body: some View {
         content
             .frame(width: size.width, height: size.height)
-            .background(hovering ? VitrinMetrics.fillHover : VitrinMetrics.fill)
+            .background(hovering ? VitrinMetrics.fillHover(palette) : VitrinMetrics.fill(palette))
             .clipShape(shape)
-            .overlay(shape.strokeBorder(hovering ? VitrinMetrics.strokeHover : VitrinMetrics.stroke, lineWidth: 1))
+            .overlay(shape.strokeBorder(hovering ? VitrinMetrics.strokeHover(palette) : VitrinMetrics.stroke(palette), lineWidth: 1))
             .overlay {
                 if selected {
                     shape.strokeBorder(Color.accentColor, lineWidth: 2)
@@ -121,6 +122,7 @@ private struct PinDot: View {
 }
 
 private struct CardFooter: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     let glyph: String
     let scale: CGFloat
@@ -141,11 +143,12 @@ private struct CardFooter: View {
             }
         }
         .font(.system(size: 9.5 * scale, weight: .medium))
-        .foregroundStyle(VitrinMetrics.meta)
+        .foregroundStyle(VitrinMetrics.meta(palette))
     }
 }
 
 private struct ImageCardContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     let scale: CGFloat
     let now: Date
@@ -153,7 +156,7 @@ private struct ImageCardContent: View {
     @State private var image: NSImage?
 
     var body: some View {
-        Color.black.opacity(0.25)
+        palette.foreground.opacity(0.05)
             .overlay {
                 if let shown = image ?? ClipStore.shared.cachedThumbnail(for: item) {
                     Image(nsImage: shown)
@@ -162,7 +165,7 @@ private struct ImageCardContent: View {
                 } else {
                     Image(systemName: "photo")
                         .font(.system(size: 20 * scale))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                 }
             }
             .overlay(alignment: .bottom) {
@@ -195,6 +198,7 @@ private struct ImageCardContent: View {
 }
 
 private struct TextCardContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     let entry: ClipInsightEntry?
     let scale: CGFloat
@@ -214,23 +218,23 @@ private struct TextCardContent: View {
             if let color = insight?.color {
                 RoundedRectangle(cornerRadius: 6 * scale, style: .continuous)
                     .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
-                    .overlay(RoundedRectangle(cornerRadius: 6 * scale, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 6 * scale, style: .continuous).strokeBorder(palette.foreground.opacity(0.25), lineWidth: 1))
                     .frame(height: 24 * scale)
                 Text(String(text.prefix(60)))
                     .font(.system(size: 10.5 * scale, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(palette.foreground.opacity(0.8))
                     .lineLimit(1)
             } else if let code = current?.cardText {
                 Text(code)
                     .font(.system(size: 10.5 * scale, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(palette.foreground.opacity(0.9))
                     .multilineTextAlignment(.leading)
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             } else {
                 Text(String(text.prefix(400)))
                     .font(.system(size: 11.5 * scale))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(palette.foreground.opacity(0.9))
                     .multilineTextAlignment(.leading)
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -244,6 +248,7 @@ private struct TextCardContent: View {
 }
 
 struct InsightBadge: View {
+    @Environment(\.nubrixPalette) private var palette
     let insight: ClipInsight
     var scale: CGFloat = 1
 
@@ -252,7 +257,7 @@ struct InsightBadge: View {
             if let color = insight.color {
                 Circle()
                     .fill(Color(.sRGB, red: Double(color.red) / 255, green: Double(color.green) / 255, blue: Double(color.blue) / 255, opacity: color.alpha))
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5))
+                    .overlay(Circle().strokeBorder(palette.foreground.opacity(0.4), lineWidth: 0.5))
                     .frame(width: 7 * scale, height: 7 * scale)
             }
             Text(insight.date ?? insight.label)
@@ -267,6 +272,7 @@ struct InsightBadge: View {
 }
 
 private struct LinkCardContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     let scale: CGFloat
     let now: Date
@@ -285,13 +291,13 @@ private struct LinkCardContent: View {
             .padding(.bottom, 3 * scale)
             Text(parts.host)
                 .font(.system(size: 12 * scale, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .lineLimit(1)
                 .truncationMode(.middle)
             if !parts.rest.isEmpty {
                 Text(parts.rest)
                     .font(.system(size: 10.5 * scale))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .truncationMode(.middle)
@@ -409,6 +415,8 @@ struct VitrinCardRow: View {
 }
 
 struct VitrinChipBar<Trailing: View>: View {
+    @Environment(\.nubrixPalette) private var palette
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var selection: VitrinFilter
     let counts: [VitrinFilter: Int]
     @ViewBuilder var trailing: Trailing
@@ -439,16 +447,17 @@ struct VitrinChipBar<Trailing: View>: View {
                 }
             }
             .font(.system(size: 10.5, weight: .medium))
-            .foregroundStyle(selected ? Color.black : Color.white.opacity(0.75))
+            .foregroundStyle(selected ? (colorScheme == .dark ? Color.black : Color.white) : palette.foreground.opacity(0.75))
             .padding(.horizontal, 9)
             .frame(height: 20)
-            .background(Capsule().fill(selected ? Color.white : Color.white.opacity(0.08)))
+            .background(Capsule().fill(selected ? palette.foreground : palette.foreground.opacity(0.08)))
         }
         .buttonStyle(.plain)
     }
 }
 
 struct VitrinSection: View {
+    @Environment(\.nubrixPalette) private var palette
     let title: String
     let icon: String
     let items: [ClipItem]
@@ -471,13 +480,13 @@ struct VitrinSection: View {
                     .font(.system(size: 10.5, weight: .regular).monospacedDigit())
                     .opacity(0.7)
             }
-            .foregroundStyle(.white.opacity(0.55))
+            .foregroundStyle(palette.foreground.opacity(0.55))
             .padding(.horizontal, 2)
             if items.isEmpty {
                 RoundedRectangle(cornerRadius: VitrinMetrics.cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .strokeBorder(palette.foreground.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     .frame(height: Self.cardSize.height)
-                    .overlay(Text("Nothing here").font(.system(size: 11)).foregroundStyle(.white.opacity(0.4)))
+                    .overlay(Text("Nothing here").font(.system(size: 11)).foregroundStyle(palette.foreground.opacity(0.4)))
                     .padding(.vertical, 4)
             } else {
                 ScrollViewReader { proxy in
@@ -510,6 +519,7 @@ struct VitrinSection: View {
 }
 
 struct VitrinEmptyState: View {
+    @Environment(\.nubrixPalette) private var palette
     var message = "Nothing copied yet"
     var detail = "Things you copy show up here."
 
@@ -517,13 +527,13 @@ struct VitrinEmptyState: View {
         VStack(spacing: 5) {
             Image(systemName: "square.stack.3d.up.fill")
                 .font(.system(size: 18))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             Text(message)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text(detail)
                 .font(.system(size: 10.5))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

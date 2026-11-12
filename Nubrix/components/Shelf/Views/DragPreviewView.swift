@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct DragPreviewView: View {
+    @Environment(\.nubrixPalette) private var palette
     let thumbnail: NSImage?
     let displayName: String
 
@@ -15,7 +16,7 @@ struct DragPreviewView: View {
 
             Text(displayName)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(palette.foreground)
                 .lineLimit(2)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.center)

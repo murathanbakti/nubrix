@@ -113,6 +113,7 @@ struct VitrinTabView: View {
 }
 
 private struct ScreenshotDragHint: View {
+    @Environment(\.nubrixPalette) private var palette
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "info.circle")
@@ -120,7 +121,7 @@ private struct ScreenshotDragHint: View {
                 .lineLimit(1)
         }
         .font(.system(size: 9.5, weight: .medium))
-        .foregroundStyle(VitrinMetrics.meta)
+        .foregroundStyle(VitrinMetrics.meta(palette))
         .help("macOS saves a screenshot only after its floating preview closes on its own. If you drag the preview somewhere or swipe it away, no file is written, so Vitrin can't show it. Let the preview finish first, or turn off Show Floating Thumbnail in the Screenshot app's Options (\u{21E7}\u{2318}5).")
     }
 }

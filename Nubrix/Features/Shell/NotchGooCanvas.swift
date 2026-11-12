@@ -3,6 +3,11 @@ import SwiftUI
 struct NotchGooCanvas: View {
     let geometry: NotchExtensionGeometry
     let progress: CGFloat
+    @ObservedObject private var themeStore = ThemeStore.shared
+
+    private var fill: Color {
+        themeStore.appliesToExtensions ? themeStore.current.approximateFill : .black
+    }
 
     var body: some View {
         Canvas { context, _ in
@@ -30,18 +35,18 @@ struct NotchGooCanvas: View {
         )
         let offset = CGAffineTransform(translationX: -geometry.canvas.minX, y: -geometry.canvas.minY)
         for bridge in blob.bridges {
-            context.fill(bridge.applying(offset), with: .color(.black))
+            context.fill(bridge.applying(offset), with: .color(fill))
         }
         context.fill(
             Path(roundedRect: local(blob.rect), cornerRadius: blob.radius, style: .continuous),
-            with: .color(.black)
+            with: .color(fill)
         )
     }
 
     private func drawAttached(_ context: inout GraphicsContext) {
         let sheet = NotchExtensionTimeline.sheet(progress, geometry)
         let shape = NotchShape(topCornerRadius: sheet.topRadius, bottomCornerRadius: sheet.bottomRadius)
-        context.fill(shape.path(in: local(sheet.rect)), with: .color(.black))
+        context.fill(shape.path(in: local(sheet.rect)), with: .color(fill))
     }
 }
 

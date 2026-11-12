@@ -3,21 +3,23 @@ import SwiftUI
 
 struct DockBadgeCountCapsule: View {
     let text: String
-    var foreground: Color = .white
-    var fill: Color = Color.white.opacity(0.2)
+    var foreground: Color?
+    var fill: Color?
+    @Environment(\.nubrixPalette) private var palette
 
     var body: some View {
         Text(text)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(foreground)
+            .foregroundStyle(foreground ?? palette.foreground)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
-            .background(Capsule().fill(fill))
+            .background(Capsule().fill(fill ?? palette.foreground.opacity(0.2)))
             .fixedSize()
     }
 }
 
 struct DockBadgeLiveActivity: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     @ObservedObject var store = DockBadgeStore.shared
 
@@ -32,7 +34,7 @@ struct DockBadgeLiveActivity: View {
             Text(store.summary.totalText)
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .frame(width: side, height: side)
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
@@ -48,19 +50,20 @@ struct DockBadgeLiveActivity: View {
         } else {
             Image(systemName: "app.badge")
                 .font(.system(size: side * 0.6, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
         }
     }
 }
 
 struct DockBadgeRowsView: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store = DockBadgeStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Unread in the Dock")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
                 .padding(.horizontal, 2)
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 4) {
@@ -75,6 +78,7 @@ struct DockBadgeRowsView: View {
 }
 
 struct DockBadgeRow: View {
+    @Environment(\.nubrixPalette) private var palette
     let badge: DockBadge
     @State private var hovering = false
 
@@ -86,7 +90,7 @@ struct DockBadgeRow: View {
                 icon
                 Text(SystemNotificationStore.shared.appName(for: badge.bundleID))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                 Spacer(minLength: 6)
                 DockBadgeCountCapsule(text: badge.label)
@@ -95,8 +99,7 @@ struct DockBadgeRow: View {
             .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.white.opacity(hovering ? 0.1 : 0.06))
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.black))
+                    .fill(palette.foreground.opacity(hovering ? 0.1 : 0.06))
             )
             .contentShape(Rectangle())
         }
@@ -113,7 +116,7 @@ struct DockBadgeRow: View {
         } else {
             Image(systemName: "app.badge")
                 .font(.system(size: 14))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
                 .frame(width: 20, height: 20)
         }
     }

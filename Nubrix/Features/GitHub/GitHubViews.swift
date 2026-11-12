@@ -99,6 +99,7 @@ struct GitHubBadge: View {
 }
 
 struct GitHubPRChip: View {
+    @Environment(\.nubrixPalette) private var palette
     let pr: GitHubPR
 
     var body: some View {
@@ -108,7 +109,7 @@ struct GitHubPRChip: View {
             HStack(spacing: 3) {
                 Text("#\(pr.number)")
                     .font(.system(size: 10, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Color(white: 0.78))
+                    .foregroundStyle(palette.foreground.opacity(0.78))
                 GitHubCheckGlyph(state: pr.checks, size: 10)
                 if pr.merge == .conflicting {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -118,7 +119,7 @@ struct GitHubPRChip: View {
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(Color.white.opacity(0.09)))
+            .background(Capsule().fill(palette.foreground.opacity(0.09)))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -127,6 +128,7 @@ struct GitHubPRChip: View {
 }
 
 struct GitHubPRRow: View {
+    @Environment(\.nubrixPalette) private var palette
     let pr: GitHubPR
     let now: Date
     @State private var hovering = false
@@ -140,12 +142,12 @@ struct GitHubPRRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(pr.title)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Text("\(GitHubFormat.shortRepo(pr.repo)) #\(pr.number) · \(GitHubFormat.age(from: pr.updatedAt, to: now))")
                         .font(.system(size: 10))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -166,8 +168,8 @@ struct GitHubPRRow: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(hovering ? 0.1 : 0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.08), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 8).fill(palette.foreground.opacity(hovering ? 0.1 : 0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.foreground.opacity(0.08), lineWidth: 0.5))
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -177,6 +179,7 @@ struct GitHubPRRow: View {
 }
 
 struct GitHubRunRow: View {
+    @Environment(\.nubrixPalette) private var palette
     let run: GitHubRun
     let now: Date
     @State private var hovering = false
@@ -190,12 +193,12 @@ struct GitHubRunRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(run.name)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Text("\(GitHubFormat.shortRepo(run.repo)) · \(run.branch) · \(GitHubFormat.age(from: run.updatedAt, to: now))")
                         .font(.system(size: 10))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -203,8 +206,8 @@ struct GitHubRunRow: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(hovering ? 0.1 : 0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.08), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 8).fill(palette.foreground.opacity(hovering ? 0.1 : 0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.foreground.opacity(0.08), lineWidth: 0.5))
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -214,6 +217,7 @@ struct GitHubRunRow: View {
 }
 
 struct GitHubSection: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store: GitHubStore
     var onOpenSettings: () -> Void = { SettingsNavigation.shared.open(.github) }
 
@@ -232,7 +236,7 @@ struct GitHubSection: View {
             VStack {
                 Text("Loading GitHub")
                     .font(.caption)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         default:
@@ -262,18 +266,18 @@ struct GitHubSection: View {
             HStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
                 if count > 0 {
                     Text("\(count)")
                         .font(.system(size: 10, weight: .medium).monospacedDigit())
-                        .foregroundStyle(Color(white: 0.45))
+                        .foregroundStyle(palette.foreground.opacity(0.45))
                 }
             }
             .padding(.horizontal, 2)
             if count == 0 {
                 Text(empty())
                     .font(.system(size: 10))
-                    .foregroundStyle(Color(white: 0.45))
+                    .foregroundStyle(palette.foreground.opacity(0.45))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
@@ -288,20 +292,20 @@ struct GitHubSection: View {
         VStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             Text(title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             Button(action: onOpenSettings) {
                 Text(button)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.white.opacity(0.14)))
+                    .background(Capsule().fill(palette.foreground.opacity(0.14)))
             }
             .buttonStyle(.plain)
         }
@@ -310,6 +314,7 @@ struct GitHubSection: View {
 }
 
 struct DevSectionBar: View {
+    @Environment(\.nubrixPalette) private var palette
     @Binding var selection: DevSection
     @ObservedObject var github: GitHubStore
     @Default(.githubEnabled) private var githubEnabled
@@ -322,10 +327,10 @@ struct DevSectionBar: View {
                 } label: {
                     Text(section.rawValue)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(selection == section ? Color.white : Color.gray)
+                        .foregroundStyle(selection == section ? palette.foreground : palette.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.white.opacity(selection == section ? 0.14 : 0)))
+                        .background(Capsule().fill(palette.foreground.opacity(selection == section ? 0.14 : 0)))
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -338,7 +343,7 @@ struct DevSectionBar: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                 }
                 .buttonStyle(.plain)
                 .help("Refresh now")
@@ -366,7 +371,7 @@ struct DevSectionBar: View {
             if !github.login.isEmpty {
                 Text("@\(github.login)")
                     .font(.system(size: 10))
-                    .foregroundStyle(Color(white: 0.45))
+                    .foregroundStyle(palette.foreground.opacity(0.45))
             }
         }
     }

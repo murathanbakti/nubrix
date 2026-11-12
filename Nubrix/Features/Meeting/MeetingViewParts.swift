@@ -3,9 +3,8 @@ import SwiftUI
 enum MeetingTint {
     static let urgent = Color(red: 1.0, green: 0.27, blue: 0.23)
     static let started = Color(red: 0.2, green: 0.84, blue: 0.4)
-    static let normal = Color.white
 
-    static func countdown(start: Date, now: Date) -> Color {
+    static func countdown(start: Date, now: Date, normal: Color = .white) -> Color {
         if MeetingCountdown.hasStarted(start, now: now) { return started }
         return MeetingCountdown.isUrgent(until: start, now: now) ? urgent : normal
     }
@@ -53,6 +52,7 @@ struct MeetingGlyph: View {
 }
 
 struct MeetingWingContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let meeting: MeetingInfo
     let now: Date
     let closedHeight: CGFloat
@@ -73,7 +73,7 @@ struct MeetingWingContent: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .foregroundStyle(MeetingTint.countdown(start: meeting.start, now: now))
+                .foregroundStyle(MeetingTint.countdown(start: meeting.start, now: now, normal: palette.foreground))
                 .frame(width: wing, height: side)
         }
         .frame(height: closedHeight, alignment: .center)
@@ -81,6 +81,7 @@ struct MeetingWingContent: View {
 }
 
 struct MeetingBannerContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let banner: MeetingBanner
     let meeting: MeetingInfo?
     let closedHeight: CGFloat
@@ -94,11 +95,11 @@ struct MeetingBannerContent: View {
                     MeetingGlyph(meeting: meeting, size: 14)
                 } else {
                     Image(systemName: "calendar")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                 }
                 Text(banner.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -111,7 +112,7 @@ struct MeetingBannerContent: View {
             Text(MeetingCountdown.duration(minutes: banner.minutes, locale: locale))
                 .font(.subheadline.weight(.medium))
                 .monospacedDigit()
-                .foregroundStyle(banner.minutes <= 1 ? MeetingTint.urgent : Color.white)
+                .foregroundStyle(banner.minutes <= 1 ? MeetingTint.urgent : palette.foreground)
                 .lineLimit(1)
                 .frame(width: 90, alignment: .trailing)
         }
@@ -122,6 +123,7 @@ struct MeetingBannerContent: View {
 }
 
 struct MeetingCardContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let meeting: MeetingInfo
     let now: Date
     let onJoin: () -> Void
@@ -135,12 +137,12 @@ struct MeetingCardContent: View {
                 Text(MeetingCountdown.label(until: meeting.start, now: now, locale: locale))
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(MeetingTint.countdown(start: meeting.start, now: now))
+                    .foregroundStyle(MeetingTint.countdown(start: meeting.start, now: now, normal: palette.foreground))
                 Spacer(minLength: 4)
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .frame(width: 18, height: 18)
                         .contentShape(Rectangle())
                 }
@@ -151,7 +153,7 @@ struct MeetingCardContent: View {
 
             Text(meeting.title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -166,7 +168,7 @@ struct MeetingCardContent: View {
                 }
             }
             .font(.system(size: 11))
-            .foregroundStyle(.gray)
+            .foregroundStyle(palette.secondary)
             .lineLimit(1)
 
             Spacer(minLength: 0)
@@ -179,7 +181,7 @@ struct MeetingCardContent: View {
                         Text(MeetingText.join(locale))
                             .font(.system(size: 12, weight: .semibold))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(Color.accentColor))
@@ -191,7 +193,7 @@ struct MeetingCardContent: View {
         .padding(10)
         .frame(width: 168, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(palette.foreground.opacity(0.07)))
     }
 
     static func range(_ start: Date, _ end: Date, locale: Locale) -> String {

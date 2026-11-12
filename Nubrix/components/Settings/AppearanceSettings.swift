@@ -43,6 +43,10 @@ struct AppearanceSettings: View {
             mediaSection
             closedNotchSection
             mirrorSection
+            Section {
+            } footer: {
+                SettingsFooter("Notch background, text and icon colors live in the Theme tab.")
+            }
         }
         .settingsPage(.appearance)
         .onAppear {

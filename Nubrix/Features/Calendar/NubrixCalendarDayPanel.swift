@@ -41,12 +41,12 @@ extension NubrixCalendarView {
             if let toast {
                 Label(toast, systemImage: "checkmark.circle.fill")
                     .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .padding(.horizontal, 12)
                     .frame(height: 28)
                     .background(Color(white: 0.16), in: Capsule())
-                    .overlay(Capsule().strokeBorder(NubrixCalendarMetrics.stroke, lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(NubrixCalendarMetrics.stroke(palette), lineWidth: 1))
                     .padding(.bottom, 4)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
@@ -58,7 +58,7 @@ extension NubrixCalendarView {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(NubrixCalendarMetrics.meta)
+                .foregroundStyle(NubrixCalendarMetrics.meta(palette))
             TextField(text.goToPlaceholder, text: $gotoText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
@@ -71,17 +71,17 @@ extension NubrixCalendarView {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 11))
-                        .foregroundStyle(NubrixCalendarMetrics.meta)
+                        .foregroundStyle(NubrixCalendarMetrics.meta(palette))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 9)
         .frame(height: 28)
-        .background(NubrixCalendarMetrics.fill, in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
+        .background(NubrixCalendarMetrics.fill(palette), in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous)
-                .strokeBorder(focus == .goTo ? Color.white.opacity(0.3) : NubrixCalendarMetrics.stroke, lineWidth: 1))
+                .strokeBorder(focus == .goTo ? palette.foreground.opacity(0.3) : NubrixCalendarMetrics.stroke(palette), lineWidth: 1))
     }
 
     func resultChip(_ date: Date) -> some View {
@@ -93,7 +93,7 @@ extension NubrixCalendarView {
                 .font(.system(size: 12, weight: .semibold))
                 .lineLimit(1)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(palette.foreground)
         .padding(.horizontal, 10)
         .frame(height: 26)
         .fixedSize()
@@ -108,12 +108,12 @@ extension NubrixCalendarView {
             VStack(alignment: .leading, spacing: 1) {
                 Text(fmt.longDate(selected))
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Text(subtitle.joined(separator: " · "))
                     .font(.system(size: 11))
-                    .foregroundStyle(NubrixCalendarMetrics.meta)
+                    .foregroundStyle(NubrixCalendarMetrics.meta(palette))
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
@@ -124,7 +124,7 @@ extension NubrixCalendarView {
                     Image(systemName: "plus").font(.system(size: 10, weight: .bold))
                     Text(text.newEvent).font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .padding(.horizontal, 10)
                 .frame(height: 22)
                 .background(NubrixCalendarMetrics.red.opacity(store.access == .granted ? 0.9 : 0.35), in: Capsule())
@@ -143,13 +143,13 @@ extension NubrixCalendarView {
             VStack(spacing: 6) {
                 Image(systemName: "calendar")
                     .font(.system(size: 22, weight: .light))
-                    .foregroundStyle(Color.white.opacity(0.3))
+                    .foregroundStyle(palette.foreground.opacity(0.3))
                 Text(text.noEvents)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .foregroundStyle(palette.foreground.opacity(0.6))
                 Text(text.noEventsHint)
                     .font(.system(size: 10.5))
-                    .foregroundStyle(Color.white.opacity(0.35))
+                    .foregroundStyle(palette.foreground.opacity(0.35))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -173,13 +173,13 @@ extension NubrixCalendarView {
         VStack(spacing: 8) {
             Image(systemName: store.access == .denied ? "calendar.badge.exclamationmark" : "calendar.badge.plus")
                 .font(.system(size: 24, weight: .light))
-                .foregroundStyle(Color.white.opacity(0.4))
+                .foregroundStyle(palette.foreground.opacity(0.4))
             Text(text.accessTitle)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text(store.access == .denied ? text.deniedBody : text.accessBody)
                 .font(.system(size: 11))
-                .foregroundStyle(NubrixCalendarMetrics.meta)
+                .foregroundStyle(NubrixCalendarMetrics.meta(palette))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             if store.access == .denied {
@@ -210,6 +210,7 @@ extension NubrixCalendarView {
 }
 
 struct NubrixEventRow: View {
+    @Environment(\.nubrixPalette) private var palette
     let event: NubrixCalendarEvent
     let timeLabel: String
     let dimmed: Bool
@@ -225,7 +226,7 @@ struct NubrixEventRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(event.title)
                         .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .lineLimit(1)
                     HStack(spacing: 4) {
                         Text(timeLabel)
@@ -235,15 +236,15 @@ struct NubrixEventRow: View {
                         }
                     }
                     .font(.system(size: 11))
-                    .foregroundStyle(NubrixCalendarMetrics.meta)
+                    .foregroundStyle(NubrixCalendarMetrics.meta(palette))
                 }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(hovering ? NubrixCalendarMetrics.fillHover : NubrixCalendarMetrics.fill, in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke, lineWidth: 1))
+            .background(hovering ? NubrixCalendarMetrics.fillHover(palette) : NubrixCalendarMetrics.fill(palette), in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke(palette), lineWidth: 1))
             .opacity(dimmed ? 0.55 : 1)
             .contentShape(Rectangle())
         }
@@ -253,6 +254,7 @@ struct NubrixEventRow: View {
 }
 
 struct NubrixEventForm: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store: NubrixCalendarStore
     let day: Date
     let fmt: NubrixCalendarFormat
@@ -298,7 +300,7 @@ struct NubrixEventForm: View {
                     .font(.system(size: 11.5))
                 Spacer(minLength: 0)
                 if !isAllDay {
-                    Text(text.start).font(.system(size: 11)).foregroundStyle(NubrixCalendarMetrics.meta)
+                    Text(text.start).font(.system(size: 11)).foregroundStyle(NubrixCalendarMetrics.meta(palette))
                     DatePicker("", selection: $start, displayedComponents: .hourAndMinute)
                         .datePickerStyle(.field)
                         .labelsHidden()
@@ -348,7 +350,7 @@ struct NubrixEventForm: View {
                 Button(action: save) {
                     Text("\(text.save)  ↩")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .padding(.horizontal, 12)
                         .frame(height: 22)
                         .background(NubrixCalendarMetrics.red.opacity(canSave ? 0.9 : 0.35), in: Capsule())
@@ -387,18 +389,18 @@ struct NubrixEventForm: View {
         content()
             .padding(.horizontal, 9)
             .frame(height: 28)
-            .background(NubrixCalendarMetrics.fill, in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke, lineWidth: 1))
+            .background(NubrixCalendarMetrics.fill(palette), in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke(palette), lineWidth: 1))
     }
 
     private func durationChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .padding(.horizontal, 9)
                 .frame(height: 22)
-                .background(active ? NubrixCalendarMetrics.red.opacity(0.75) : Color.white.opacity(0.08), in: Capsule())
+                .background(active ? NubrixCalendarMetrics.red.opacity(0.75) : palette.foreground.opacity(0.08), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -419,17 +421,17 @@ struct NubrixEventForm: View {
                     .frame(width: 8, height: 8)
                 Text(selectedCalendar?.title ?? text.noWritableCalendar)
                     .font(.system(size: 12))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(NubrixCalendarMetrics.meta)
+                    .foregroundStyle(NubrixCalendarMetrics.meta(palette))
             }
             .padding(.horizontal, 9)
             .frame(height: 28)
-            .background(NubrixCalendarMetrics.fill, in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke, lineWidth: 1))
+            .background(NubrixCalendarMetrics.fill(palette), in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke(palette), lineWidth: 1))
             .contentShape(Rectangle())
         }
         .menuStyle(.button)

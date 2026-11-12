@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct VitrinPasteConsentPill: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var monitor = ClipboardMonitor.shared
 
     var body: some View {
@@ -8,20 +9,20 @@ struct VitrinPasteConsentPill: View {
             HStack(spacing: 8) {
                 Image(systemName: "doc.on.clipboard")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(palette.foreground.opacity(0.7))
                 Text("macOS asks before Nubrix reads copied items.")
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(palette.foreground.opacity(0.8))
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Button("Save Copied Item") { monitor.captureNowByUser() }
                     .buttonStyle(.plain)
                     .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                 Button("Allow in Settings…") { Permissions.client.openSystemSettings(.pasteboard) }
                     .buttonStyle(.plain)
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(palette.foreground.opacity(0.7))
             }
             .padding(.horizontal, 9)
             .frame(height: 20)

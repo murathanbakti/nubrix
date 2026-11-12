@@ -9,6 +9,7 @@ import SwiftUI
 import Defaults
 
 struct SystemEventIndicatorModifier: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     @Binding var eventType: SneakContentType
     @Binding var value: CGFloat {
@@ -43,18 +44,18 @@ struct SystemEventIndicatorModifier: View {
                     Image(systemName: "sun.max.fill")
                         .contentTransition(.symbolEffect)
                         .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                 case .backlight:
                     Image(systemName: value > 0.5 ? "light.max" : "light.min")
                         .contentTransition(.interpolate)
                         .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                 case .mic:
                     Image(systemName: "mic")
                         .symbolVariant(value > 0 ? .none : .slash)
                         .contentTransition(.interpolate)
                         .frame(width: 20, height: 15)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                 default:
                     EmptyView()
             }
@@ -63,13 +64,13 @@ struct SystemEventIndicatorModifier: View {
                 if Defaults[.showClosedNotchHUDPercentage] {
                     Text("\(Int(value * 100))%")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .monospacedDigit()
                         .frame(width: 35, alignment: .trailing)
                 }
             } else {
                 Text("Mic \(value > 0 ? "unmuted" : "muted")")
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
                     .lineLimit(1)
                     .allowsTightening(true)
             }

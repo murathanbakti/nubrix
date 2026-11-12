@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Closed notch header: symbol and title on the left, small text on the right.
 struct EverydayAlertHeader: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     let alert: EverydayAlert
 
@@ -10,10 +11,10 @@ struct EverydayAlertHeader: View {
             HStack(spacing: 6) {
                 Image(systemName: alert.symbol)
                     .font(.system(size: 16))
-                    .foregroundStyle(alert.tint.color)
+                    .foregroundStyle(alert.tint == .white ? palette.foreground : alert.tint.color)
                 Text(alert.headerTitle ?? alert.title)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -27,7 +28,7 @@ struct EverydayAlertHeader: View {
                 if let meta = alert.meta {
                     Text(meta)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .foregroundStyle(palette.foreground.opacity(0.45))
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }

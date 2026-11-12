@@ -3,6 +3,7 @@ import Defaults
 import SwiftUI
 
 struct SystemNotificationsTabView: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store = SystemNotificationStore.shared
     @Default(.systemNotificationsShowBody) var showBody
     @ObservedObject var badges = DockBadgeStore.shared
@@ -86,7 +87,7 @@ struct SystemNotificationsTabView: View {
             Button("Clear") { withAnimation(.smooth) { store.clearHistory() } }
                 .buttonStyle(.plain)
                 .font(.caption)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
         }
         .padding(.horizontal, 2)
     }
@@ -96,7 +97,7 @@ struct SystemNotificationsTabView: View {
             HStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(selected ? Color.white : Color.gray)
+                    .foregroundStyle(selected ? palette.foreground : palette.secondary)
                     .lineLimit(1)
                 if let count {
                     DockBadgeCountCapsule(text: count)
@@ -104,7 +105,7 @@ struct SystemNotificationsTabView: View {
             }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color.white.opacity(selected ? 0.14 : 0)))
+                .background(Capsule().fill(palette.foreground.opacity(selected ? 0.14 : 0)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -123,13 +124,13 @@ struct SystemNotificationsTabView: View {
         VStack(spacing: 4) {
             Image(systemName: "app.badge")
                 .font(.title3)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             Text("No unread messages")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text("Unread counts from the apps you pick appear here")
                 .font(.caption)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -141,25 +142,25 @@ struct SystemNotificationsTabView: View {
             VStack(spacing: 6) {
                 Image(systemName: "lock.fill")
                     .font(.title3)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
                 Text("Needs Full Disk Access")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                 Button("Grant access…") { FullDiskAccessGuide.begin(origin: .notch) }
                     .buttonStyle(.plain)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.white.opacity(0.14)))
+                    .background(Capsule().fill(palette.foreground.opacity(0.14)))
                 if !badgesEnabled {
                     Button("Use unread counts instead") { Defaults[.dockBadgesEnabled] = true }
                         .buttonStyle(.plain)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                        .background(Capsule().fill(palette.foreground.opacity(0.14)))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -167,19 +168,19 @@ struct SystemNotificationsTabView: View {
             VStack(spacing: 4) {
                 Image(systemName: "bell")
                     .font(.title3)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
                 Text("No notifications yet")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                 Text("New notifications from the apps you pick appear here")
                     .font(.caption)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         default:
             Text(statusLabel)
                 .font(.caption)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -195,6 +196,7 @@ struct SystemNotificationsTabView: View {
 }
 
 struct SystemNotificationStackView: View {
+    @Environment(\.nubrixPalette) private var palette
     let stack: SystemNotificationStack
     let store: SystemNotificationStore
     let showBody: Bool
@@ -235,14 +237,14 @@ struct SystemNotificationStackView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             Text(stack.isAppGroup || newest.title.isEmpty ? newest.appName : "\(newest.title) · \(newest.appName)")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .lineLimit(1)
             Text("\(stack.records.count)")
                 .font(SystemNotificationType.meta)
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(Capsule().fill(Color.white.opacity(0.2)))
+                .background(Capsule().fill(palette.foreground.opacity(0.2)))
                 .fixedSize()
             Spacer(minLength: 6)
             if hovering {
@@ -251,12 +253,12 @@ struct SystemNotificationStackView: View {
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 Text(systemNotificationAge(from: newest.date, to: context.date))
                     .font(SystemNotificationType.meta.monospacedDigit())
-                    .foregroundStyle(SystemNotificationType.metaColor)
+                    .foregroundStyle(SystemNotificationType.metaColor(palette))
             }
             Button(action: toggle) {
                 Text("Show less")
                     .font(SystemNotificationType.meta)
-                    .foregroundStyle(SystemNotificationType.metaColor)
+                    .foregroundStyle(SystemNotificationType.metaColor(palette))
             }
             .buttonStyle(.plain)
         }
@@ -267,15 +269,16 @@ struct SystemNotificationStackView: View {
 }
 
 struct ClearCircleButton: View {
+    @Environment(\.nubrixPalette) private var palette
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: "xmark")
                 .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(palette.foreground.opacity(0.8))
                 .frame(width: 16, height: 16)
-                .background(Circle().fill(Color.white.opacity(0.14)))
+                .background(Circle().fill(palette.foreground.opacity(0.14)))
         }
         .buttonStyle(.plain)
         .help("Clear")
@@ -283,6 +286,7 @@ struct ClearCircleButton: View {
 }
 
 struct SystemNotificationRow: View {
+    @Environment(\.nubrixPalette) private var palette
     let record: SystemNotificationRecord
     let store: SystemNotificationStore
     let showBody: Bool
@@ -303,13 +307,13 @@ struct SystemNotificationRow: View {
 
     private var heading: Text {
         if record.title.isEmpty {
-            return Text(record.appName).font(SystemNotificationType.title).foregroundColor(.white)
+            return Text(record.appName).font(SystemNotificationType.title).foregroundColor(palette.foreground)
         }
         if inAppGroup {
-            return Text(record.title).font(SystemNotificationType.title).foregroundColor(.white)
+            return Text(record.title).font(SystemNotificationType.title).foregroundColor(palette.foreground)
         }
-        return Text(record.title).font(SystemNotificationType.title).foregroundColor(.white)
-            + Text(" · \(record.appName)").font(SystemNotificationType.meta).foregroundColor(SystemNotificationType.metaColor)
+        return Text(record.title).font(SystemNotificationType.title).foregroundColor(palette.foreground)
+            + Text(" · \(record.appName)").font(SystemNotificationType.meta).foregroundColor(SystemNotificationType.metaColor(palette))
     }
 
     var body: some View {
@@ -324,13 +328,13 @@ struct SystemNotificationRow: View {
                     if let subtitleLine {
                         Text(subtitleLine)
                             .font(SystemNotificationType.meta)
-                            .foregroundStyle(SystemNotificationType.metaColor)
+                            .foregroundStyle(SystemNotificationType.metaColor(palette))
                             .lineLimit(1)
                     }
                     if let messageLine {
                         Text(messageLine)
                             .font(SystemNotificationType.body)
-                            .foregroundStyle(SystemNotificationType.bodyColor)
+                            .foregroundStyle(SystemNotificationType.bodyColor(palette))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                     }
@@ -342,7 +346,7 @@ struct SystemNotificationRow: View {
                                     .font(.system(size: 8, weight: .bold))
                             }
                             .font(SystemNotificationType.meta)
-                            .foregroundStyle(SystemNotificationType.metaColor)
+                            .foregroundStyle(SystemNotificationType.metaColor(palette))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -356,15 +360,15 @@ struct SystemNotificationRow: View {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         Text(systemNotificationAge(from: record.date, to: context.date))
                             .font(SystemNotificationType.meta.monospacedDigit())
-                            .foregroundStyle(SystemNotificationType.metaColor)
+                            .foregroundStyle(SystemNotificationType.metaColor(palette))
                     }
                 }
             }
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.white.opacity(hovering ? 0.09 : 0.06))
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black))
+                    .fill(palette.foreground.opacity(hovering ? 0.09 : 0.06))
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(palette.backing))
             )
             .background(alignment: .bottom) {
                 if hiddenCount > 0 {
@@ -382,8 +386,8 @@ struct SystemNotificationRow: View {
 
     private func edge(inset: CGFloat, offset: CGFloat, opacity: Double) -> some View {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.white.opacity(opacity))
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black))
+            .fill(palette.foreground.opacity(opacity))
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(palette.backing))
             .padding(.horizontal, inset)
             .offset(y: offset)
     }
@@ -398,7 +402,7 @@ struct SystemNotificationRow: View {
         } else {
             Image(systemName: "app.badge")
                 .font(.system(size: 14))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
                 .frame(width: 20, height: 20)
         }
     }

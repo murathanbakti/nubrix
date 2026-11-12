@@ -93,6 +93,7 @@ enum AgentInfoModel {
 }
 
 struct AgentInfoPanel: View {
+    @Environment(\.nubrixPalette) private var palette
     let snapshot: AgentInfoSnapshot
     let now: Date
     var onCopy: () -> Void = {}
@@ -110,7 +111,7 @@ struct AgentInfoPanel: View {
                             .foregroundStyle(Color.green)
                         Text("All connected")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(palette.foreground)
                     }
                 } else {
                     ForEach(problems) { problem in
@@ -118,7 +119,7 @@ struct AgentInfoPanel: View {
                             Circle().fill(Color.orange).frame(width: 6, height: 6)
                             Text(problem.message)
                                 .font(.system(size: 11))
-                                .foregroundStyle(Color(white: 0.85))
+                                .foregroundStyle(palette.foreground.opacity(0.85))
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
                         }
@@ -127,15 +128,15 @@ struct AgentInfoPanel: View {
                 if AgentInfoModel.showsStatusLineNote(snapshot) {
                     Text(AgentInfoModel.statusLineNote)
                         .font(.system(size: 10))
-                        .foregroundStyle(Color(white: 0.5))
+                        .foregroundStyle(palette.foreground.opacity(0.5))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(palette.foreground.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(palette.foreground.opacity(0.08), lineWidth: 1))
 
             HStack(spacing: 8) {
                 Button(action: onOpenSettings) {
@@ -145,7 +146,7 @@ struct AgentInfoPanel: View {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 8, weight: .bold))
                     }
-                    .foregroundStyle(Color(white: 0.8))
+                    .foregroundStyle(palette.foreground.opacity(0.8))
                 }
                 .buttonStyle(.plain)
                 .help("Open Settings, \(SettingsTab.claudeCode.title)")
@@ -164,10 +165,10 @@ struct AgentInfoPanel: View {
                         Text(copied ? "Copied" : "Copy setup snippet")
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundStyle(copied ? Color.green : Color(white: 0.85))
+                    .foregroundStyle(copied ? Color.green : palette.foreground.opacity(0.85))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(palette.foreground.opacity(0.08)))
                 }
                 .buttonStyle(.plain)
                 .help("Copies the settings.json snippet for ~/.claude/settings.json")
@@ -177,7 +178,7 @@ struct AgentInfoPanel: View {
             if let port = snapshot.serverPort {
                 Text(verbatim: "Local server 127.0.0.1:\(port)")
                     .font(.system(size: 9).monospacedDigit())
-                    .foregroundStyle(Color(white: 0.4))
+                    .foregroundStyle(palette.foreground.opacity(0.4))
                     .padding(.horizontal, 4)
             }
         }

@@ -45,6 +45,7 @@ final class VitrinNavigation: ObservableObject {
 }
 
 struct ScreenshotBannerView: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     let banner: ScreenshotBanner
 
@@ -64,12 +65,12 @@ struct ScreenshotBannerView: View {
             VStack(alignment: .trailing, spacing: 0) {
                 Text("Screenshot")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                 if banner.item.imageWidth > 0 {
                     Text("\(banner.item.imageWidth)\u{00D7}\(banner.item.imageHeight)")
                         .font(.system(size: 9, weight: .medium).monospacedDigit())
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .lineLimit(1)
                 }
             }
@@ -84,6 +85,7 @@ struct ScreenshotBannerView: View {
 }
 
 private struct BannerThumbnail: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     let side: CGFloat
     @State private var image: NSImage?
@@ -97,13 +99,13 @@ private struct BannerThumbnail: View {
                         .scaledToFill()
                 } else {
                     Image(systemName: "camera.viewfinder")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                 }
             }
             .frame(width: side * 1.4, height: side)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(palette.foreground.opacity(0.25), lineWidth: 0.5))
             .padding(.leading, 6)
             .onDrag { ClipStore.shared.itemProvider(for: item) }
             .task(id: item.id) {
@@ -113,6 +115,7 @@ private struct BannerThumbnail: View {
 }
 
 struct ScreenshotAccessPrompt: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var access = ScreenshotAccess.shared
     @Default(.vitrinEnabled) var enabled
     @Default(.vitrinCaptureImages) var captureImages
@@ -130,7 +133,7 @@ struct ScreenshotAccessPrompt: View {
                         Text("Allow screenshots")
                     }
                     .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                 }
                 .buttonStyle(.plain)
                 .help("Let Vitrin see new screenshots saved to your screenshot folder")
@@ -139,7 +142,7 @@ struct ScreenshotAccessPrompt: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(palette.foreground.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .help("Hide this")

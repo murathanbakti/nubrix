@@ -111,6 +111,7 @@ struct AlbumArtView: View {
 
 struct MusicControlsView: View {
     @ObservedObject var musicManager = MusicManager.shared
+    @Environment(\.nubrixPalette) private var palette
         @EnvironmentObject var vm: NubrixViewModel
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
@@ -137,7 +138,7 @@ struct MusicControlsView: View {
     private func songInfo(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             MarqueeText(
-                $musicManager.songTitle, font: .headline, nsFont: .headline, textColor: .white,
+                $musicManager.songTitle, font: .headline, nsFont: .headline, textColor: palette.foreground,
                 frameWidth: width)
             MarqueeText(
                 $musicManager.artistName,
@@ -146,7 +147,7 @@ struct MusicControlsView: View {
                 weight: .medium,
                 textColor: Defaults[.playerColorTinting]
                     ? Color(nsColor: musicManager.avgColor)
-                        .ensureMinimumBrightness(factor: 0.6) : .gray,
+                        .ensureMinimumBrightness(factor: 0.6) : palette.secondary,
                 frameWidth: width
             )
             if Defaults[.enableLyrics] {
@@ -274,6 +275,7 @@ private extension Array where Element == MusicControlButton {
 
 struct VolumeControlView: View {
     @ObservedObject var musicManager = MusicManager.shared
+    @Environment(\.nubrixPalette) private var palette
     @State private var volumeSliderValue: Double = 0.5
     @State private var dragging: Bool = false
     @State private var showVolumeSlider: Bool = false
@@ -291,7 +293,7 @@ struct VolumeControlView: View {
             }) {
                 Image(systemName: volumeIcon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(musicManager.volumeControlSupported ? .white : .gray)
+                    .foregroundColor(musicManager.volumeControlSupported ? palette.foreground : palette.secondary)
             }
             .buttonStyle(PlainButtonStyle())
             .disabled(!musicManager.volumeControlSupported)
@@ -301,7 +303,7 @@ struct VolumeControlView: View {
                 CustomSlider(
                     value: $volumeSliderValue,
                     range: 0.0...1.0,
-                    color: .white,
+                    color: palette.foreground,
                     dragging: $dragging,
                     lastDragged: .constant(Date.distantPast),
                     onValueChange: { newValue in
@@ -422,6 +424,7 @@ struct NotchHomeView: View {
 
 struct LyricsLineView: View {
     @ObservedObject var musicManager = MusicManager.shared
+    @Environment(\.nubrixPalette) private var palette
     let width: CGFloat
     @State private var line = ""
     @State private var rearmTask: Task<Void, Never>?
@@ -455,7 +458,7 @@ struct LyricsLineView: View {
             .constant(line),
             font: .subheadline,
             nsFont: .subheadline,
-            textColor: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
+            textColor: musicManager.isFetchingLyrics ? palette.tertiary : palette.secondary,
             frameWidth: width
         )
         .id(line)
@@ -638,6 +641,7 @@ struct MusicProgressTrack: NSViewRepresentable {
 
 struct MusicSliderView: View {
     @ObservedObject var musicManager = MusicManager.shared
+    @Environment(\.nubrixPalette) private var palette
     @State private var pinned: Double?
     @State private var dragging = false
     @State private var releaseTask: Task<Void, Never>?
@@ -645,7 +649,7 @@ struct MusicSliderView: View {
     private var tint: Color {
         Defaults[.sliderColor] == SliderColorEnum.albumArt
             ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.8)
-            : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : .white
+            : Defaults[.sliderColor] == SliderColorEnum.accent ? .effectiveAccent : palette.foreground
     }
 
     private var state: MusicProgressState {
@@ -680,7 +684,7 @@ struct MusicSliderView: View {
             .fontWeight(.medium)
             .foregroundColor(
                 Defaults[.playerColorTinting]
-                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : .gray
+                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6) : palette.secondary
             )
             .font(.caption)
         }

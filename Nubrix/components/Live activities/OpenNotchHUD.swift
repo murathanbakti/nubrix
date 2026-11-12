@@ -9,6 +9,7 @@ import SwiftUI
 import Defaults
 
 struct OpenNotchHUD: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     @Binding var type: SneakContentType
     @Binding var value: CGFloat
@@ -43,7 +44,7 @@ struct OpenNotchHUD: View {
                 }
             }
             .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(palette.foreground)
             .frame(width: 20, alignment: .center)
             
             // Slider or Status Text
@@ -55,7 +56,7 @@ struct OpenNotchHUD: View {
             } else {
                 Text(value > 0 ? "Unmuted" : "Muted")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .fixedSize()
             }
             
@@ -63,7 +64,7 @@ struct OpenNotchHUD: View {
             if type != .mic && showPercentage {
                 Text("\(Int(value * 100))%")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
                     .monospacedDigit()
                     .frame(width: 35, alignment: .trailing)
             }
@@ -72,8 +73,8 @@ struct OpenNotchHUD: View {
         .padding(.vertical, 6)
         .background(
             Capsule()
-                .fill(Color.black)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                .fill(palette.surface)
+                .stroke(palette.foreground.opacity(0.1), lineWidth: 1)
         )
     }
     

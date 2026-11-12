@@ -13,6 +13,7 @@ struct TabSelectionView: View {
     @ObservedObject var inbox = NubrixInbox.shared
     @ObservedObject var dockBadges = DockBadgeStore.shared
     @ObservedObject var layout = NotchTabLayout.shared
+    @Environment(\.nubrixPalette) private var palette
     @Namespace var animation
     var body: some View {
         let visibleTabs = layout.visibleTabs
@@ -25,15 +26,15 @@ struct TabSelectionView: View {
                         }
                     }
                     .frame(height: 26)
-                    .foregroundStyle(tab.view == coordinator.currentView ? .white : .gray)
+                    .foregroundStyle(tab.view == coordinator.currentView ? palette.icon : palette.secondary)
                     .background {
                         if tab.view == coordinator.currentView {
                             Capsule()
-                                .fill(coordinator.currentView == tab.view ? Color(nsColor: .secondarySystemFill) : Color.clear)
+                                .fill(coordinator.currentView == tab.view ? palette.surfaceStrong : Color.clear)
                                 .matchedGeometryEffect(id: "capsule", in: animation)
                         } else {
                             Capsule()
-                                .fill(coordinator.currentView == tab.view ? Color(nsColor: .secondarySystemFill) : Color.clear)
+                                .fill(coordinator.currentView == tab.view ? palette.surfaceStrong : Color.clear)
                                 .matchedGeometryEffect(id: "capsule", in: animation)
                                 .hidden()
                         }

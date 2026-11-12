@@ -60,10 +60,10 @@ enum NubrixCalendarAccess: Equatable {
 }
 
 enum NubrixCalendarMetrics {
-    static let fill = Color.white.opacity(0.06)
-    static let fillHover = Color.white.opacity(0.11)
-    static let stroke = Color.white.opacity(0.08)
-    static let meta = Color.white.opacity(0.5)
+    static func fill(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.06) }
+    static func fillHover(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.11) }
+    static func stroke(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.08) }
+    static func meta(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.5) }
     static let red = Color(red: 1.0, green: 0.27, blue: 0.23)
     static let radius: CGFloat = 10
 }

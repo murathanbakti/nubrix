@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ClaudeUsageCardContent: View {
+    @Environment(\.nubrixPalette) private var palette
     let summary: ClaudeUsageSummary
     let now: Date
     var width: CGFloat = 140
@@ -20,8 +21,8 @@ struct ClaudeUsageCardContent: View {
                 .padding(.vertical, 7)
                 .frame(width: width, alignment: .topLeading)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(palette.foreground.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(palette.foreground.opacity(0.08), lineWidth: 1))
                 .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -68,7 +69,7 @@ struct ClaudeUsageCardContent: View {
                 .foregroundStyle(AgentSessionState.working.tint)
             Text("Claude")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .lineLimit(1)
             Spacer(minLength: 0)
             if let fetched = summary.planFetchedAt, now.timeIntervalSince(fetched) > Self.timestampAfter {
@@ -81,7 +82,7 @@ struct ClaudeUsageCardContent: View {
                         .lineLimit(1)
                         .fixedSize()
                 }
-                .foregroundStyle(stale ? Color.orange.opacity(0.8) : Color(white: 0.55))
+                .foregroundStyle(stale ? Color.orange.opacity(0.8) : palette.foreground.opacity(0.55))
             }
         }
         .frame(height: 14)
@@ -112,13 +113,13 @@ struct ClaudeUsageCardContent: View {
                 HStack(spacing: 5) {
                     Text(scoped.name)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color(white: 0.62))
+                        .foregroundStyle(palette.foreground.opacity(0.62))
                         .lineLimit(1)
                         .fixedSize()
                     ClaudeUsageBar(fraction: min(1, scoped.percent / 100), tint: Self.tint(scoped.percent))
                     Text(ClaudeUsageText.percent(scoped.percent, locale: locale))
                         .font(.system(size: 11, weight: .semibold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .lineLimit(1)
                         .fixedSize()
                 }
@@ -148,19 +149,19 @@ struct ClaudeUsageCardContent: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color(white: 0.62))
+                    .foregroundStyle(palette.foreground.opacity(0.62))
                     .lineLimit(1)
                 Spacer(minLength: 2)
                 Text(ClaudeUsageText.percent(percent, locale: locale))
                     .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
             }
             ClaudeUsageBar(fraction: min(1, percent / 100), tint: Self.tint(percent))
             if let caption {
                 Text(caption)
                     .font(.system(size: 9.5))
-                    .foregroundStyle(Color(white: 0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
                     .lineLimit(1)
             }
         }
@@ -173,12 +174,12 @@ struct ClaudeUsageCardContent: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(title)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color(white: 0.62))
+                    .foregroundStyle(palette.foreground.opacity(0.62))
                     .lineLimit(1)
                 Spacer(minLength: 2)
                 Text(AgentUsageFormat.tokens(row.totals.tokens))
                     .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
             }
             switch visual {
@@ -186,13 +187,13 @@ struct ClaudeUsageCardContent: View {
                 if row.source == .official, let percent = row.percent {
                     ClaudeUsageBar(fraction: min(1, percent / 100), tint: Self.tint(percent))
                 } else {
-                    ClaudeUsageBar(fraction: row.relative ?? 0, tint: Color.white.opacity(0.5))
+                    ClaudeUsageBar(fraction: row.relative ?? 0, tint: palette.foreground.opacity(0.5))
                 }
             case .sparkOrNote:
                 if let note {
                     Text(note)
                         .font(.system(size: 9.5))
-                        .foregroundStyle(Color(white: 0.55))
+                        .foregroundStyle(palette.foreground.opacity(0.55))
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
@@ -203,7 +204,7 @@ struct ClaudeUsageCardContent: View {
             }
             Text(estimateCaption(row))
                 .font(.system(size: 9.5))
-                .foregroundStyle(Color(white: 0.55))
+                .foregroundStyle(palette.foreground.opacity(0.55))
                 .lineLimit(1)
         }
     }
@@ -219,13 +220,14 @@ struct ClaudeUsageCardContent: View {
 }
 
 struct ClaudeUsageBar: View {
+    @Environment(\.nubrixPalette) private var palette
     let fraction: Double
     let tint: Color
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.14))
+                Capsule().fill(palette.foreground.opacity(0.14))
                 Capsule()
                     .fill(tint)
                     .frame(width: fraction > 0 ? max(4, proxy.size.width * CGFloat(min(1, max(0, fraction)))) : 0)
@@ -236,6 +238,7 @@ struct ClaudeUsageBar: View {
 }
 
 struct ClaudeUsageSpark: View {
+    @Environment(\.nubrixPalette) private var palette
     let values: [Int]
 
     var body: some View {
@@ -243,7 +246,7 @@ struct ClaudeUsageSpark: View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(Color.white.opacity(index == values.count - 1 ? 0.6 : 0.3))
+                    .fill(palette.foreground.opacity(index == values.count - 1 ? 0.6 : 0.3))
                     .frame(maxWidth: .infinity)
                     .frame(height: value == 0 ? 2 : max(3, 12 * CGFloat(value) / CGFloat(peak)))
             }

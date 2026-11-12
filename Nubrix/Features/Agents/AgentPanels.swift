@@ -23,6 +23,7 @@ enum AgentMeter {
 }
 
 struct AgentSourceChip: View {
+    @Environment(\.nubrixPalette) private var palette
     let source: AgentSourceInfo
 
     var body: some View {
@@ -36,28 +37,29 @@ struct AgentSourceChip: View {
                 } else {
                     Image(systemName: source.entrypoint == "claude-desktop" ? "macwindow" : "terminal")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .frame(width: 12, height: 12)
                 }
                 Text(label)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color(white: 0.72))
+                    .foregroundStyle(palette.foreground.opacity(0.72))
                     .lineLimit(1)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(Color.white.opacity(0.09)))
+            .background(Capsule().fill(palette.foreground.opacity(0.09)))
         }
     }
 }
 
 struct AgentContextBar: View {
+    @Environment(\.nubrixPalette) private var palette
     let percent: Double
     var width: CGFloat = 46
 
     var body: some View {
         ZStack(alignment: .leading) {
-            Capsule().fill(Color.white.opacity(0.14))
+            Capsule().fill(palette.foreground.opacity(0.14))
             Capsule()
                 .fill(AgentMeter.color(for: percent))
                 .frame(width: max(3, width * min(1, max(0, percent / 100))))
@@ -67,6 +69,7 @@ struct AgentContextBar: View {
 }
 
 struct AgentSessionRowBody: View {
+    @Environment(\.nubrixPalette) private var palette
     let session: AgentSession
     var hovering = false
     var pullRequest: GitHubPR? = nil
@@ -79,12 +82,12 @@ struct AgentSessionRowBody: View {
                 HStack(spacing: 6) {
                     Text(session.project)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                         .lineLimit(1)
                     if let branch = session.branch, !branch.isEmpty {
                         Text(branch)
                             .font(.system(size: 11, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(white: 0.6))
+                            .foregroundStyle(palette.foreground.opacity(0.6))
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -96,7 +99,7 @@ struct AgentSessionRowBody: View {
                 if let detail = session.detail {
                     Text(detail)
                         .font(.system(size: 11))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -113,12 +116,12 @@ struct AgentSessionRowBody: View {
                             AgentContextBar(percent: percent)
                             Text("\(Int(percent.rounded()))%")
                                 .font(.system(size: 10, weight: .medium).monospacedDigit())
-                                .foregroundStyle(Color(white: 0.72))
+                                .foregroundStyle(palette.foreground.opacity(0.72))
                         }
                         if session.sessionTokens > 0 {
                             Text(AgentUsageFormat.tokens(session.sessionTokens))
                                 .font(.system(size: 10).monospacedDigit())
-                                .foregroundStyle(.gray)
+                                .foregroundStyle(palette.secondary)
                         }
                     }
                     .help(Self.meterHelp(session))
@@ -128,7 +131,7 @@ struct AgentSessionRowBody: View {
                 Button(action: onRemove) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                 }
                 .buttonStyle(.plain)
                 .frame(width: 26)
@@ -136,14 +139,14 @@ struct AgentSessionRowBody: View {
                 TimelineView(.periodic(from: .now, by: 30)) { context in
                     Text(Self.age(from: session.updatedAt, to: context.date))
                         .font(.system(size: 11).monospacedDigit())
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .frame(width: 26, alignment: .trailing)
                 }
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hovering ? 0.1 : 0.06)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(palette.foreground.opacity(hovering ? 0.1 : 0.06)))
         .contentShape(RoundedRectangle(cornerRadius: 10))
     }
 
@@ -177,6 +180,7 @@ struct AgentSessionRowBody: View {
 }
 
 struct AgentUsageHeader: View {
+    @Environment(\.nubrixPalette) private var palette
     let today: AgentDailyUsage?
     let summary: ClaudeUsageSummary?
     var now = Date()
@@ -190,7 +194,7 @@ struct AgentUsageHeader: View {
         HStack(spacing: 10) {
             Text(Self.todayText(today))
                 .font(.system(size: 11, weight: .medium).monospacedDigit())
-                .foregroundStyle(Color(white: 0.7))
+                .foregroundStyle(palette.foreground.opacity(0.7))
                 .lineLimit(1)
                 .layoutPriority(-1)
                 .help("Tokens are input, output and cache writes counted from Claude Code transcripts since midnight; cache reads are not counted. Cost is an estimate from list prices.")
@@ -215,12 +219,12 @@ struct AgentUsageHeader: View {
                 Button("Clear finished", action: onClear)
                     .buttonStyle(.plain)
                     .font(.caption)
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(palette.secondary)
             }
             Button(action: onInfo) {
                 Image(systemName: "info.circle")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(infoActive ? Color.white : Color.gray)
+                    .foregroundStyle(infoActive ? palette.foreground : palette.secondary)
             }
             .buttonStyle(.plain)
             .help("Connection status")
@@ -244,7 +248,7 @@ struct AgentUsageHeader: View {
             if showsBar { AgentContextBar(percent: percent, width: 28) }
             Text(text)
                 .font(.system(size: 11).monospacedDigit())
-                .foregroundStyle(Color(white: 0.7))
+                .foregroundStyle(palette.foreground.opacity(0.7))
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -318,6 +322,7 @@ struct AgentBoundedScroll<Content: View>: View {
 }
 
 struct AgentPermissionCard: View {
+    @Environment(\.nubrixPalette) private var palette
     static let armDelay: Double = 0.7
     static let moveThreshold: CGFloat = 3
     static let confirmDelay: Double = 0.5
@@ -361,7 +366,7 @@ struct AgentPermissionCard: View {
             buttonRow
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(palette.foreground.opacity(0.06)))
         .background(AgentPointerTracker { point in track(point) })
         .task(id: prompt.id) {
             try? await Task.sleep(for: .seconds(Self.armDelay))
@@ -390,7 +395,7 @@ struct AgentPermissionCard: View {
             if showsTitle {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -415,14 +420,14 @@ struct AgentPermissionCard: View {
                 if payload.summaryLines > 1 || payload.summary.count > 160 {
                     Text(sizeLabel(lines: payload.summaryLines, characters: payload.summary.count))
                         .font(.system(size: 10.5).monospacedDigit())
-                        .foregroundStyle(Color(white: 0.6))
+                        .foregroundStyle(palette.foreground.opacity(0.6))
                 }
             }
             if let note = payload.note {
                 Text("Claude's description: \(note)")
                     .font(.system(size: 10.5))
                     .italic()
-                    .foregroundStyle(Color(white: 0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
                     .lineLimit(2)
             }
         }
@@ -433,7 +438,7 @@ struct AgentPermissionCard: View {
     }
 
     private var commandColor: Color {
-        risky ? Color(red: 1, green: 0.62, blue: 0.6) : Color(white: 0.92)
+        risky ? Color(red: 1, green: 0.62, blue: 0.6) : palette.foreground.opacity(0.92)
     }
 
     private var commandBox: some View {
@@ -445,7 +450,7 @@ struct AgentPermissionCard: View {
                 .multilineTextAlignment(.leading)
                 .padding(8)
         }
-        .background(shape.fill(risky ? Color.red.opacity(0.14) : Color.white.opacity(0.07)))
+        .background(shape.fill(risky ? Color.red.opacity(0.14) : palette.foreground.opacity(0.07)))
         .overlay(shape.stroke(risky ? Color.red.opacity(0.5) : Color.clear, lineWidth: 1))
         .clipShape(shape)
         .overlay(alignment: .topTrailing) { expandToggle }
@@ -456,7 +461,7 @@ struct AgentPermissionCard: View {
         return VStack(alignment: .leading, spacing: 3) {
             Text("Extra tool input")
                 .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(Color(white: 0.75))
+                .foregroundStyle(palette.foreground.opacity(0.75))
             AgentBoundedScroll(maxHeight: 60) {
                 Text(text)
                     .font(.system(size: 11, design: .monospaced))
@@ -473,7 +478,7 @@ struct AgentPermissionCard: View {
         Button { expanded.toggle() } label: {
             Image(systemName: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Color(white: 0.7))
+                .foregroundStyle(palette.foreground.opacity(0.7))
                 .padding(4)
                 .background(Circle().fill(Color.black.opacity(0.5)))
         }
@@ -487,10 +492,10 @@ struct AgentPermissionCard: View {
             HStack(spacing: 6) {
                 Text(preview.label)
                     .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(Color(white: 0.75))
+                    .foregroundStyle(palette.foreground.opacity(0.75))
                 Text(sizeLabel(lines: preview.lines, characters: preview.characters))
                     .font(.system(size: 10.5).monospacedDigit())
-                    .foregroundStyle(Color(white: 0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
                 if preview.truncated {
                     Text("truncated")
                         .font(.system(size: 10.5, weight: .semibold))
@@ -498,17 +503,17 @@ struct AgentPermissionCard: View {
                 }
             }
             AgentBoundedScroll(maxHeight: expanded ? 260 : 110) {
-                Text(Self.previewText(preview))
+                Text(Self.previewText(preview, palette: palette))
                     .font(.system(size: 11, design: .monospaced))
                     .multilineTextAlignment(.leading)
                     .padding(8)
             }
-            .background(shape.fill(Color.white.opacity(0.05)))
+            .background(shape.fill(palette.foreground.opacity(0.05)))
             .clipShape(shape)
         }
     }
 
-    static func previewText(_ preview: AgentPermissionPreview) -> AttributedString {
+    static func previewText(_ preview: AgentPermissionPreview, palette: ThemePalette) -> AttributedString {
         let isDiff = preview.label.hasPrefix("Change")
         var result = AttributedString()
         let lines = preview.text.split(separator: "\n", omittingEmptySubsequences: false)
@@ -517,9 +522,9 @@ struct AgentPermissionCard: View {
             if isDiff, line.hasPrefix("+ ") || line.hasPrefix("- ") {
                 piece.foregroundColor = line.hasPrefix("+") ? Color(red: 0.55, green: 0.85, blue: 0.6) : Color(red: 1, green: 0.58, blue: 0.56)
             } else if isDiff, line == "@@" {
-                piece.foregroundColor = Color(white: 0.5)
+                piece.foregroundColor = palette.foreground.opacity(0.5)
             } else {
-                piece.foregroundColor = Color(white: 0.88)
+                piece.foregroundColor = palette.foreground.opacity(0.88)
             }
             result.append(piece)
         }
@@ -547,7 +552,7 @@ struct AgentPermissionCard: View {
                 Button(action: onOpen) {
                     Text(openLabel)
                         .font(.system(size: 11))
-                        .foregroundStyle(Color(white: 0.65))
+                        .foregroundStyle(palette.foreground.opacity(0.65))
                 }
                 .buttonStyle(.plain)
             }
@@ -555,9 +560,9 @@ struct AgentPermissionCard: View {
             if !ready, dwellElapsed {
                 Text("Move the pointer here to enable Allow")
                     .font(.system(size: 10.5))
-                    .foregroundStyle(Color(white: 0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
             }
-            actionButton("Deny", fill: Color.white.opacity(0.14), text: .white, action: onDeny)
+            actionButton("Deny", fill: palette.foreground.opacity(0.14), text: palette.foreground, action: onDeny)
             allowButton
         }
     }

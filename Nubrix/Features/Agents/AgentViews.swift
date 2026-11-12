@@ -26,6 +26,7 @@ struct AgentLiveActivity: View {
 }
 
 struct AgentBannerView: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     let banner: AgentBanner
 
@@ -35,7 +36,7 @@ struct AgentBannerView: View {
                 AgentStatusGlyph(state: banner.state, size: 14)
                 Text(banner.project)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -56,6 +57,7 @@ struct AgentBannerView: View {
 }
 
 struct AgentPermissionHeader: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     @ObservedObject var agents = AgentSessionStore.shared
     let prompt: AgentPermissionPrompt
@@ -68,7 +70,7 @@ struct AgentPermissionHeader: View {
                 AgentStatusGlyph(state: .needsAttention, size: 14)
                 Text(session?.projectWithBranch ?? AgentPermissionPromptView.project(for: prompt.payload))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -152,6 +154,7 @@ struct AgentInfoPanelContainer: View {
 }
 
 struct AgentSessionsView: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var permissions = AgentPermissionStore.shared
     @ObservedObject var plan = ClaudePlanUsageStore.shared
@@ -199,10 +202,10 @@ struct AgentSessionsView: View {
                 .foregroundStyle(AgentSessionState.working.tint)
             Text("No Claude Code sessions")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text("Install the Nubrix hooks to see sessions here.")
                 .font(.caption)
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

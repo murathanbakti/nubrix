@@ -70,6 +70,7 @@ private struct SettingsDetail: View {
         switch tab {
         case .general: GeneralSettings()
         case .appearance: AppearanceSettings()
+        case .theme: ThemeSettings()
         case .permissions: PermissionsSettings()
         case .claudeCode: ClaudeCodeSettings()
         case .github: GitHubSettings()

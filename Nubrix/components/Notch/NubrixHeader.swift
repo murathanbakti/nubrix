@@ -15,6 +15,7 @@ struct NubrixHeader: View {
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject var agents = AgentSessionStore.shared
     @ObservedObject var layout = NotchTabLayout.shared
+    @Environment(\.nubrixPalette) private var palette
 
     private var showsTabBar: Bool {
         let shelf = (!tvm.isEmpty || coordinator.alwaysShowTabs) && layout.isVisible(.shelf)
@@ -58,11 +59,12 @@ struct NubrixHeader: View {
                                 MirrorMode.shared.toggle(screenUUID: vm.screenUUID)
                             }) {
                                 Capsule()
-                                    .fill(Color.black)
+                                    .fill(Color.clear)
                                     .frame(width: 30, height: 30)
+                                    .contentShape(Capsule())
                                     .overlay {
                                         Image(systemName: "web.camera")
-                                            .foregroundColor(.white)
+                                            .themedIcon()
                                             .padding()
                                             .imageScale(.medium)
                                     }
@@ -77,11 +79,12 @@ struct NubrixHeader: View {
                                 
                             }) {
                                 Capsule()
-                                    .fill(.black)
+                                    .fill(Color.clear)
                                     .frame(width: 30, height: 30)
+                                    .contentShape(Capsule())
                                     .overlay {
                                         Image(systemName: "gear")
-                                            .foregroundColor(.white)
+                                            .themedIcon()
                                             .padding()
                                             .imageScale(.medium)
                                     }
@@ -109,7 +112,7 @@ struct NubrixHeader: View {
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
         }
-        .foregroundColor(.gray)
+        .foregroundColor(palette.secondary)
         .environmentObject(vm)
     }
 

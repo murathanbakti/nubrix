@@ -148,6 +148,9 @@ struct NotchExtensionPanelView: View {
     @ObservedObject var model: NotchExtensionPanelModel
     let content: AnyView
     let dismiss: @MainActor () -> Void
+    @ObservedObject private var themeStore = ThemeStore.shared
+
+    private var theme: NubrixTheme { themeStore.appliesToExtensions ? themeStore.current : .classic }
 
     var body: some View {
         Group {
@@ -158,13 +161,13 @@ struct NotchExtensionPanelView: View {
             }
         }
         .environment(\.notchExtensionDismiss, dismiss)
-        .preferredColorScheme(.dark)
+        .nubrixTheme(theme)
     }
 
     private var detached: some View {
         let shape = RoundedRectangle(cornerRadius: NotchExtensionMetrics.detachedCornerRadius, style: .continuous)
         return ZStack {
-            shape.fill(Color.black)
+            ThemeBackground(theme: theme, shape: shape)
             content
                 .opacity(model.contentVisible ? 1 : 0)
                 .animation(.easeOut(duration: 0.18), value: model.contentVisible)
@@ -174,11 +177,13 @@ struct NotchExtensionPanelView: View {
 
     private var attached: some View {
         ZStack(alignment: .top) {
-            NotchShape(
-                topCornerRadius: NotchExtensionMetrics.attachedTopRadius,
-                bottomCornerRadius: NotchExtensionMetrics.attachedBottomRadius
+            ThemeBackground(
+                theme: theme,
+                shape: NotchShape(
+                    topCornerRadius: NotchExtensionMetrics.attachedTopRadius,
+                    bottomCornerRadius: NotchExtensionMetrics.attachedBottomRadius
+                )
             )
-            .fill(Color.black)
             content
                 .padding(.top, model.notchHeight)
                 .padding(.horizontal, NotchExtensionMetrics.attachedTopRadius)

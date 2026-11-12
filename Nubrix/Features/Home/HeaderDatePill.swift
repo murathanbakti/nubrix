@@ -32,18 +32,19 @@ struct HeaderDatePillView: View {
     var action: () -> Void = {}
 
     @State private var hovering = false
+    @Environment(\.nubrixPalette) private var palette
 
     var body: some View {
         Button(action: action) {
             Text(HeaderDatePillFormat.label(date, locale: locale))
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, 5)
                 .frame(height: 26)
                 .background(
-                    Color.white.opacity(active ? 0.2 : hovering ? 0.14 : 0.08),
+                    palette.foreground.opacity(active ? 0.2 : hovering ? 0.14 : 0.08),
                     in: Capsule())
                 .overlay(alignment: .topTrailing) {
                     if let dotColor {

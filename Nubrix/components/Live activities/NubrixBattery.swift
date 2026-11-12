@@ -3,6 +3,7 @@ import Defaults
 
 /// A view that displays the battery status with an icon and charging indicator.
 struct BatteryView: View {
+    @Environment(\.nubrixPalette) private var palette
 
     var levelBattery: Float
     var isPluggedIn: Bool
@@ -35,7 +36,7 @@ struct BatteryView: View {
         } else if isCharging || isPluggedIn || levelBattery == 100 {
             return .green
         } else {
-            return .white
+            return palette.foreground
         }
     }
 
@@ -46,7 +47,7 @@ struct BatteryView: View {
                 .resizable()
                 .fontWeight(.thin)
                 .aspectRatio(contentMode: .fit)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(palette.foreground.opacity(0.5))
                 .frame(
                     width: batteryWidth + 1
                 )
@@ -86,6 +87,7 @@ struct ScaleButtonStyle: ButtonStyle {
 
 /// A view that displays detailed battery information and settings.
 struct BatteryMenuView: View {
+    @Environment(\.nubrixPalette) private var palette
     
     var isPluggedIn: Bool
     var isCharging: Bool
@@ -144,7 +146,7 @@ struct BatteryMenuView: View {
             }
             .padding(.vertical, 8)
 
-            Divider().background(Color.white)
+            Divider().background(palette.foreground)
 
             if !deviceStore.devices.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -153,7 +155,7 @@ struct BatteryMenuView: View {
                         .fontWeight(.semibold)
                     DeviceBatteryList(devices: deviceStore.devices)
                 }
-                Divider().background(Color.white)
+                Divider().background(palette.foreground)
             }
 
             Button(action: openBatteryPreferences) {
@@ -166,7 +168,7 @@ struct BatteryMenuView: View {
         }
         .padding()
         .frame(width: 280)
-        .foregroundColor(.white)
+        .foregroundColor(palette.foreground)
     }
 
     private func openBatteryPreferences() {
@@ -179,6 +181,7 @@ struct BatteryMenuView: View {
 
 /// A view that displays the battery status and allows interaction to show detailed information.
 struct NubrixBatteryView: View {
+    @Environment(\.nubrixPalette) private var palette
     
     @State var batteryWidth: CGFloat = 26
     var isCharging: Bool = false
@@ -207,7 +210,7 @@ struct NubrixBatteryView: View {
                 if Defaults[.showBatteryPercentage] {
                     Text("\(Int32(levelBattery))%")
                         .font(.callout)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(palette.foreground)
                 }
                 BatteryView(
                     levelBattery: levelBattery,

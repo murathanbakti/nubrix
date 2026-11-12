@@ -14,6 +14,7 @@ struct TabButton: View {
     var badge: Color? = nil
     var horizontalPadding: CGFloat = 8
     let onClick: () -> Void
+    @Environment(\.nubrixTheme) private var theme
     
     var body: some View {
         Button(action: onClick) {
@@ -25,7 +26,7 @@ struct TabButton: View {
                         Circle()
                             .fill(badge)
                             .frame(width: 6, height: 6)
-                            .background(Circle().fill(.black).padding(-1))
+                            .background(Circle().fill(theme.approximateFill).padding(-1))
                             .offset(x: -1, y: 1)
                             .allowsHitTesting(false)
                     }

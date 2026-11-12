@@ -24,6 +24,7 @@ enum SettingsTabGroup: CaseIterable, Identifiable {
 enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case appearance
+    case theme
     case permissions
     case tabs
     case notifications
@@ -46,6 +47,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "General"
         case .appearance: return "Appearance"
+        case .theme: return "Theme"
         case .permissions: return "Permissions"
         case .claudeCode: return "Claude Code"
         case .github: return "GitHub"
@@ -68,6 +70,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "gear"
         case .appearance: return "eye"
+        case .theme: return "paintpalette"
         case .permissions: return "lock.shield"
         case .claudeCode: return "sparkle"
         case .github: return "arrow.triangle.branch"
@@ -88,7 +91,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
     var group: SettingsTabGroup {
         switch self {
-        case .general, .appearance, .permissions: return .main
+        case .general, .appearance, .theme, .permissions: return .main
         case .claudeCode, .github, .dev: return .developer
         case .tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds: return .notch
         case .shortcuts, .advanced, .about: return .app

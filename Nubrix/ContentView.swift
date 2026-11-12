@@ -30,6 +30,7 @@ struct ContentView: View {
     @ObservedObject var screenshotBanner = ScreenshotBannerStore.shared
     @ObservedObject var inbox = NubrixInbox.shared
     @ObservedObject var meetings = MeetingWatcher.shared
+    @ObservedObject var themeStore = ThemeStore.shared
     @Default(.inboxKeepIconInNotch) var inboxKeepIcon
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -64,6 +65,14 @@ struct ContentView: View {
                 ? cornerRadiusInsets.opened.bottom
                 : cornerRadiusInsets.closed.bottom
         )
+    }
+
+    private var themesNotch: Bool {
+        vm.notchState == .open || themeStore.appliesToClosedNotch
+    }
+
+    private var activeTheme: NubrixTheme {
+        themesNotch ? themeStore.current : .classic
     }
 
     private var computedChinWidth: CGFloat {
@@ -148,7 +157,13 @@ struct ContentView: View {
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
-                    .background(.black)
+                    .background {
+                        if themesNotch {
+                            ThemeBackground(theme: themeStore.current, shape: currentNotchShape)
+                        } else {
+                            Color.black
+                        }
+                    }
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
                         Rectangle()
@@ -157,7 +172,8 @@ struct ContentView: View {
                             .padding(.horizontal, topCornerRadius)
                     }
                     .shadow(
-                        color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
+                        color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow]
+                                && !activeTheme.isTranslucent)
                             ? .black.opacity(0.7) : .clear, radius: Defaults[.cornerRadiusScaling] ? 6 : 4
                     )
                     .padding(
@@ -303,7 +319,8 @@ struct ContentView: View {
         )
         .animation(.smooth, value: gestureProgress)
         .background(dragDetector)
-        .preferredColorScheme(.dark)
+        .nubrixTheme(activeTheme)
+        .animation(.smooth(duration: 0.3), value: themeStore.current)
         .environmentObject(vm)
         .onAppear { reportPermissionSurface() }
         .onChange(of: vm.hideOnClosed) { _, _ in reportPermissionSurface() }
@@ -350,7 +367,7 @@ struct ContentView: View {
                         HStack {
                             Text(batteryModel.statusText)
                                 .font(.subheadline)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(ThemePalette(theme: activeTheme).foreground)
                         }
 
                         Rectangle()

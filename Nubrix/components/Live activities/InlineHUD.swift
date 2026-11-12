@@ -9,6 +9,7 @@ import SwiftUI
 import Defaults
 
 struct InlineHUD: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     @Binding var type: SneakContentType
     @Binding var value: CGFloat
@@ -51,7 +52,7 @@ struct InlineHUD: View {
                             EmptyView()
                     }
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .symbolVariant(.fill)
                 
                 Text(Type2Name(type))
@@ -70,7 +71,7 @@ struct InlineHUD: View {
             HStack {
                 if (type == .mic) {
                     Text(value.isZero ? "muted" : "unmuted")
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(palette.secondary)
                         .lineLimit(1)
                         .allowsTightening(true)
                         .multilineTextAlignment(.trailing)
@@ -89,7 +90,7 @@ struct InlineHUD: View {
                             Text("muted")
                                 .font(.caption)
                                 .fontWeight(.medium)
-                                .foregroundStyle(.gray)
+                                .foregroundStyle(palette.secondary)
                                 .lineLimit(1)
                                 .allowsTightening(true)
                                 .multilineTextAlignment(.trailing)
@@ -97,7 +98,7 @@ struct InlineHUD: View {
                             Text("\(Int(value * 100))%")
                                 .font(.caption)
                                 .fontWeight(.medium)
-                                .foregroundStyle(.gray)
+                                .foregroundStyle(palette.secondary)
                                 .lineLimit(1)
                                 .allowsTightening(true)
                                 .multilineTextAlignment(.trailing)

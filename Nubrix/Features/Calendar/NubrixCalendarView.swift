@@ -7,6 +7,7 @@ enum NubrixCalendarFocus: Hashable {
 }
 
 struct NubrixCalendarView: View {
+    @Environment(\.nubrixPalette) var palette
     enum Preset {
         case picker
         case form(String)
@@ -242,10 +243,10 @@ struct NubrixCalendarView: View {
                         .minimumScaleFactor(0.8)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(NubrixCalendarMetrics.meta)
+                        .foregroundStyle(NubrixCalendarMetrics.meta(palette))
                         .rotationEffect(.degrees(showPicker ? 180 : 0))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -268,7 +269,7 @@ struct NubrixCalendarView: View {
             ForEach(fmt.weekdayHeaders, id: \.index) { header in
                 Text(header.symbol)
                     .font(.system(size: 10, weight: header.index == selectedWeekday ? .bold : .medium))
-                    .foregroundStyle(header.index == selectedWeekday ? Color.white : Color.white.opacity(0.4))
+                    .foregroundStyle(header.index == selectedWeekday ? palette.foreground : palette.foreground.opacity(0.4))
                     .frame(maxWidth: .infinity)
             }
         }
@@ -315,6 +316,7 @@ struct NubrixCalendarView: View {
 }
 
 struct NubrixCalendarPill: View {
+    @Environment(\.nubrixPalette) private var palette
     var title: String?
     var symbol: String?
     let action: () -> Void
@@ -335,11 +337,11 @@ struct NubrixCalendarPill: View {
                     Image(systemName: symbol).font(.system(size: 10, weight: .bold))
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(palette.foreground)
             .padding(.horizontal, title == nil ? 0 : 10)
             .frame(minWidth: title == nil ? 24 : 0)
             .frame(height: 22)
-            .background(hovering ? NubrixCalendarMetrics.fillHover : Color.white.opacity(0.08), in: Capsule())
+            .background(hovering ? NubrixCalendarMetrics.fillHover(palette) : palette.foreground.opacity(0.08), in: Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -347,6 +349,7 @@ struct NubrixCalendarPill: View {
 }
 
 struct NubrixDayCell: View {
+    @Environment(\.nubrixPalette) private var palette
     let number: Int
     let inMonth: Bool
     let isToday: Bool
@@ -361,13 +364,13 @@ struct NubrixDayCell: View {
             VStack(spacing: 2) {
                 ZStack {
                     Circle()
-                        .fill(isToday ? NubrixCalendarMetrics.red : (isSelected ? Color.white.opacity(0.14) : (hovering ? Color.white.opacity(0.08) : .clear)))
+                        .fill(isToday ? NubrixCalendarMetrics.red : (isSelected ? palette.foreground.opacity(0.14) : (hovering ? palette.foreground.opacity(0.08) : .clear)))
                     if isSelected {
-                        Circle().strokeBorder(Color.white.opacity(isToday ? 0.95 : 0.8), lineWidth: 1.5)
+                        Circle().strokeBorder(palette.foreground.opacity(isToday ? 0.95 : 0.8), lineWidth: 1.5)
                     }
                     Text("\(number)")
                         .font(.system(size: 13, weight: isToday || isSelected ? .semibold : .regular))
-                        .foregroundStyle(isToday ? Color.white : Color.white.opacity(inMonth ? 0.95 : 0.28))
+                        .foregroundStyle(isToday ? Color.white : palette.foreground.opacity(inMonth ? 0.95 : 0.28))
                 }
                 .frame(width: 27, height: 27)
                 HStack(spacing: 2.5) {
@@ -388,6 +391,7 @@ struct NubrixDayCell: View {
 }
 
 struct NubrixMonthPicker: View {
+    @Environment(\.nubrixPalette) private var palette
     let fmt: NubrixCalendarFormat
     @Binding var year: Int
     let selectedMonth: Int
@@ -402,7 +406,7 @@ struct NubrixMonthPicker: View {
                 NubrixCalendarPill(symbol: "chevron.left") { year -= 1 }
                 Text(String(year))
                     .font(.system(size: 15, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .frame(maxWidth: .infinity)
                 NubrixCalendarPill(symbol: "chevron.right") { year += 1 }
                 NubrixCalendarPill(symbol: "chevron.right.2") { year += 10 }
@@ -429,6 +433,7 @@ struct NubrixMonthPicker: View {
 }
 
 struct NubrixMonthChip: View {
+    @Environment(\.nubrixPalette) private var palette
     let title: String
     let selected: Bool
     let action: () -> Void
@@ -440,12 +445,12 @@ struct NubrixMonthChip: View {
                 .font(.system(size: 12, weight: selected ? .semibold : .medium))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
-                    selected ? NubrixCalendarMetrics.red.opacity(0.85) : (hovering ? NubrixCalendarMetrics.fillHover : NubrixCalendarMetrics.fill),
+                    selected ? NubrixCalendarMetrics.red.opacity(0.85) : (hovering ? NubrixCalendarMetrics.fillHover(palette) : NubrixCalendarMetrics.fill(palette)),
                     in: RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: NubrixCalendarMetrics.radius, style: .continuous).strokeBorder(NubrixCalendarMetrics.stroke(palette), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }

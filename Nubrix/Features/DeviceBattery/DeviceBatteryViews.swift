@@ -11,6 +11,7 @@ func batteryRingTint(_ level: Int) -> Color {
 
 /// Closed notch header: device on the left, level on the right.
 struct DeviceBatteryBannerHeader: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     let device: DeviceBattery
 
@@ -19,10 +20,10 @@ struct DeviceBatteryBannerHeader: View {
             HStack(spacing: 6) {
                 Image(systemName: device.kind.symbol)
                     .font(.system(size: 16))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                 Text(device.name)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -48,6 +49,7 @@ struct DeviceBatteryBannerHeader: View {
 
 /// Compact rows for the battery popover.
 struct DeviceBatteryList: View {
+    @Environment(\.nubrixPalette) private var palette
     let devices: [DeviceBattery]
 
     var body: some View {
@@ -64,7 +66,7 @@ struct DeviceBatteryList: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .monospacedDigit()
-                        .foregroundStyle((device.lowest ?? 100) <= DeviceBatteryTracker.lowLevel ? Color.red : Color.white.opacity(0.7))
+                        .foregroundStyle((device.lowest ?? 100) <= DeviceBatteryTracker.lowLevel ? Color.red : palette.foreground.opacity(0.7))
                 }
                 .font(.subheadline)
             }

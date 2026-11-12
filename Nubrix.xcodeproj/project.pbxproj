@@ -64,6 +64,7 @@
 		5E7710000000000000000002 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000002 /* SettingsComponents.swift */; };
 		5E7710000000000000000003 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000003 /* GeneralSettings.swift */; };
 		5E7710000000000000000004 /* AppearanceSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000004 /* AppearanceSettings.swift */; };
+		B2A1000000000000000000F1 /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A1000000000000000000F2 /* ThemeSettings.swift */; };
 		5E7710000000000000000005 /* AdvancedSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000005 /* AdvancedSettings.swift */; };
 		5E7710000000000000000006 /* MediaSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000006 /* MediaSettings.swift */; };
 		5E7710000000000000000007 /* CalendarSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7700000000000000000007 /* CalendarSettings.swift */; };
@@ -275,6 +276,7 @@
 		5E7700000000000000000002 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
 		5E7700000000000000000003 /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
 		5E7700000000000000000004 /* AppearanceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettings.swift; sourceTree = "<group>"; };
+		B2A1000000000000000000F2 /* ThemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSettings.swift; sourceTree = "<group>"; };
 		5E7700000000000000000005 /* AdvancedSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettings.swift; sourceTree = "<group>"; };
 		5E7700000000000000000006 /* MediaSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSettings.swift; sourceTree = "<group>"; };
 		5E7700000000000000000007 /* CalendarSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSettings.swift; sourceTree = "<group>"; };
@@ -760,6 +762,7 @@
 				5E7700000000000000000002 /* SettingsComponents.swift */,
 				5E7700000000000000000003 /* GeneralSettings.swift */,
 				5E7700000000000000000004 /* AppearanceSettings.swift */,
+				B2A1000000000000000000F2 /* ThemeSettings.swift */,
 				5E7700000000000000000005 /* AdvancedSettings.swift */,
 				5E7700000000000000000006 /* MediaSettings.swift */,
 				5E7700000000000000000007 /* CalendarSettings.swift */,
@@ -1061,6 +1064,7 @@
 				5E7710000000000000000002 /* SettingsComponents.swift in Sources */,
 				5E7710000000000000000003 /* GeneralSettings.swift in Sources */,
 				5E7710000000000000000004 /* AppearanceSettings.swift in Sources */,
+				B2A1000000000000000000F1 /* ThemeSettings.swift in Sources */,
 				5E7710000000000000000005 /* AdvancedSettings.swift in Sources */,
 				5E7710000000000000000006 /* MediaSettings.swift in Sources */,
 				5E7710000000000000000007 /* CalendarSettings.swift in Sources */,

@@ -10,6 +10,7 @@ private func systemNotificationDetail(_ banner: SystemNotificationBanner, showBo
 
 /// The sending app's icon, or a plain badge when it has none.
 private struct SystemNotificationAppIcon: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store = SystemNotificationStore.shared
     let bundleID: String
     var fallbackSize: CGFloat = 13
@@ -22,7 +23,7 @@ private struct SystemNotificationAppIcon: View {
         } else {
             Image(systemName: "app.badge")
                 .font(.system(size: fallbackSize, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
         }
     }
 }
@@ -57,25 +58,27 @@ enum SystemNotificationType {
     static let title = Font.system(size: 13, weight: .semibold)
     static let body = Font.system(size: 12, weight: .regular)
     static let meta = Font.system(size: 11, weight: .medium)
-    static let bodyColor = Color.white.opacity(0.72)
-    static let metaColor = Color.white.opacity(0.45)
+    static func bodyColor(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.72) }
+    static func metaColor(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.45) }
 }
 
 private struct SystemNotificationCountCapsule: View {
+    @Environment(\.nubrixPalette) private var palette
     let count: Int
 
     var body: some View {
         Text("\(count)")
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(palette.foreground)
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
-            .background(Capsule().fill(Color.white.opacity(0.2)))
+            .background(Capsule().fill(palette.foreground.opacity(0.2)))
             .fixedSize()
     }
 }
 
 struct SystemNotificationBannerView: View {
+    @Environment(\.nubrixPalette) private var palette
     @EnvironmentObject var vm: NubrixViewModel
     @Default(.systemNotificationsShowBody) var showBody
     let banner: SystemNotificationBanner
@@ -94,7 +97,7 @@ struct SystemNotificationBannerView: View {
                     .frame(width: 16, height: 16)
                 Text(banner.title)
                     .font(SystemNotificationType.title)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if banner.count > 1 {
@@ -109,7 +112,7 @@ struct SystemNotificationBannerView: View {
 
             Text(detail)
                 .font(SystemNotificationType.body)
-                .foregroundStyle(SystemNotificationType.bodyColor)
+                .foregroundStyle(SystemNotificationType.bodyColor(palette))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(width: 170, alignment: .trailing)

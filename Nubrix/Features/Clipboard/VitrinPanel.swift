@@ -246,9 +246,22 @@ final class VitrinPanelModel: ObservableObject {
     }
 }
 
+/// The Vitrin panel is its own NSPanel, so it does not inherit the notch's environment.
+private struct VitrinPanelRoot: View {
+    let model: VitrinPanelModel
+    @ObservedObject private var themeStore = ThemeStore.shared
+
+    var body: some View {
+        VitrinPanelView(model: model)
+            .nubrixTheme(themeStore.appliesToExtensions ? themeStore.current : .classic)
+    }
+}
+
 struct VitrinPanelView: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var model: VitrinPanelModel
     @FocusState private var searchFocus: Bool
+    @ObservedObject private var themeStore = ThemeStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -259,7 +272,13 @@ struct VitrinPanelView: View {
         }
         .padding(16)
         .frame(width: VitrinPanelController.size.width, height: VitrinPanelController.size.height)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black))
+        .background {
+            if themeStore.appliesToExtensions {
+                ThemeBackground(theme: themeStore.current, shape: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black)
+            }
+        }
         .overlay {
             if model.previewing, let item = model.selectedItem {
                 VitrinPreview(item: item, model: model)
@@ -267,7 +286,7 @@ struct VitrinPanelView: View {
                     .transition(.opacity)
             }
         }
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(palette.foreground.opacity(0.08), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onChange(of: model.searchActive) { _, active in
             searchFocus = active
@@ -307,28 +326,29 @@ struct VitrinPanelView: View {
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             TextField("Search  (/ to focus)", text: $model.query)
                 .textFieldStyle(.plain)
                 .font(.system(size: 14))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
                 .focused($searchFocus)
             if !model.query.isEmpty {
                 Button {
                     model.query = ""
                 } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.gray)
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(palette.secondary)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(palette.foreground.opacity(0.08)))
     }
 }
 
 private struct VitrinPreview: View {
+    @Environment(\.nubrixPalette) private var palette
     let item: ClipItem
     @ObservedObject var model: VitrinPanelModel
     @State private var image: NSImage?
@@ -372,19 +392,19 @@ private struct VitrinPreview: View {
     private func header(_ insight: ClipInsight?) -> some View {
         HStack(spacing: 8) {
             Image(systemName: item.isScreenshot ? "camera.viewfinder" : item.kind == .image ? "photo" : item.kind == .link ? "link" : "text.alignleft")
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
             if let insight, item.kind == .text {
                 InsightBadge(insight: insight, scale: 1.2)
             }
             if item.isScreenshot {
-                Text("Screenshot").font(.system(size: 11)).foregroundStyle(.gray)
+                Text("Screenshot").font(.system(size: 11)).foregroundStyle(palette.secondary)
             } else if let app = item.sourceApp {
-                Text(app).font(.system(size: 11)).foregroundStyle(.gray)
+                Text(app).font(.system(size: 11)).foregroundStyle(palette.secondary)
             }
             Spacer()
             Text("\u{2190} \u{2192} browse   \u{23CE} copy   Space / Esc close")
                 .font(.system(size: 11))
-                .foregroundStyle(.gray)
+                .foregroundStyle(palette.secondary)
         }
     }
 
@@ -418,7 +438,7 @@ private struct VitrinPreview: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(parts.host.isEmpty ? text : parts.host)
                     .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .lineLimit(2)
                 if !parts.scheme.isEmpty {
                     Text(parts.scheme.uppercased())
@@ -428,7 +448,7 @@ private struct VitrinPreview: View {
                 ScrollView {
                     Text(text)
                         .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(palette.foreground.opacity(0.85))
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
@@ -437,18 +457,18 @@ private struct VitrinPreview: View {
                 if let codeText {
                     Text(codeText)
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(palette.foreground.opacity(0.92))
                         .fixedSize(horizontal: true, vertical: false)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 } else {
                     Text(String((plainText ?? item.previewOrEmpty).prefix(20_000)))
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(palette.foreground.opacity(0.92))
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+            .background(RoundedRectangle(cornerRadius: 10).fill(palette.foreground.opacity(0.06)))
         }
     }
 
@@ -465,14 +485,14 @@ private struct VitrinPreview: View {
                             HStack(spacing: 6) {
                                 Text("\u{2318}\(index + 1)")
                                     .font(.system(size: 10, weight: .semibold).monospacedDigit())
-                                    .foregroundStyle(.gray)
+                                    .foregroundStyle(palette.secondary)
                                 Text(action.title)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(palette.foreground)
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                            .background(Capsule().fill(palette.foreground.opacity(0.12)))
                         }
                         .buttonStyle(.plain)
                     }
@@ -563,7 +583,7 @@ final class VitrinPanelController {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.contentView = NSHostingView(rootView: VitrinPanelView(model: model))
+        panel.contentView = NSHostingView(rootView: VitrinPanelRoot(model: model))
         sharingObserver = Publishers.CombineLatest(
             Defaults.publisher(.vitrinHideFromCapture).map(\.newValue),
             Defaults.publisher(.hideFromScreenRecording).map(\.newValue)

@@ -6,7 +6,8 @@ import SwiftUI
 
 private enum ControlsStyle {
     static let ink = Color(white: 0.11)
-    static let hairline = Color.white.opacity(0.08)
+    static func ink(_ palette: ThemePalette) -> Color { palette.theme.resolvedForeground == .light ? ink : Color(white: 0.96) }
+    static func hairline(_ palette: ThemePalette) -> Color { palette.foreground.opacity(0.08) }
     static let sliderSpring = Animation.spring(response: 0.28, dampingFraction: 0.86)
     static let hoverFade = Animation.easeOut(duration: 0.12)
 }
@@ -16,6 +17,7 @@ private enum ControlsStyle {
 /// Control Center style slider: a capsule with the symbol inside on the left and the value on the right.
 /// Dragging is relative to where it started; a plain click jumps to that point.
 private struct ControlsCapsuleSlider: View {
+    @Environment(\.nubrixPalette) private var palette
     let symbol: String
     let value: Double
     let valueText: String
@@ -36,9 +38,9 @@ private struct ControlsCapsuleSlider: View {
             let symbolDark = ControlsSliderMetrics.symbolOnFill(value: shown, width: width, height: height)
             let valueDark = ControlsSliderMetrics.valueOnFill(value: shown, width: width, height: height)
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.10))
+                Capsule().fill(palette.foreground.opacity(0.10))
                 Capsule()
-                    .fill(Color.white.opacity(0.92))
+                    .fill(palette.foreground.opacity(0.92))
                     .frame(width: fill)
                     .animation(ControlsStyle.sliderSpring, value: fill)
                 symbolView(dark: symbolDark)
@@ -46,7 +48,7 @@ private struct ControlsCapsuleSlider: View {
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
-                    .foregroundStyle(valueDark ? ControlsStyle.ink : Color.white.opacity(0.55))
+                    .foregroundStyle(valueDark ? ControlsStyle.ink(palette) : palette.foreground.opacity(0.55))
                     .padding(.trailing, 11)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .allowsHitTesting(false)
@@ -65,7 +67,7 @@ private struct ControlsCapsuleSlider: View {
     private func symbolView(dark: Bool) -> some View {
         let image = Image(systemName: symbol)
             .font(.system(size: 14))
-            .foregroundStyle(dark ? ControlsStyle.ink : Color.white.opacity(0.8))
+            .foregroundStyle(dark ? ControlsStyle.ink(palette) : palette.foreground.opacity(0.8))
             .frame(width: 30, height: height)
             .contentTransition(.symbolEffect(.replace))
             .animation(ControlsStyle.hoverFade, value: dark)
@@ -114,6 +116,7 @@ private func percentText(_ value: Double) -> String { "\(Int((value * 100).round
 
 /// The Bluetooth rune, drawn by hand because SF Symbols has no Bluetooth symbol on macOS 14.
 private struct ControlsBluetoothGlyph: View {
+    var color: Color = .white
     var body: some View {
         Path { p in
             p.move(to: CGPoint(x: 0.12, y: 0.30))
@@ -124,7 +127,7 @@ private struct ControlsBluetoothGlyph: View {
             p.addLine(to: CGPoint(x: 0.12, y: 0.70))
         }
         .applying(CGAffineTransform(scaleX: 10, y: 18))
-        .stroke(Color.white, style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+        .stroke(color, style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
         .frame(width: 10, height: 18)
     }
 }
@@ -139,6 +142,7 @@ private struct ControlsPressStyle: ButtonStyle {
 
 /// One of the five round quick toggles: a 40 pt circle with a label under it.
 private struct ControlsQuickToggle: View {
+    @Environment(\.nubrixPalette) private var palette
     let state: ControlsToggleState
     var busy = false
     var enabled = true
@@ -147,7 +151,7 @@ private struct ControlsQuickToggle: View {
     private var fill: Color {
         switch state.fill {
         case .accent: Color.effectiveAccent
-        case .neutral: Color.white.opacity(0.12)
+        case .neutral: palette.foreground.opacity(0.12)
         case .red: Color.red.opacity(0.9)
         }
     }
@@ -160,11 +164,11 @@ private struct ControlsQuickToggle: View {
                     if busy {
                         ControlsSpinner()
                     } else if state.symbol == ControlsToggles.bluetoothGlyph {
-                        ControlsBluetoothGlyph()
+                        ControlsBluetoothGlyph(color: state.fill == .neutral ? palette.foreground : .white)
                     } else {
                         Image(systemName: state.symbol)
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(state.fill == .neutral ? palette.foreground : Color.white)
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
@@ -172,7 +176,7 @@ private struct ControlsQuickToggle: View {
                 .animation(ControlsStyle.hoverFade, value: state.fill)
                 Text(state.label)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(palette.foreground.opacity(0.6))
                     .lineLimit(1)
             }
             .frame(width: 48)
@@ -187,6 +191,7 @@ private struct ControlsQuickToggle: View {
 }
 
 private struct ControlsLevels: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store: ControlsStore
     @Binding var tab: ControlsListTab
     @ObservedObject private var volume = VolumeManager.shared
@@ -247,7 +252,7 @@ private struct ControlsLevels: View {
                     .lineLimit(1)
                 Text(share.state.detail)
                     .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -255,10 +260,10 @@ private struct ControlsLevels: View {
             Button { notchHidden.toggle() } label: {
                 Text(notchHidden ? "Show notch" : "Hide notch")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.white.opacity(0.14)))
+                    .background(Capsule().fill(palette.foreground.opacity(0.14)))
                     .contentShape(Capsule())
             }
             .buttonStyle(ControlsPressStyle())
@@ -315,6 +320,7 @@ private struct ControlsLevels: View {
 // MARK: - Segmented control
 
 private struct ControlsSegmented: View {
+    @Environment(\.nubrixPalette) private var palette
     @Binding var selection: ControlsListTab
     let tabs: [ControlsListTab]
     @Namespace private var pill
@@ -327,7 +333,7 @@ private struct ControlsSegmented: View {
                 } label: {
                     Text(item.rawValue)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(selection == item ? Color.white : Color.white.opacity(0.5))
+                        .foregroundStyle(selection == item ? palette.foreground : palette.foreground.opacity(0.5))
                         .lineLimit(1)
                         .fixedSize()
                         .padding(.horizontal, 8)
@@ -335,7 +341,7 @@ private struct ControlsSegmented: View {
                         .background {
                             if selection == item {
                                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(Color.white.opacity(0.14))
+                                    .fill(palette.foreground.opacity(0.14))
                                     .matchedGeometryEffect(id: "pill", in: pill)
                             }
                         }
@@ -345,7 +351,7 @@ private struct ControlsSegmented: View {
             }
         }
         .padding(2)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.06)))
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(palette.foreground.opacity(0.06)))
     }
 }
 
@@ -353,6 +359,7 @@ private struct ControlsSegmented: View {
 
 /// "L 83%  R 83%  Case 41%": letters dim, numbers brighter, orange or red only when low.
 private struct ControlsBatteryText: View {
+    @Environment(\.nubrixPalette) private var palette
     let parts: [ControlsBatteryPart]
 
     var body: some View {
@@ -360,10 +367,10 @@ private struct ControlsBatteryText: View {
             ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
                 HStack(spacing: 3) {
                     if let label = part.label {
-                        Text(label).foregroundStyle(.white.opacity(0.4))
+                        Text(label).foregroundStyle(palette.foreground.opacity(0.4))
                     }
                     Text("\(part.level)%")
-                        .foregroundStyle(ControlsSliderMetrics.isLowBattery(part.level) ? batteryRingTint(part.level) : Color.white.opacity(0.7))
+                        .foregroundStyle(ControlsSliderMetrics.isLowBattery(part.level) ? batteryRingTint(part.level) : palette.foreground.opacity(0.7))
                 }
                 .font(.system(size: 10.5, weight: .semibold))
                 .monospacedDigit()
@@ -377,6 +384,7 @@ private struct ControlsBatteryText: View {
 /// One 38 high row: circle with a symbol, name, a state line, and trailing content.
 /// With an `action` the whole row is the button and fades in a hover fill.
 private struct ControlsRow<Trailing: View>: View {
+    @Environment(\.nubrixPalette) private var palette
     let symbol: String
     let name: String
     var subtitle: String?
@@ -401,23 +409,23 @@ private struct ControlsRow<Trailing: View>: View {
     private var content: some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle().fill(highlighted ? Color.effectiveAccent : (circleFilled ? Color.white.opacity(0.10) : .clear))
+                Circle().fill(highlighted ? Color.effectiveAccent : (circleFilled ? palette.foreground.opacity(0.10) : .clear))
                 Image(systemName: symbol)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(highlighted ? Color.white : Color.white.opacity(circleFilled ? 0.85 : 0.5))
+                    .foregroundStyle(highlighted ? Color.white : palette.foreground.opacity(circleFilled ? 0.85 : 0.5))
             }
             .frame(width: 28, height: 28)
             .animation(ControlsStyle.hoverFade, value: highlighted)
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(nameOpacity))
+                    .foregroundStyle(palette.foreground.opacity(nameOpacity))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if let subtitle {
                     Text(subtitle)
                         .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(palette.foreground.opacity(0.5))
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -430,7 +438,7 @@ private struct ControlsRow<Trailing: View>: View {
         .frame(height: 38)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(hovering && action != nil ? 0.06 : 0))
+                .fill(palette.foreground.opacity(hovering && action != nil ? 0.06 : 0))
         )
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onHover { hovering = $0 }
@@ -439,11 +447,12 @@ private struct ControlsRow<Trailing: View>: View {
 }
 
 private struct ControlsHint: View {
+    @Environment(\.nubrixPalette) private var palette
     let text: String
     var body: some View {
         Text(text)
             .font(.system(size: 10.5, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.6))
+            .foregroundStyle(palette.foreground.opacity(0.6))
             .lineLimit(1)
             .fixedSize()
             .transition(.opacity)
@@ -452,6 +461,7 @@ private struct ControlsHint: View {
 
 /// Four bars like the menu bar Wi-Fi symbol; the ones above `bars` are dim.
 private struct ControlsSignalBars: View {
+    @Environment(\.nubrixPalette) private var palette
     let bars: Int
     private static let heights: [CGFloat] = [4, 6, 9, 11]
 
@@ -459,7 +469,7 @@ private struct ControlsSignalBars: View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(0..<4, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(Color.white.opacity(index < bars ? 0.8 : 0.2))
+                    .fill(palette.foreground.opacity(index < bars ? 0.8 : 0.2))
                     .frame(width: 3, height: Self.heights[index])
             }
         }
@@ -477,6 +487,7 @@ private struct ControlsSpinner: View {
 // MARK: - List
 
 private struct ControlsList: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject var store: ControlsStore
     @Binding var tab: ControlsListTab
 
@@ -511,7 +522,7 @@ private struct ControlsList: View {
         if let message = store.wifiMessage {
             Text(message)
                 .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(palette.foreground.opacity(0.5))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 4)
                 .padding(.bottom, 2)
@@ -534,7 +545,7 @@ private struct ControlsList: View {
             } else if !wifi.networks.isEmpty {
                 Text("Other networks")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(palette.foreground.opacity(0.55))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 4)
                     .padding(.top, 6)
@@ -697,9 +708,9 @@ private struct ControlsList: View {
                     Button { store.eject(drive) } label: {
                         Image(systemName: "eject.fill")
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.85))
+                            .foregroundStyle(palette.foreground.opacity(0.85))
                             .frame(width: 22, height: 22)
-                            .background(Circle().fill(Color.white.opacity(0.10)))
+                            .background(Circle().fill(palette.foreground.opacity(0.10)))
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -711,7 +722,7 @@ private struct ControlsList: View {
     private func note(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white.opacity(0.45))
+            .foregroundStyle(palette.foreground.opacity(0.45))
             .frame(maxWidth: .infinity, minHeight: 80)
     }
 }
@@ -719,6 +730,7 @@ private struct ControlsList: View {
 // MARK: - Tab
 
 struct ControlsTabView: View {
+    @Environment(\.nubrixPalette) private var palette
     @ObservedObject private var store = ControlsStore.shared
     @AppStorage("controlsListTab") private var tabRaw = ControlsListTab.wifi.rawValue
 
@@ -738,7 +750,7 @@ struct ControlsTabView: View {
                 .padding(.trailing, 18)
                 .padding(.top, 4)
             Rectangle()
-                .fill(ControlsStyle.hairline)
+                .fill(ControlsStyle.hairline(palette))
                 .frame(width: 1)
                 .padding(.top, 6)
                 .padding(.bottom, 10)
