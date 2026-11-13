@@ -56,11 +56,15 @@ class NubrixViewModel: NSObject, ObservableObject {
         closedNotchSize = notchSize
 
         // The Controls tab is taller than the others; follow the tab while the notch is open.
+        // Wait for the next main-queue turn: `$currentView` emits before the new tab is stored, and
+        // `withAnimation` there made SwiftUI redraw the tab bar with the old tab and then miss the
+        // change (the content showed Controls while the tab bar stayed on Home).
         NubrixCoordinator.shared.$currentView
             .removeDuplicates()
-            .sink { [weak self] view in
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 guard let self, self.notchState == .open else { return }
-                let size = openNotchSize(for: view)
+                let size = openNotchSize(for: self.coordinator.currentView)
                 guard size != self.notchSize else { return }
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { self.notchSize = size }
             }
