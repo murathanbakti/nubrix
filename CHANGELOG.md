@@ -2,6 +2,12 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.3] - 2026-11-13
+
+### Fixed
+
+- Switching to or from the Controls tab left the tab bar highlighting the previous tab, although the notch showed the new one (since 0.5.2). The highlight now moves with the click.
+
 ## [0.5.2] - 2026-11-13
 
 ### Fixed
@@ -208,6 +214,7 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.5.3]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.3
 [0.5.2]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.2
 [0.5.1]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.1
 [0.5.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.0
