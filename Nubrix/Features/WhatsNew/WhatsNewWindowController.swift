@@ -13,10 +13,11 @@ final class WhatsNewWindowController {
     /// Records the current version as seen whether or not the window is shown.
     func presentIfNeeded(isFirstLaunch: Bool, delay: Duration = .seconds(2)) {
         guard let version = Bundle.main.releaseVersionNumber else { return }
-        let notes = WhatsNewCatalog.notes(for: version)
+        let lastSeen = Defaults[.lastSeenWhatsNewVersion]
+        let notes = WhatsNewCatalog.latestNotes(upTo: version, after: lastSeen)
         let show = WhatsNewPolicy.shouldShow(
             currentVersion: version,
-            lastSeenVersion: Defaults[.lastSeenWhatsNewVersion],
+            lastSeenVersion: lastSeen,
             isFirstLaunch: isFirstLaunch,
             hasNotes: notes != nil)
         Defaults[.lastSeenWhatsNewVersion] = version
@@ -27,10 +28,10 @@ final class WhatsNewWindowController {
         }
     }
 
-    /// Opens the window for the running version (no-op when it has no notes).
+    /// Opens the newest notes at or below the running version (no-op when there are none).
     func showCurrentVersion() {
         guard let version = Bundle.main.releaseVersionNumber,
-              let notes = WhatsNewCatalog.notes(for: version) else { return }
+              let notes = WhatsNewCatalog.latestNotes(upTo: version, after: nil) else { return }
         show(notes)
     }
 

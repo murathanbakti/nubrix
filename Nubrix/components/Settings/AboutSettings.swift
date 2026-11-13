@@ -22,7 +22,7 @@ struct AboutSettings: View {
                         showBuildNumber.toggle()
                     }
                 }
-                if let version = Bundle.main.releaseVersionNumber, WhatsNewCatalog.notes(for: version) != nil {
+                if let version = Bundle.main.releaseVersionNumber, WhatsNewCatalog.latestNotes(upTo: version, after: nil) != nil {
                     Button("What's New") {
                         WhatsNewWindowController.shared.showCurrentVersion()
                     }

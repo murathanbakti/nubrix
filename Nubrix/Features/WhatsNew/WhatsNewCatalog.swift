@@ -44,6 +44,31 @@ enum WhatsNewCatalog {
     ]
 
     static func notes(for version: String) -> WhatsNewNotes? { notes[version] }
+
+    /// The newest notes at or below `current` that are newer than `lastSeen`, so a user
+    /// who skips a version (0.4.0 straight to 0.5.1) still sees the 0.5.0 notes.
+    /// `lastSeen == nil` means any notes at or below `current`.
+    static func latestNotes(upTo current: String, after lastSeen: String?) -> WhatsNewNotes? {
+        notes.keys
+            .filter { version in
+                guard compare(version, current) != .orderedDescending else { return false }
+                guard let lastSeen else { return true }
+                return compare(version, lastSeen) == .orderedDescending
+            }
+            .max { compare($0, $1) == .orderedAscending }
+            .flatMap { notes[$0] }
+    }
+
+    /// Numeric comparison of dotted versions ("0.10.0" > "0.9.1"; missing parts count as 0).
+    static func compare(_ a: String, _ b: String) -> ComparisonResult {
+        let x = a.split(separator: ".").map { Int($0) ?? 0 }
+        let y = b.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(x.count, y.count) {
+            let l = i < x.count ? x[i] : 0, r = i < y.count ? y[i] : 0
+            if l != r { return l < r ? .orderedAscending : .orderedDescending }
+        }
+        return .orderedSame
+    }
 }
 
 enum WhatsNewPolicy {
