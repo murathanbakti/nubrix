@@ -2,6 +2,18 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-11-13
+
+### Fixed
+
+- Permission card on light themes (Paper, Glass Light): the text of a risky command, the risk line, the red "Allow" button text, diff lines and the orange labels used bright colors made for the black notch and were hard to read. Light themes now get darker shades; dark themes, Classic included, look the same as before.
+- The What's New window also shows the 0.5.0 notes to anyone who updates from 0.4.0 straight to 0.5.1.
+
+### Security
+
+- Pull requests are checked for dependencies with known vulnerabilities, and the GitHub Actions workflows (including the release and signing one) are audited with zizmor. Dependabot waits a week before proposing a new dependency release; security updates are not delayed.
+- `SECURITY.md` now says updates are automatic by default (it said opt-in), matching the README.
+
 ## [0.5.0] - 2026-11-13
 
 ### Added
@@ -190,6 +202,7 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.5.1]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.1
 [0.5.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.0
 [0.4.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.4.0
 [0.3.0]: https://github.com/murathanbakti/nubrix/releases/tag/v0.3.0
