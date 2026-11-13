@@ -280,8 +280,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// The window is only as tall as the open notch needs: the normal height, and taller while the
     /// Controls tab is open. When the notch is closed or on another tab the window is exactly the size
-    /// it always was, so the extra transparent area never sits over apps below. Growing happens at
-    /// once (before the notch animates down), shrinking after the close animation has finished.
+    /// it always was, so the extra transparent area never sits over apps below. Growing happens right
+    /// away (before the notch animates down), shrinking after the close animation has finished.
+    ///
+    /// The resize waits for the next main-queue turn: `@Published` emits before it stores the new
+    /// value, and `setFrame(display: true)` makes SwiftUI redraw right then, with the old tab and
+    /// size, so it never noticed the change. Clicking the Controls tab needed a second click.
     private func followNotchHeight(of window: NSWindow, viewModel: NubrixViewModel) {
         var shrinkTask: Task<Void, Never>?
         let apply: @MainActor (CGFloat) -> Void = { [weak window] height in
@@ -294,6 +298,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 state == .open ? notchWindowHeight(forOpenNotchHeight: size.height) : windowSize.height
             }
             .removeDuplicates()
+            .receive(on: DispatchQueue.main)
             .sink { [weak window] target in
                 shrinkTask?.cancel()
                 guard let window else { return }
