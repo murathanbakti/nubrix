@@ -2,6 +2,12 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.5] - 2026-11-18
+
+### Fixed
+
+- Dragging clips out of Vitrin, in the notch's Vitrin tab and in the Vitrin panel, often didn't start, or closed the notch or opened the Shelf instead. Cards now drag reliably. Images arrive as a PNG file (Finder, Mail, browsers and chat apps take it), text as text and links as a URL. The screenshot thumbnail in the closed notch drags the same way.
+
 ## [0.5.4] - 2026-11-18
 
 ### Fixed
@@ -222,6 +228,7 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.5.5]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.5
 [0.5.4]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.4
 [0.5.3]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.3
 [0.5.2]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.2
