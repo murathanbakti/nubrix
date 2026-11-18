@@ -86,6 +86,7 @@ struct ScreenshotBannerView: View {
 
 private struct BannerThumbnail: View {
     @Environment(\.nubrixPalette) private var palette
+    @EnvironmentObject var vm: NubrixViewModel
     let item: ClipItem
     let side: CGFloat
     @State private var image: NSImage?
@@ -106,11 +107,29 @@ private struct BannerThumbnail: View {
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(palette.foreground.opacity(0.25), lineWidth: 0.5))
+            .overlay {
+                VitrinDragSurface(
+                    item: item,
+                    pinRect: { _ in .zero },
+                    onClick: openScreenshots,
+                    onPin: {},
+                    onHover: { _ in },
+                    menuItems: { [] }
+                )
+            }
             .padding(.leading, 6)
-            .onDrag { ClipStore.shared.itemProvider(for: item) }
             .task(id: item.id) {
                 image = await ClipStore.shared.thumbnail(for: item)
             }
+    }
+
+    private func openScreenshots() {
+        VitrinNavigation.shared.requestedFilter = .screenshots
+        NubrixCoordinator.shared.currentView = .vitrin
+        ScreenshotBannerStore.shared.dismissBanner()
+        withAnimation(.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)) {
+            vm.open()
+        }
     }
 }
 

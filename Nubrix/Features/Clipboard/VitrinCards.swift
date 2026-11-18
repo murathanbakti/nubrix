@@ -53,29 +53,44 @@ struct VitrinCard: View {
                     shape.strokeBorder(Color.accentColor, lineWidth: 2)
                 }
             }
+            .overlay {
+                VitrinDragSurface(
+                    item: item,
+                    pinRect: { size in
+                        guard hovering else { return .zero }
+                        let side = 32 * scale
+                        return CGRect(x: size.width - side, y: 0, width: side, height: side)
+                    },
+                    onClick: onCopy,
+                    onPin: onPin,
+                    onHover: { hoverState = $0 },
+                    menuItems: menuItems
+                )
+            }
             .overlay(alignment: .topTrailing) { pinButton }
             .contentShape(shape)
             .scaleEffect(hovering ? 1.02 : 1)
             .animation(.snappy(duration: 0.18), value: hovering)
-            .onHover { hoverState = $0 }
-            .onTapGesture(perform: onCopy)
-            .onDrag { ClipStore.shared.itemProvider(for: item) }
             .task(id: item.id) {
                 guard item.kind != .image else { return }
                 entry = await ClipInsightCache.shared.entry(for: item)
             }
-            .contextMenu {
-                Button("Copy", action: onCopy)
-                Button(item.pinned ? "Unpin" : "Pin", action: onPin)
-                if let insight = (entry ?? ClipInsightCache.shared.cachedEntry(id: item.id))?.insight, !insight.actions.isEmpty {
-                    Divider()
-                    ForEach(insight.actions) { action in
-                        Button(action.title) { onAction(action) }
-                    }
-                }
-                Divider()
-                Button("Delete", role: .destructive, action: onDelete)
+    }
+
+    private func menuItems() -> [VitrinMenuItem?] {
+        var menu: [VitrinMenuItem?] = [
+            VitrinMenuItem(title: "Copy", action: onCopy),
+            VitrinMenuItem(title: item.pinned ? "Unpin" : "Pin", action: onPin)
+        ]
+        if let insight = (entry ?? ClipInsightCache.shared.cachedEntry(id: item.id))?.insight, !insight.actions.isEmpty {
+            menu.append(nil)
+            for action in insight.actions {
+                menu.append(VitrinMenuItem(title: action.title) { onAction(action) })
             }
+        }
+        menu.append(nil)
+        menu.append(VitrinMenuItem(title: "Delete", action: onDelete))
+        return menu
     }
 
     @ViewBuilder
@@ -90,8 +105,8 @@ struct VitrinCard: View {
                     .background(.ultraThinMaterial, in: Circle())
             }
             .buttonStyle(.plain)
+            .allowsHitTesting(false)
             .padding(6 * scale)
-            .help(item.pinned ? "Unpin" : "Pin")
             .transition(.opacity)
         }
     }

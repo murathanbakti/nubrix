@@ -2,7 +2,6 @@ import AppKit
 import Combine
 import Defaults
 import os
-import UniformTypeIdentifiers
 
 private let storeLog = Logger(subsystem: "dev.nubrix.app", category: "vitrin")
 
@@ -342,47 +341,37 @@ final class ClipStore: ObservableObject {
         enqueue { $0.touch(id: id, now: now) }
     }
 
-    func itemProvider(for item: ClipItem) -> NSItemProvider {
+    /// Pasteboard contents for dragging a clip out of Vitrin. Images become a real PNG file (Finder, Mail,
+    /// browsers and chat apps all take a file URL) plus the PNG data for apps that only read image data.
+    func dragPasteboardItem(for item: ClipItem) -> NSPasteboardItem? {
+        let pasteboardItem = NSPasteboardItem()
         switch item.kind {
         case .text, .link:
-            if item.isTextComplete {
-                return NSItemProvider(object: item.previewOrEmpty as NSString)
-            }
-            guard let database else { return NSItemProvider() }
-            let id = item.id
-            let queue = self.queue
-            let provider = NSItemProvider()
-            provider.registerDataRepresentation(forTypeIdentifier: UTType.utf8PlainText.identifier, visibility: .all) { completion in
-                queue.async {
-                    completion(database.fullText(id: id)?.data(using: .utf8), nil)
+            guard let text = dragText(for: item) else { return nil }
+            pasteboardItem.setString(text, forType: .string)
+            if item.kind == .link {
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let url = URL(string: trimmed), url.scheme != nil {
+                    pasteboardItem.setString(url.absoluteString, forType: .URL)
                 }
-                return nil
             }
-            return provider
+            return pasteboardItem
         case .image:
-            guard let file = item.imageFile, let vault = imageVault else { return NSItemProvider() }
-            let name = Self.dragFileName(for: item)
-            let provider = NSItemProvider()
-            provider.suggestedName = (name as NSString).deletingPathExtension
-            provider.registerFileRepresentation(forTypeIdentifier: UTType.png.identifier, fileOptions: [], visibility: .all) { completion in
-                do {
-                    guard let data = vault.read(named: file) else { throw CocoaError(.fileReadNoSuchFile) }
-                    completion(try Self.namedDragCopy(data: data, named: name), false, nil)
-                } catch {
-                    completion(nil, false, error)
-                }
-                return nil
-            }
-            provider.registerDataRepresentation(forTypeIdentifier: UTType.png.identifier, visibility: .all) { completion in
-                if let data = vault.read(named: file) {
-                    completion(data, nil)
-                } else {
-                    completion(nil, CocoaError(.fileReadNoSuchFile))
-                }
-                return nil
-            }
-            return provider
+            guard let file = item.imageFile, let vault = imageVault, let data = vault.read(named: file),
+                  let url = try? Self.namedDragCopy(data: data, named: Self.dragFileName(for: item)) else { return nil }
+            pasteboardItem.setString(url.absoluteString, forType: .fileURL)
+            pasteboardItem.setData(data, forType: .png)
+            return pasteboardItem
         }
+    }
+
+    private func dragText(for item: ClipItem) -> String? {
+        if item.isTextComplete { return item.previewOrEmpty }
+        if let database {
+            let id = item.id
+            if let full = queue.sync(execute: { database.fullText(id: id) }) { return full }
+        }
+        return item.preview
     }
 
     nonisolated static func dragFileName(for item: ClipItem) -> String {

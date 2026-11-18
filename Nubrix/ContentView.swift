@@ -329,6 +329,7 @@ struct ContentView: View {
             anyDropDebounceTask?.cancel()
 
             if isTargeted {
+                if VitrinDragSource.shared.isDragging { return }
                 if vm.notchState == .closed {
                     coordinator.currentView = .shelf
                     doOpen()
