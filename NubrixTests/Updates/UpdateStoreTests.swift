@@ -5,6 +5,7 @@ import XCTest
 final class FakeUpdater: UpdaterControlling {
     var log: [String] = []
     var checkCount = 0
+    var backgroundCheckCount = 0
     var canCheckForUpdates = true
     var lastUpdateCheckDate: Date?
     private var storedDownloads = false
@@ -26,6 +27,11 @@ final class FakeUpdater: UpdaterControlling {
         checkCount += 1
         log.append("check")
     }
+
+    func checkForUpdatesInBackground() {
+        backgroundCheckCount += 1
+        log.append("backgroundCheck")
+    }
 }
 
 private struct StartFailure: LocalizedError {
@@ -41,6 +47,7 @@ final class UpdateStoreTests: XCTestCase {
     private var activations = 0
     private var posted: [String] = []
     private var cleared: [String] = []
+    private var recheckSchedules = 0
 
     override func setUp() {
         super.setUp()
@@ -51,6 +58,7 @@ final class UpdateStoreTests: XCTestCase {
         activations = 0
         posted = []
         cleared = []
+        recheckSchedules = 0
     }
 
     override func tearDown() {
@@ -58,7 +66,10 @@ final class UpdateStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeStore(_ kind: UpdateBuildKind = .developerIDRelease, failing: Bool = false) -> UpdateStore {
+    private func makeStore(_ kind: UpdateBuildKind = .developerIDRelease,
+                           failing: Bool = false,
+                           currentBuild: String? = "10",
+                           scheduleRecheck: (@MainActor (@escaping @MainActor () -> Void) -> Void)? = nil) -> UpdateStore {
         UpdateStore(
             buildKind: kind,
             defaults: defaults,
@@ -70,6 +81,11 @@ final class UpdateStoreTests: XCTestCase {
             activate: { [unowned self] in
                 activations += 1
                 fake.log.append("activate")
+            },
+            currentBuild: currentBuild,
+            scheduleRecheck: scheduleRecheck ?? { [unowned self] work in
+                recheckSchedules += 1
+                work()
             },
             postNotice: { [unowned self] key, title, _ in posted.append("\(key): \(title)") },
             clearNotice: { [unowned self] key in cleared.append(key) }
@@ -276,5 +292,114 @@ final class UpdateStoreTests: XCTestCase {
         store.reminderEvent(.willShow(handledBySparkle: false, userInitiated: false, version: "0.2.1", readyToInstall: false))
         store.stop()
         XCTAssertNil(store.reminder)
+    }
+
+    private func launch(build: String, checksOn: Bool = true) -> UpdateStore {
+        let store = makeStore(currentBuild: build)
+        fake.automaticallyChecksForUpdates = checksOn
+        store.start()
+        return store
+    }
+
+    func testFirstLaunchRecordsTheBuildAndDoesNotRecheck() {
+        _ = launch(build: "10")
+        XCTAssertEqual(defaults.string(forKey: UpdateStore.lastLaunchedBuildKey), "10")
+        XCTAssertEqual(recheckSchedules, 0)
+        XCTAssertEqual(fake.backgroundCheckCount, 0)
+    }
+
+    func testChangedBuildWithAutomaticChecksRechecksOnceInTheBackground() {
+        defaults.set("9", forKey: UpdateStore.lastLaunchedBuildKey)
+        _ = launch(build: "10")
+        XCTAssertEqual(recheckSchedules, 1)
+        XCTAssertEqual(fake.backgroundCheckCount, 1)
+        XCTAssertEqual(fake.checkCount, 0)
+        XCTAssertEqual(activations, 0)
+        XCTAssertEqual(defaults.string(forKey: UpdateStore.lastLaunchedBuildKey), "10")
+    }
+
+    func testChangedBuildWithAutomaticChecksOffSchedulesNothing() {
+        defaults.set("9", forKey: UpdateStore.lastLaunchedBuildKey)
+        _ = launch(build: "10", checksOn: false)
+        XCTAssertEqual(recheckSchedules, 0)
+        XCTAssertEqual(fake.backgroundCheckCount, 0)
+    }
+
+    func testRelaunchOfTheSameBuildDoesNotRecheck() {
+        defaults.set("10", forKey: UpdateStore.lastLaunchedBuildKey)
+        _ = launch(build: "10")
+        XCTAssertEqual(recheckSchedules, 0)
+        XCTAssertEqual(fake.backgroundCheckCount, 0)
+    }
+
+    func testScheduledRecheckIsSkippedWhenSparkleCannotCheck() {
+        defaults.set("9", forKey: UpdateStore.lastLaunchedBuildKey)
+        var pending: (@MainActor () -> Void)?
+        let store = makeStore(currentBuild: "10", scheduleRecheck: { pending = $0 })
+        fake.automaticallyChecksForUpdates = true
+        store.start()
+        XCTAssertNotNil(pending)
+        XCTAssertEqual(fake.backgroundCheckCount, 0)
+        fake.canCheckForUpdates = false
+        pending?()
+        XCTAssertEqual(fake.backgroundCheckCount, 0)
+    }
+
+    func testReachedPendingInstallIsClearedQuietly() {
+        for pendingBuild in ["10", "9"] {
+            defaults.set(pendingBuild, forKey: UpdateStore.pendingBuildKey)
+            defaults.set("0.5.3", forKey: UpdateStore.pendingVersionKey)
+            let store = makeStore(currentBuild: "10")
+            store.start()
+            XCTAssertNil(defaults.object(forKey: UpdateStore.pendingBuildKey), pendingBuild)
+            XCTAssertNil(defaults.object(forKey: UpdateStore.pendingVersionKey), pendingBuild)
+            XCTAssertEqual(cleared, ["update-install"], pendingBuild)
+            XCTAssertEqual(store.status, .idle)
+            XCTAssertTrue(posted.isEmpty)
+            cleared = []
+        }
+    }
+
+    func testUnreachedPendingInstallIsReportedOnce() {
+        defaults.set("10", forKey: UpdateStore.pendingBuildKey)
+        defaults.set("0.5.3", forKey: UpdateStore.pendingVersionKey)
+        let store = makeStore(currentBuild: "9")
+        store.start()
+        XCTAssertEqual(store.status, .notInstalled("0.5.3"))
+        XCTAssertEqual(posted, ["update-install: Nubrix 0.5.3 wasn't installed"])
+        XCTAssertNil(defaults.object(forKey: UpdateStore.pendingBuildKey))
+        XCTAssertNil(defaults.object(forKey: UpdateStore.pendingVersionKey))
+        let next = makeStore(currentBuild: "9")
+        next.start()
+        XCTAssertEqual(next.status, .idle)
+        XCTAssertEqual(posted.count, 1)
+    }
+
+    func testUpdateWillInstallWritesThePendingKeys() {
+        let store = makeStore()
+        store.start()
+        store.updateWillInstall(build: "11", version: "0.5.4")
+        XCTAssertEqual(defaults.string(forKey: UpdateStore.pendingBuildKey), "11")
+        XCTAssertEqual(defaults.string(forKey: UpdateStore.pendingVersionKey), "0.5.4")
+    }
+
+    func testNonReleaseBuildsNeverWriteTheLastLaunchedBuild() {
+        for kind in [UpdateBuildKind.debugBuild, .sourceBuild, .unavailable] {
+            makeStore(kind).start()
+            XCTAssertNil(defaults.object(forKey: UpdateStore.lastLaunchedBuildKey), "\(kind)")
+        }
+    }
+
+    func testNoUpdateFoundAfterNotInstalledClearsTheNotice() {
+        defaults.set("10", forKey: UpdateStore.pendingBuildKey)
+        defaults.set("0.5.3", forKey: UpdateStore.pendingVersionKey)
+        let store = makeStore(currentBuild: "9")
+        store.start()
+        XCTAssertTrue(cleared.isEmpty)
+        store.cycleFinished(error: nil)
+        XCTAssertEqual(store.status, .notInstalled("0.5.3"))
+        store.noUpdateFound()
+        XCTAssertEqual(store.status, .upToDate)
+        XCTAssertEqual(cleared, ["update-install"])
     }
 }

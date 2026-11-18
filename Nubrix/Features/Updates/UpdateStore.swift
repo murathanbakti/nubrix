@@ -13,10 +13,14 @@ final class UpdateStore: ObservableObject {
     enum Status: Equatable {
         case idle
         case upToDate
+        case notInstalled(String)
         case failed(String)
     }
 
     static let legacyKeys = ["updateAutoCheck", "updateLastCheck", "updateLatestVersion", "updateSkippedVersion"]
+    static let lastLaunchedBuildKey = "updateLastLaunchedBuild"
+    static let pendingBuildKey = "updatePendingInstallBuild"
+    static let pendingVersionKey = "updatePendingInstallVersion"
 
     @Published private(set) var buildKind: UpdateBuildKind
     @Published private(set) var automaticallyChecks = false
@@ -29,6 +33,8 @@ final class UpdateStore: ObservableObject {
     private let defaults: UserDefaults
     private let makeUpdater: (UpdateStore) throws -> UpdaterHandle
     private let activate: () -> Void
+    private let currentBuild: String?
+    private let scheduleRecheck: @MainActor (@escaping @MainActor () -> Void) -> Void
     private let postNotice: @MainActor (_ key: String, _ title: String, _ message: String) -> Void
     private let clearNotice: @MainActor (_ key: String) -> Void
     private var handle: UpdaterHandle?
@@ -37,6 +43,10 @@ final class UpdateStore: ObservableObject {
          defaults: UserDefaults,
          makeUpdater: @escaping (UpdateStore) throws -> UpdaterHandle,
          activate: @escaping () -> Void,
+         currentBuild: String? = Bundle.main.buildVersionNumber,
+         scheduleRecheck: @escaping @MainActor (@escaping @MainActor () -> Void) -> Void = { work in
+             DispatchQueue.main.asyncAfter(deadline: .now() + 10) { MainActor.assumeIsolated { work() } }
+         },
          postNotice: @escaping @MainActor (_ key: String, _ title: String, _ message: String) -> Void = {
              NubrixInbox.shared.appNotice(key: $0, title: $1, message: $2)
          },
@@ -47,6 +57,8 @@ final class UpdateStore: ObservableObject {
         self.defaults = defaults
         self.makeUpdater = makeUpdater
         self.activate = activate
+        self.currentBuild = currentBuild
+        self.scheduleRecheck = scheduleRecheck
         self.postNotice = postNotice
         self.clearNotice = clearNotice
     }
@@ -67,6 +79,40 @@ final class UpdateStore: ObservableObject {
         }
         migrateLegacyDefaults(updater: handle?.updater)
         refresh()
+        let previousBuild = defaults.string(forKey: Self.lastLaunchedBuildKey)
+        if let currentBuild { defaults.set(currentBuild, forKey: Self.lastLaunchedBuildKey) }
+        checkPendingInstall()
+        if let previousBuild, let currentBuild, previousBuild != currentBuild,
+           handle?.updater.automaticallyChecksForUpdates == true {
+            scheduleRecheck { [weak self] in
+                guard let updater = self?.handle?.updater, updater.canCheckForUpdates else { return }
+                updater.checkForUpdatesInBackground()
+            }
+        }
+    }
+
+    func updateWillInstall(build: String, version: String) {
+        defaults.set(build, forKey: Self.pendingBuildKey)
+        defaults.set(version, forKey: Self.pendingVersionKey)
+    }
+
+    private func checkPendingInstall() {
+        guard let pending = defaults.string(forKey: Self.pendingBuildKey), let currentBuild else { return }
+        let version = defaults.string(forKey: Self.pendingVersionKey) ?? pending
+        defaults.removeObject(forKey: Self.pendingBuildKey)
+        defaults.removeObject(forKey: Self.pendingVersionKey)
+        let installed: Bool
+        if let current = Int(currentBuild), let target = Int(pending) {
+            installed = current >= target
+        } else {
+            installed = currentBuild == pending
+        }
+        if installed {
+            clearNotice("update-install")
+        } else {
+            status = .notInstalled(version)
+            postNotice("update-install", "Nubrix \(version) wasn't installed", "Open Settings, About, and press Check Now to try again. Installed with Homebrew? Run brew upgrade --cask nubrix.")
+        }
     }
 
     func stop() {
@@ -118,6 +164,7 @@ final class UpdateStore: ObservableObject {
     }
 
     func noUpdateFound() {
+        if case .notInstalled = status { clearNotice("update-install") }
         status = .upToDate
         refresh()
     }

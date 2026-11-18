@@ -9,6 +9,7 @@ protocol UpdaterControlling: AnyObject {
     var canCheckForUpdates: Bool { get }
     var lastUpdateCheckDate: Date? { get }
     func checkForUpdates()
+    func checkForUpdatesInBackground()
 }
 
 extension SPUUpdater: UpdaterControlling {}
@@ -74,6 +75,15 @@ final class SparkleBridge: NSObject, SPUUpdaterDelegate, @preconcurrency SPUStan
 
     func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
         store?.noUpdateFound()
+    }
+
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        store?.updateWillInstall(build: item.versionString, version: item.displayVersionString)
+        return false
+    }
+
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        store?.updateWillInstall(build: item.versionString, version: item.displayVersionString)
     }
 
     func updater(_ updater: SPUUpdater, didAbortWithError error: any Error) {

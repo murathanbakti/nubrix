@@ -109,7 +109,8 @@ struct UpdatesSettingsSection: View {
         switch store.status {
         case .idle: "Version \(Bundle.main.releaseVersionNumber ?? "unknown") (\(Bundle.main.buildVersionNumber ?? "?"))"
         case .upToDate: "Nubrix is up to date"
-        case .failed(let message): "Couldn't check: \(message)"
+        case .notInstalled(let version): "Nubrix \(version) wasn't installed. Press Check Now to try again."
+        case .failed(let message): "Update failed: \(message)"
         }
     }
 }
