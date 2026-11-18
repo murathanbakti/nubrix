@@ -2,6 +2,14 @@
 
 All notable changes to Nubrix. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.4] - 2026-11-18
+
+### Fixed
+
+- After an update installs, Nubrix checks again a few seconds after it opens (when automatic checks are on). A release that came out right after the one just installed used to wait a day.
+- An update that Sparkle got ready but never installed left Nubrix on the old version without a word, and Check Now kept offering that older update. Nubrix now says "Nubrix X wasn't installed" in Settings, About and in the inbox, with Check Now or `brew upgrade --cask nubrix` to try again.
+- Update errors read "Update failed: …" instead of "Couldn't check: …", since they also cover installing.
+
 ## [0.5.3] - 2026-11-13
 
 ### Fixed
@@ -214,6 +222,7 @@ The first public release. Ad-hoc signed and not notarized, so macOS asks you to 
 - The app runs in the macOS sandbox. The event server listens on loopback only with a random token, and the hooks verify Nubrix with an HMAC challenge.
 - The auto-updater from the upstream project was removed.
 
+[0.5.4]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.4
 [0.5.3]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.3
 [0.5.2]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.2
 [0.5.1]: https://github.com/murathanbakti/nubrix/releases/tag/v0.5.1
