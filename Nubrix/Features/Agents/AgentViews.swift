@@ -178,8 +178,10 @@ struct AgentSessionsView: View {
             } else if agents.sessions.isEmpty && permissions.queue.isEmpty {
                 emptyState
             } else {
+                // Not lazy: in 0.5.5 the LazyVStack here kept re-placing its rows inside a
+                // single layout pass and froze the main thread. The list is short anyway.
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 4) {
+                    VStack(spacing: 4) {
                         ForEach(Array(permissions.queue.enumerated()), id: \.element.id) { index, prompt in
                             AgentPermissionPromptView(prompt: prompt, position: index + 1)
                         }

@@ -8,6 +8,10 @@ All notable changes to Nubrix. The format follows [Keep a Changelog](https://kee
 
 - A Mouse tab in Settings that reverses the scroll wheel of a USB or Bluetooth mouse, so the wheel can scroll the other way while your trackpad keeps its direction. Choose Off, When a mouse is connected, or Always. It needs Accessibility, and the Magic Mouse and trackpad are never touched. If a keyboard shows up as a mouse, switch it off in the list of detected mice.
 
+### Fixed
+
+- Nubrix could freeze with the notch open on the Claude tab: the notch stopped opening, closing and responding, CPU stayed at 100%, and Nubrix only quit with Force Quit. The session list's layout never finished. The list no longer uses a lazy layout, which was the part that kept looping.
+
 ## [0.5.5] - 2026-11-18
 
 ### Fixed
