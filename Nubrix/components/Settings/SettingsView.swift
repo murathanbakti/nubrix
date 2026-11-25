@@ -83,6 +83,7 @@ private struct SettingsDetail: View {
         case .calendar: CalendarSettings()
         case .shelf: ShelfSettings()
         case .huds: HUDSettings()
+        case .mouse: MouseSettings()
         case .shortcuts: ShortcutsSettings()
         case .advanced: AdvancedSettings()
         case .about: AboutSettings()

@@ -37,6 +37,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case claudeCode
     case github
     case dev
+    case mouse
     case shortcuts
     case advanced
     case about
@@ -60,6 +61,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .calendar: return "Calendar"
         case .shelf: return "Shelf"
         case .huds: return "HUDs"
+        case .mouse: return "Mouse"
         case .shortcuts: return "Shortcuts"
         case .advanced: return "Advanced"
         case .about: return "About"
@@ -83,6 +85,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .calendar: return "calendar"
         case .shelf: return "books.vertical"
         case .huds: return "dial.medium.fill"
+        case .mouse: return "computermouse"
         case .shortcuts: return "keyboard"
         case .advanced: return "gearshape.2"
         case .about: return "info.circle"
@@ -94,7 +97,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general, .appearance, .theme, .permissions: return .main
         case .claudeCode, .github, .dev: return .developer
         case .tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds: return .notch
-        case .shortcuts, .advanced, .about: return .app
+        case .mouse, .shortcuts, .advanced, .about: return .app
         }
     }
 

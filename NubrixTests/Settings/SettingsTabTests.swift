@@ -7,7 +7,7 @@ final class SettingsTabTests: XCTestCase {
             .general, .appearance, .theme, .permissions,
             .tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds,
             .claudeCode, .github, .dev,
-            .shortcuts, .advanced, .about
+            .mouse, .shortcuts, .advanced, .about
         ])
     }
 
@@ -15,7 +15,7 @@ final class SettingsTabTests: XCTestCase {
         XCTAssertEqual(SettingsTabGroup.main.tabs, [.general, .appearance, .theme, .permissions])
         XCTAssertEqual(SettingsTabGroup.developer.tabs, [.claudeCode, .github, .dev])
         XCTAssertEqual(SettingsTabGroup.notch.tabs, [.tabs, .notifications, .everyday, .vitrin, .media, .calendar, .shelf, .huds])
-        XCTAssertEqual(SettingsTabGroup.app.tabs, [.shortcuts, .advanced, .about])
+        XCTAssertEqual(SettingsTabGroup.app.tabs, [.mouse, .shortcuts, .advanced, .about])
     }
 
     func testGroupHeaders() {

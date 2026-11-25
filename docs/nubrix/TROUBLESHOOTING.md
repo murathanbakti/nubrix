@@ -110,6 +110,10 @@ macOS ties the switch to the exact signature of the app that was added; see [Key
 
 Check Settings, Notifications, Other apps: the status must say Ready and the app must be ticked. Only notifications that arrive after you turned the feature on are shown. If it says Full Disk Access is needed, click "Grant access…" and follow the guide; if Nubrix is already on in the Full Disk Access list but the guide keeps waiting, use "Restart Nubrix" in the guide. After you turn Nubrix on, macOS offers "Quit & Reopen"; Nubrix then reopens the place you started from with an "Access granted" panel. A different signature (see above) or updating from 0.1.0 can drop the grant: turn Nubrix off and on again, or remove it with the minus button and add it again. Notifications from the app in front are skipped unless you turn that option off, and the app must still deliver its notifications to Notification Center ("Show in Notification Center" on in System Settings, Notifications).
 
+## The mouse wheel still scrolls the old way
+
+Open Settings, Mouse and read the State row. "Needs Accessibility" means Nubrix needs Accessibility (click "Grant…"). "Waiting for a mouse" means "When a mouse is connected" sees no switched-on mouse: check that your mouse is listed under Detected mice with its switch on, or pick "Always". The Trackpad and Mouse wheel rows show which way each one scrolls now. Another scroll tool (Scroll Reverser, Mos, LinearMouse, or the scroll direction setting in Logi Options+) flips the wheel too, and two flips cancel out, so use only one of them. A keyboard that also reports a mouse can appear under Detected mice; switch it off so it doesn't count as a mouse.
+
 ## The volume and brightness HUDs did not change
 
 "Replace system HUDs" needs Accessibility access for Nubrix (System Settings, Privacy & Security, Accessibility; the entry is "Nubrix", the helper does not appear separately). If access is missing at launch, Nubrix turns the option off. Settings, HUDs shows "Needs Accessibility" with a "Grant…" button, and Settings, Permissions shows the current state.

@@ -41,6 +41,25 @@ enum WhatsNewCatalog {
             footer: "Classic is the default, so nothing changes until you pick a theme.",
             actionTab: .theme,
             actionTitle: "Open Theme Settings"),
+        "0.6.0": WhatsNewNotes(
+            title: "What's new in Nubrix 0.6.0",
+            items: [
+                WhatsNewItem(
+                    symbol: "computermouse",
+                    title: "Reverse your mouse wheel",
+                    body: "Settings has a new Mouse tab. Make a USB or Bluetooth mouse scroll the other way while your trackpad keeps natural scrolling."),
+                WhatsNewItem(
+                    symbol: "cable.connector",
+                    title: "Automatic when a mouse is plugged in",
+                    body: "Choose \"When a mouse is connected\" and Nubrix flips the wheel as soon as it sees a mouse, and stops when you unplug it. \"Always\" covers mice Nubrix can't detect."),
+                WhatsNewItem(
+                    symbol: "rectangle.and.hand.point.up.left",
+                    title: "Trackpad and Magic Mouse stay the same",
+                    body: "Only the wheel is flipped, so trackpad and Magic Mouse gestures keep the macOS direction. Horizontal scrolling follows along unless you turn it off."),
+            ],
+            footer: "It's off until you pick a mode, and it needs Accessibility for Nubrix.",
+            actionTab: .mouse,
+            actionTitle: "Open Mouse Settings"),
     ]
 
     static func notes(for version: String) -> WhatsNewNotes? { notes[version] }

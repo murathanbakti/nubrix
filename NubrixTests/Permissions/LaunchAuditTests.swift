@@ -95,6 +95,21 @@ final class LaunchAuditTests: XCTestCase {
         assertSilent()
     }
 
+    func testMouseScrollAtLaunchWithoutAccessibilityStaysSilent() async {
+        fake.statuses[.accessibility] = .notDetermined
+        let monitor = FakeMouseMonitor()
+        let tap = FakeScrollTap()
+        let controller = MouseScrollController(
+            monitor: monitor, tap: tap, permissions: fake,
+            settings: { MouseScrollSettings(mode: .automatic, reverseHorizontal: true) },
+            naturalScrolling: { true }
+        )
+        await controller.evaluate()
+        XCTAssertTrue(tap.starts.isEmpty)
+        XCTAssertEqual(controller.status, .needsAccessibility)
+        assertSilent()
+    }
+
     func testCombinedStoredStatesStaySilent() async {
         let flow = LaunchFlow(defaults: suite)
         flow.onboardingDidAppear()

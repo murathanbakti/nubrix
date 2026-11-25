@@ -365,6 +365,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         EverydayAlertStore.shared.start()
         UpdateStore.shared.start()
         ScreenShareMonitor.shared.start()
+        MouseScrollController.shared.start()
         startDisplayReconfigurationWatcher()
         Task { await HookKitStore.shared.launchCheck() }
 

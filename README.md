@@ -327,6 +327,7 @@ The everyday notch features are here too:
 
 - Every feature that needs a permission or controls another app has its own switch in Settings. When a switch is off, Nubrix asks for nothing and runs nothing for that feature. Turning it back on takes effect at once, with no restart.
 - In Settings, Tabs, drag the notch tabs into any order and hide the ones you don't use.
+- In Settings, Mouse, make the wheel of a USB or Bluetooth mouse scroll the other way while the trackpad keeps natural scrolling. Pick "When a mouse is connected" to have it happen on its own when you plug a mouse in, or "Always". The trackpad and Magic Mouse are never changed.
 - Settings, Permissions shows the live status of every permission with a Grant or Open System Settings button. It reads the status without asking, so opening it never shows a system dialog.
 
 <p align="center">
@@ -351,7 +352,7 @@ The first launch is one screen of switches and asks only for what you switch on 
 
 - Calendars for the calendar and meetings
 - Camera for Mirror
-- Accessibility for the custom HUDs
+- Accessibility for the custom HUDs and for reversing the mouse wheel
 - Automation for Spotify, Apple Music, and opening Terminal, iTerm or Ghostty sessions
 - Your screenshot folder (read-only) for Vitrin
 - Full Disk Access for notifications from other apps

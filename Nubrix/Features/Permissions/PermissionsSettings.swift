@@ -92,7 +92,7 @@ final class PermissionsSettingsModel: ObservableObject {
 
     static func featureText(for permission: AppPermission) -> String {
         switch permission {
-        case .accessibility: return "Volume and brightness HUDs, media keys"
+        case .accessibility: return "Volume and brightness HUDs, media keys, mouse scroll direction"
         case .fullDiskAccess: return "Notifications from other apps"
         case .camera: return "Mirror"
         case .calendar: return "Calendar and meeting countdown"

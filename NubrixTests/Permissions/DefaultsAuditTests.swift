@@ -7,6 +7,7 @@ final class DefaultsAuditTests: XCTestCase {
         XCTAssertFalse(Defaults.Keys.hudReplacement.defaultValue)
         XCTAssertFalse(Defaults.Keys.systemNotificationsEnabled.defaultValue)
         XCTAssertFalse(Defaults.Keys.enableLyrics.defaultValue)
+        XCTAssertEqual(Defaults.Keys.mouseScrollMode.defaultValue, .off)
     }
 
     func testMediaControllerDefaultsToNowPlaying() {
